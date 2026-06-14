@@ -1,0 +1,35 @@
+name: TimeLog
+description: "App para medir, controlar y analizar tiempos."
+publish_to: 'none'
+
+version: 3.1.0+20
+
+environment:
+  sdk: '>=3.8.1 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  csv: ^6.0.0
+  file_saver: ^0.2.14 
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.5.4
+  flutter_riverpod: ^2.6.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: "^0.13.1"
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo.png"
+  adaptive_icon_background: "#00000000" # Fondo transparente
+  adaptive_icon_foreground: "assets/logo.png"
+
+flutter:
+  uses-material-design: true
