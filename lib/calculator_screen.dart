@@ -16,11 +16,14 @@ class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Escucha directamente las estadísticas generadas en tiempo real
-    final state = ref.watch(timeLogProvider);
-    final currentMean = state.averageTime;
-    final currentStdDev = state.stdDev;
-    final currentCount = state.activeRecordedTimes.length;
+    // CORRECCIÓN 2: Uso de '.select' para evitar que la calculadora se redibuje 60 veces por segundo.
+    // Solo se reconstruirá si el analista registra o borra un tiempo nuevo y cambian los promedios.
+    final currentMean = ref.watch(timeLogProvider.select((s) => s.averageTime));
+    final currentStdDev = ref.watch(timeLogProvider.select((s) => s.stdDev));
+    final currentCount = ref.watch(timeLogProvider.select((s) => s.activeRecordedTimes.length));
+    
+    // Necesitamos el provider solo para llamar al método formatTime visualmente
+    final controller = ref.read(timeLogProvider);
 
     bool hasData = currentCount >= 2;
     int nCalculated = 0; 
@@ -40,8 +43,7 @@ class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen>
         children: [
           _buildCard("Datos Actuales", [
             _row("Muestra (n')", "$currentCount"),
-            // Utilizamos el formato global seleccionado para mostrar el promedio dinámicamente
-            _row("Promedio", state.formatTime(currentMean)), 
+            _row("Promedio", controller.formatTime(currentMean)), 
             _row("Desviación", currentStdDev.toStringAsFixed(2)),
           ]),
           const SizedBox(height: 20),

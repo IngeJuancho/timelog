@@ -17,14 +17,16 @@ class TimeLogController extends ChangeNotifier {
   final Stopwatch _stopwatch = Stopwatch();
   Timer? _timer;
   
-  // Novedad: Tiempo base para anclar el cronómetro tras cierres o borrados
+  // CORRECCIÓN 3: Persistencia Real del Tiempo
   int _baseTimeMs = 0;
+  int? _startTimeEpoch; 
   
-  VoidCallback? onAnimateStart;
-  VoidCallback? onAnimateSecondary;
-  VoidCallback? onAnimateReset;
-  VoidCallback? onAnimateExport;
-  VoidCallback? onRequestResetDialog; 
+  // CORRECCIÓN 1: Triggers reactivos (reemplazan a los Callbacks que causaban fugas de memoria)
+  int animateStartTrigger = 0;
+  int animateSecondaryTrigger = 0;
+  int animateResetTrigger = 0;
+  int animateExportTrigger = 0;
+  int showResetDialogTrigger = 0;
 
   final TextEditingController taskNameController = TextEditingController();
 
@@ -57,8 +59,6 @@ class TimeLogController extends ChangeNotifier {
   static const platform = MethodChannel('com.timelog/volume_buttons');
 
   bool get isRunning => _stopwatch.isRunning;
-  
-  // Novedad: El tiempo mostrado es la suma del cronómetro actual + el tiempo base anclado
   int get elapsedMilliseconds => _baseTimeMs + _stopwatch.elapsedMilliseconds;
 
   TimeLogController() {
@@ -89,13 +89,24 @@ class TimeLogController extends ChangeNotifier {
     String? contJson = prefs.getString('times_cont');
     if (contJson != null) recordedTimesContinuo = List<Map<String, dynamic>>.from(jsonDecode(contJson));
 
-    // Novedad: Si hay datos al abrir la app en modo continuo, recuperar el tiempo exacto
+    // Recuperación inteligente del tiempo si la app se cerró a la fuerza
+    bool wasRunning = prefs.getBool('isRunning') ?? false;
+    int savedStartTime = prefs.getInt('startTimeEpoch') ?? 0;
+    _baseTimeMs = prefs.getInt('baseTimeMs') ?? 0;
+    
     if (currentMode == StopwatchMode.continuo && recordedTimesContinuo.isNotEmpty) {
       _lastRecordedTimeMs = recordedTimesContinuo.last['cumulative_time'] as int;
-      _baseTimeMs = _lastRecordedTimeMs;
     } else {
       _lastRecordedTimeMs = 0;
-      _baseTimeMs = 0;
+    }
+
+    if (wasRunning && savedStartTime > 0) {
+      // Calculamos cuánto tiempo pasó en la vida real mientras la app estuvo cerrada
+      int missedTime = DateTime.now().millisecondsSinceEpoch - savedStartTime;
+      _baseTimeMs = missedTime;
+      _stopwatch.start();
+      _syncStartTime();
+      _startTicking();
     }
 
     calculateStatistics();
@@ -122,6 +133,22 @@ class TimeLogController extends ChangeNotifier {
     await prefs.setString('times_cont', jsonEncode(recordedTimesContinuo));
   }
 
+  Future<void> saveTimerState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isRunning', _stopwatch.isRunning);
+    await prefs.setInt('baseTimeMs', _baseTimeMs);
+    await prefs.setInt('startTimeEpoch', _startTimeEpoch ?? 0);
+  }
+
+  void _syncStartTime() {
+    if (_stopwatch.isRunning) {
+      _startTimeEpoch = DateTime.now().millisecondsSinceEpoch - _baseTimeMs;
+    } else {
+      _startTimeEpoch = null;
+    }
+    saveTimerState();
+  }
+
   void _initNativeButtonListener() {
     platform.setMethodCallHandler((call) async {
       if (!usePhysicalButtons) return;
@@ -146,7 +173,6 @@ class TimeLogController extends ChangeNotifier {
       bool wasRunning = _stopwatch.isRunning;
       _stopwatch.reset(); 
       
-      // Ajustar el tiempo base según los datos del nuevo modo seleccionado
       if (currentMode == StopwatchMode.continuo && recordedTimesContinuo.isNotEmpty) {
          _lastRecordedTimeMs = recordedTimesContinuo.last['cumulative_time'] as int;
          _baseTimeMs = _lastRecordedTimeMs;
@@ -156,6 +182,7 @@ class TimeLogController extends ChangeNotifier {
       }
       
       if (wasRunning) _stopwatch.start();
+      _syncStartTime();
 
       calculateStatistics();
       _showSnackBar('Modo: ${mode == StopwatchMode.regresoACero ? "Regreso a Cero" : "Continuo"}', Icons.settings, Colors.tealAccent);
@@ -164,19 +191,10 @@ class TimeLogController extends ChangeNotifier {
   }
 
   void deleteItem(int index) {
-    bool wasLast = index == activeRecordedTimes.length - 1;
     activeRecordedTimes.removeAt(index);
-    
-    // Novedad: Si borramos el último dato en modo continuo, el cronómetro retrocede visualmente
-    if (currentMode == StopwatchMode.continuo && wasLast) {
+    if (currentMode == StopwatchMode.continuo) {
       _lastRecordedTimeMs = activeRecordedTimes.isNotEmpty ? activeRecordedTimes.last['cumulative_time'] as int : 0;
-      _baseTimeMs = _lastRecordedTimeMs; // Retrocedemos el contador
-      
-      bool wasRunning = _stopwatch.isRunning;
-      _stopwatch.reset();
-      if (wasRunning) _stopwatch.start();
     }
-    
     saveTimeData();
     calculateStatistics();
     notifyListeners();
@@ -198,16 +216,16 @@ class TimeLogController extends ChangeNotifier {
         } else {
           startTimerLogic();
         }
-        onAnimateStart?.call();
+        animateStartTrigger++;
         break;
       case PhysicalButtonAction.lapSnapback:
         if (_stopwatch.isRunning) {
           if (currentMode == StopwatchMode.regresoACero) {
             recordTime(resetStopwatch: true, keepRunning: true);
-            onAnimateSecondary?.call();
+            animateSecondaryTrigger++;
           } else {
             recordTime(resetStopwatch: false, keepRunning: true);
-            onAnimateStart?.call();
+            animateStartTrigger++;
           }
         }
         break;
@@ -215,16 +233,22 @@ class TimeLogController extends ChangeNotifier {
         if (_stopwatch.isRunning) {
           stopTimerLogic();
           recordTime(resetStopwatch: true, keepRunning: false);
-          onAnimateStart?.call();
+          animateStartTrigger++;
         }
         break;
       case PhysicalButtonAction.reset:
-        onAnimateReset?.call();
-        onRequestResetDialog?.call(); 
+        animateResetTrigger++;
+        showResetDialogTrigger++; 
         break;
       case PhysicalButtonAction.none:
         break;
     }
+    notifyListeners();
+  }
+
+  void _startTicking() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => notifyListeners());
   }
 
   void startTimerLogic() {
@@ -234,8 +258,8 @@ class TimeLogController extends ChangeNotifier {
         _lastRecordedTimeMs = 0;
       }
       _stopwatch.start();
-      _timer?.cancel();
-      _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => notifyListeners());
+      _syncStartTime();
+      _startTicking();
       notifyListeners();
     }
   }
@@ -243,7 +267,10 @@ class TimeLogController extends ChangeNotifier {
   void stopTimerLogic() {
     if (_stopwatch.isRunning) {
       triggerHaptic();
+      _baseTimeMs += _stopwatch.elapsedMilliseconds;
+      _stopwatch.reset();
       _stopwatch.stop();
+      _syncStartTime();
       _timer?.cancel();
       notifyListeners();
     }
@@ -282,13 +309,13 @@ class TimeLogController extends ChangeNotifier {
     if (resetStopwatch) {
       if (currentMode == StopwatchMode.regresoACero) {
         _stopwatch.reset();
-        _baseTimeMs = 0; // Regresamos el contador a cero en este modo
+        _baseTimeMs = 0; 
       }
-      // En modo continuo, omitimos resetear el tiempo base para no perder la secuencia acumulada
     }
     
     if (keepRunning) {
       if (!_stopwatch.isRunning) _stopwatch.start();
+      _syncStartTime();
     } else {
       stopTimerLogic();
     }
@@ -296,20 +323,16 @@ class TimeLogController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // CORRECCIÓN 4: "Deshacer" ya no rompe el flujo del tiempo real
   void undoLastRecord() {
     final currentList = activeRecordedTimes;
     if (currentList.isEmpty) return;
 
     currentList.removeLast();
     
-    // Novedad: Lógica inversa inteligente para Deshacer
     if (currentMode == StopwatchMode.continuo) {
       _lastRecordedTimeMs = currentList.isNotEmpty ? currentList.last['cumulative_time'] as int : 0;
-      _baseTimeMs = _lastRecordedTimeMs; // Retrocedemos el contador
-      
-      bool wasRunning = _stopwatch.isRunning;
-      _stopwatch.reset();
-      if (wasRunning) _stopwatch.start();
+      // No tocamos ni _baseTimeMs ni _stopwatch, el tiempo de la realidad debe seguir fluyendo
     }
     
     saveTimeData();
@@ -339,7 +362,8 @@ class TimeLogController extends ChangeNotifier {
     triggerHaptic();
     stopTimerLogic();
     _stopwatch.reset();
-    _baseTimeMs = 0; // Reseteo total
+    _baseTimeMs = 0; 
+    _syncStartTime();
     activeRecordedTimes.clear();
     saveTimeData();
     calculateStatistics();

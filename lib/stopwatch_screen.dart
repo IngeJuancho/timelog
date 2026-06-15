@@ -35,26 +35,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   void initState() {
     super.initState();
     _initAnimations();
-    
-    // Vinculamos las animaciones y dialogos al controlador lógico
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final controller = ref.read(timeLogProvider);
-      controller.onAnimateStart = () => _animateButton(_startButtonController);
-      controller.onAnimateSecondary = () => _animateButton(_secondaryButtonController);
-      controller.onAnimateReset = () => _animateButton(_resetButtonController);
-      controller.onAnimateExport = () => _animateButton(_exportButtonController);
-      controller.onRequestResetDialog = _confirmReset;
-      
-      // Sincronizar el latido visual con el estado de cronómetro
-      controller.addListener(() {
-        if (controller.isRunning && !_pulseController.isAnimating) {
-          _pulseController.repeat(reverse: true);
-        } else if (!controller.isRunning && _pulseController.isAnimating) {
-          _pulseController.stop();
-          _pulseController.reset();
-        }
-      });
-    });
   }
 
   void _initAnimations() {
@@ -136,7 +116,24 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 
   @override
   Widget build(BuildContext context) {
+    // CORRECCIÓN 1: Sustitución de callbacks por escuchadores puros de Riverpod
+    ref.listen(timeLogProvider.select((s) => s.animateStartTrigger), (_, __) => _animateButton(_startButtonController));
+    ref.listen(timeLogProvider.select((s) => s.animateSecondaryTrigger), (_, __) => _animateButton(_secondaryButtonController));
+    ref.listen(timeLogProvider.select((s) => s.animateResetTrigger), (_, __) => _animateButton(_resetButtonController));
+    ref.listen(timeLogProvider.select((s) => s.animateExportTrigger), (_, __) => _animateButton(_exportButtonController));
+    ref.listen(timeLogProvider.select((s) => s.showResetDialogTrigger), (_, __) => _confirmReset());
+    
+    ref.listen(timeLogProvider.select((s) => s.isRunning), (_, isRunning) {
+      if (isRunning && !_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      } else if (!isRunning && _pulseController.isAnimating) {
+        _pulseController.stop();
+        _pulseController.reset();
+      }
+    });
+
     final state = ref.watch(timeLogProvider);
+    
     if (state.activeRecordedTimes.isNotEmpty && state.averageTime == 0.0) {
       WidgetsBinding.instance.addPostFrameCallback((_) => state.calculateStatistics());
     }
@@ -239,7 +236,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             children: [
               Text(state.currentMode == StopwatchMode.regresoACero ? "REGRESO A CERO" : "CONTINUO", style: const TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
-              // Envolvemos en un FittedBox para asegurar que textos más anchos como "s" o "min" quepan en pantallas ajustadas
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(

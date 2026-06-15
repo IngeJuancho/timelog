@@ -27,12 +27,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(timeLogProvider);
+    // CORRECCIÓN 2: Uso de '.select' enfocado para evitar redibujados innecesarios a 60 FPS.
+    final useHaptic = ref.watch(timeLogProvider.select((s) => s.useHapticFeedback));
+    final hapticLvl = ref.watch(timeLogProvider.select((s) => s.hapticLevel));
+    final usePhysical = ref.watch(timeLogProvider.select((s) => s.usePhysicalButtons));
+    final recOnPause = ref.watch(timeLogProvider.select((s) => s.recordOnPause));
+    final tFormat = ref.watch(timeLogProvider.select((s) => s.timeFormat));
     
-    bool hasStartStop = state.volUpActionRAC == PhysicalButtonAction.startStop ||
-                        state.volDownActionRAC == PhysicalButtonAction.startStop ||
-                        state.volUpActionCont == PhysicalButtonAction.startStop ||
-                        state.volDownActionCont == PhysicalButtonAction.startStop;
+    final vUpRAC = ref.watch(timeLogProvider.select((s) => s.volUpActionRAC));
+    final vDownRAC = ref.watch(timeLogProvider.select((s) => s.volDownActionRAC));
+    final vUpCont = ref.watch(timeLogProvider.select((s) => s.volUpActionCont));
+    final vDownCont = ref.watch(timeLogProvider.select((s) => s.volDownActionCont));
+
+    final controller = ref.read(timeLogProvider);
+
+    bool hasStartStop = vUpRAC == PhysicalButtonAction.startStop ||
+                        vDownRAC == PhysicalButtonAction.startStop ||
+                        vUpCont == PhysicalButtonAction.startStop ||
+                        vDownCont == PhysicalButtonAction.startStop;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Configuración'), backgroundColor: Colors.transparent, centerTitle: true),
@@ -45,7 +57,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
             title: const Text('Unidad de Medida', style: TextStyle(fontWeight: FontWeight.bold)),
             subtitle: const Text('Formato en el que se muestran y exportan los tiempos.', style: TextStyle(color: Colors.white54, fontSize: 12)),
             trailing: DropdownButton<TimeFormat>(
-              value: state.timeFormat,
+              value: tFormat,
               dropdownColor: const Color(0xFF2C2C2C),
               underline: Container(),
               items: const [
@@ -55,8 +67,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
               ],
               onChanged: (v) {
                 if (v != null) {
-                  state.timeFormat = v;
-                  state.saveSettings();
+                  controller.timeFormat = v;
+                  controller.saveSettings();
                 }
               },
             ),
@@ -64,17 +76,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
           
           const SizedBox(height: 20),
           _buildSectionHeader("Feedback"),
-          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('Vibración Háptica', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Confirmación táctil al registrar.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: state.useHapticFeedback, onChanged: (v) { state.useHapticFeedback = v; state.saveSettings(); }),
-          if (state.useHapticFeedback) Padding(padding: const EdgeInsets.only(left: 10, bottom: 20), child: Row(children: [const Text("Intensidad:", style: TextStyle(color: Colors.white54)), const SizedBox(width: 15), DropdownButton<HapticLevel>(value: state.hapticLevel, dropdownColor: const Color(0xFF2C2C2C), underline: Container(), items: HapticLevel.values.map((e) => DropdownMenuItem(value: e, child: Text(e.name.toUpperCase(), style: const TextStyle(fontSize: 12)))).toList(), onChanged: (v) { state.hapticLevel = v!; state.saveSettings(); })])),
+          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('Vibración Háptica', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Confirmación táctil al registrar.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: useHaptic, onChanged: (v) { controller.useHapticFeedback = v; controller.saveSettings(); }),
+          if (useHaptic) Padding(padding: const EdgeInsets.only(left: 10, bottom: 20), child: Row(children: [const Text("Intensidad:", style: TextStyle(color: Colors.white54)), const SizedBox(width: 15), DropdownButton<HapticLevel>(value: hapticLvl, dropdownColor: const Color(0xFF2C2C2C), underline: Container(), items: HapticLevel.values.map((e) => DropdownMenuItem(value: e, child: Text(e.name.toUpperCase(), style: const TextStyle(fontSize: 12)))).toList(), onChanged: (v) { controller.hapticLevel = v!; controller.saveSettings(); })])),
           
           const SizedBox(height: 20),
           _buildSectionHeader("Hardware"),
-          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('Botones de Volumen', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Usar botones físicos para controlar.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: state.usePhysicalButtons, onChanged: (v) { state.usePhysicalButtons = v; state.saveSettings(); }),
+          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('Botones de Volumen', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Usar botones físicos para controlar.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: usePhysical, onChanged: (v) { controller.usePhysicalButtons = v; controller.saveSettings(); }),
           
-          if (state.usePhysicalButtons && hasStartStop)
-            SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('¿Registrar al pausar?', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Registra el tiempo automáticamente al pausar con el botón físico.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: state.recordOnPause, onChanged: (v) { state.recordOnPause = v; state.saveSettings(); }),
+          if (usePhysical && hasStartStop)
+            SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('¿Registrar al pausar?', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Registra el tiempo automáticamente al pausar con el botón físico.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: recOnPause, onChanged: (v) { controller.recordOnPause = v; controller.saveSettings(); }),
 
-          if (state.usePhysicalButtons) ...[
+          if (usePhysical) ...[
             const SizedBox(height: 20),
             Container(
               height: 350,
@@ -82,8 +94,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
               child: Column(children: [
                 TabBar(controller: _tabController, indicatorColor: Colors.tealAccent, labelColor: Colors.tealAccent, unselectedLabelColor: Colors.white38, tabs: const [Tab(text: "Regreso a Cero"), Tab(text: "Continuo")]),
                 Expanded(child: TabBarView(controller: _tabController, children: [
-                  _buildButtonConfigPage("Botón Subir", state.volUpActionRAC, (v) { state.volUpActionRAC = v!; state.saveSettings(); }, "Botón Bajar", state.volDownActionRAC, (v) { state.volDownActionRAC = v!; state.saveSettings(); }),
-                  _buildButtonConfigPage("Botón Subir", state.volUpActionCont, (v) { state.volUpActionCont = v!; state.saveSettings(); }, "Botón Bajar", state.volDownActionCont, (v) { state.volDownActionCont = v!; state.saveSettings(); })
+                  _buildButtonConfigPage("Botón Subir", vUpRAC, (v) { controller.volUpActionRAC = v!; controller.saveSettings(); }, "Botón Bajar", vDownRAC, (v) { controller.volDownActionRAC = v!; controller.saveSettings(); }),
+                  _buildButtonConfigPage("Botón Subir", vUpCont, (v) { controller.volUpActionCont = v!; controller.saveSettings(); }, "Botón Bajar", vDownCont, (v) { controller.volDownActionCont = v!; controller.saveSettings(); })
                 ]))
               ]),
             )
