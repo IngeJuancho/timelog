@@ -1,4 +1,3 @@
-// lib/stopwatch_screen.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +5,7 @@ import 'time_log_controller.dart';
 import 'models.dart';
 import 'settings_screen.dart';
 import 'calculator_screen.dart';
+import 'studies_history_screen.dart';
 
 class StopwatchScreen extends ConsumerStatefulWidget {
   const StopwatchScreen({super.key});
@@ -63,6 +63,46 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     _viewChangeController.forward().then((_) => _viewChangeController.reverse());
   }
 
+  Future<void> _promptSaveStudy(BuildContext context, TimeLogController controller) async {
+    if (controller.activeRecordedTimes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay datos para guardar.'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    final TextEditingController nameController = TextEditingController(
+      text: controller.taskNameController.text.isNotEmpty ? controller.taskNameController.text : 'Estudio ${DateTime.now().day}/${DateTime.now().month}'
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF252525),
+        title: const Text('Guardar Estudio', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: nameController,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            labelText: 'Nombre del estudio',
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent)),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              controller.saveCurrentStudyToHistory(nameController.text.trim());
+            },
+            child: const Text('GUARDAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _confirmReset() async {
     final controller = ref.read(timeLogProvider);
     if (controller.activeRecordedTimes.isEmpty && !controller.isRunning && controller.elapsedMilliseconds == 0) {
@@ -116,7 +156,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 
   @override
   Widget build(BuildContext context) {
-    // CORRECCIÓN 1: Sustitución de callbacks por escuchadores puros de Riverpod
     ref.listen(timeLogProvider.select((s) => s.animateStartTrigger), (_, __) => _animateButton(_startButtonController));
     ref.listen(timeLogProvider.select((s) => s.animateSecondaryTrigger), (_, __) => _animateButton(_secondaryButtonController));
     ref.listen(timeLogProvider.select((s) => s.animateResetTrigger), (_, __) => _animateButton(_resetButtonController));
@@ -202,9 +241,15 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           const Padding(padding: EdgeInsets.fromLTRB(24, 24, 24, 10), child: Text("MODO", style: TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
           _buildDrawerOption('Regreso a Cero', 'Clásico. Reinicia al registrar.', Icons.replay, StopwatchMode.regresoACero, state),
           _buildDrawerOption('Continuo', 'Acumulativo. Calcula TO.', Icons.timeline, StopwatchMode.continuo, state),
+          
+          const Divider(color: Colors.white10, indent: 24, endIndent: 24, height: 40),
+          const Padding(padding: EdgeInsets.fromLTRB(24, 0, 24, 10), child: Text("DATOS", style: TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
+          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.save_outlined, color: Colors.white70), title: const Text('Guardar Estudio', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _promptSaveStudy(context, state); }),
+          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.history, color: Colors.white70), title: const Text('Historial', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const StudiesHistoryScreen())); }),
+
           const Divider(color: Colors.white10, indent: 24, endIndent: 24, height: 40),
           const Padding(padding: EdgeInsets.fromLTRB(24, 0, 24, 10), child: Text("UTILIDADES", style: TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
-          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.calculate_outlined, color: Colors.white70), title: const Text('Calculadora de Muestra', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const SampleCalculatorScreen())); }),
+          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.calculate_outlined, color: Colors.white70), title: const Text('Calculadora Muestra', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const SampleCalculatorScreen())); }),
           ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.settings_outlined, color: Colors.white70), title: const Text('Configuración', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())); }),
         ],
       ),
@@ -398,6 +443,39 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     );
   }
 
+  // Componente interactivo para nombres con pestaña de elemento atípico
+  Widget _buildElementNameWidget(Map<String, dynamic> timeData, int index, TimeLogController state) {
+    bool isOutlier = timeData['type'] == 'outlier';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(timeData['name'], style: TextStyle(fontWeight: FontWeight.w500, color: isOutlier ? Colors.white54 : Colors.white, decoration: isOutlier ? TextDecoration.lineThrough : null)),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => state.toggleElementType(index),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isOutlier ? Colors.redAccent.withOpacity(0.15) : Colors.tealAccent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: isOutlier ? Colors.redAccent.withOpacity(0.5) : Colors.tealAccent.withOpacity(0.3)),
+                ),
+                child: Text(
+                  isOutlier ? 'ATÍPICO' : 'NORMAL',
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isOutlier ? Colors.redAccent : Colors.tealAccent, decoration: TextDecoration.none),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildContinuousTable(TimeLogController state) {
     if (state.recordedTimesContinuo.isEmpty) return _buildEmptyState();
     return SingleChildScrollView(
@@ -409,7 +487,19 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           child: DataTable(
             columnSpacing: 20, headingRowColor: WidgetStateProperty.all(const Color(0xFF252525)), headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent, fontSize: 12), dataTextStyle: const TextStyle(fontSize: 13, color: Colors.white70),
             columns: const [DataColumn(label: Text('#')), DataColumn(label: Text('ELEMENTO')), DataColumn(label: Text('TC (Acum)')), DataColumn(label: Text('TO (Indiv)')), DataColumn(label: Text(''))],
-            rows: state.recordedTimesContinuo.asMap().entries.map((e) => DataRow(cells: [DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), DataCell(Text(e.value['name'], style: const TextStyle(fontWeight: FontWeight.w500))), DataCell(Text(state.formatTime((e.value['cumulative_time'] ?? 0).toDouble()))), DataCell(Text(state.formatTime(e.value['time'].toDouble()), style: const TextStyle(color: Colors.white))), DataCell(IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => state.deleteItem(e.key)))])).toList(),
+            rows: state.recordedTimesContinuo.asMap().entries.map((e) {
+              bool isOutlier = e.value['type'] == 'outlier';
+              return DataRow(
+                color: WidgetStateProperty.all(isOutlier ? Colors.redAccent.withOpacity(0.05) : null),
+                cells: [
+                  DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), 
+                  DataCell(_buildElementNameWidget(e.value, e.key, state)), 
+                  DataCell(Text(state.formatTime((e.value['cumulative_time'] ?? 0).toDouble()), style: TextStyle(color: isOutlier ? Colors.white54 : Colors.white70))), 
+                  DataCell(Text(state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withOpacity(0.7) : Colors.white))), 
+                  DataCell(IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => state.deleteItem(e.key)))
+                ]
+              );
+            }).toList(),
           ),
         ),
       ),
@@ -422,11 +512,26 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       padding: const EdgeInsets.all(16), itemCount: state.recordedTimesRegresoACero.length, separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final timeData = state.recordedTimesRegresoACero[index];
+        bool isOutlier = timeData['type'] == 'outlier';
+        
         return Container(
-          decoration: BoxDecoration(color: const Color(0xFF252525), borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+            color: isOutlier ? Colors.redAccent.withOpacity(0.05) : const Color(0xFF252525), 
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isOutlier ? Colors.redAccent.withOpacity(0.2) : Colors.transparent),
+          ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), leading: Text('${index + 1}', style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 16)), title: Text(timeData['name'], style: const TextStyle(color: Colors.white, fontSize: 14)),
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: [Text(state.formatTime(timeData['time'].toDouble()), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')), const SizedBox(width: 10), IconButton(icon: const Icon(Icons.close, size: 18, color: Colors.redAccent), onPressed: () => state.deleteItem(index))]),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), 
+            leading: Text('${index + 1}', style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
+            title: _buildElementNameWidget(timeData, index, state),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min, 
+              children: [
+                Text(state.formatTime(timeData['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withOpacity(0.7) : Colors.white70, fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')), 
+                const SizedBox(width: 10), 
+                IconButton(icon: const Icon(Icons.close, size: 18, color: Colors.redAccent), onPressed: () => state.deleteItem(index))
+              ]
+            ),
           ),
         );
       },

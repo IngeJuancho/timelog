@@ -1,4 +1,3 @@
-// lib/time_log_controller.dart
 import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
@@ -6,22 +5,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:file_saver/file_saver.dart';
-import 'package:csv/csv.dart';
 import 'models.dart';
 import 'main.dart'; 
+import 'storage_service.dart';
+import 'export_service.dart';
 
 final timeLogProvider = ChangeNotifierProvider<TimeLogController>((ref) => TimeLogController());
 
 class TimeLogController extends ChangeNotifier {
+  final StorageService _storage = StorageService();
+  final ExportService _export = ExportService();
+  
   final Stopwatch _stopwatch = Stopwatch();
   Timer? _timer;
   
-  // CORRECCIÓN 3: Persistencia Real del Tiempo
   int _baseTimeMs = 0;
   int? _startTimeEpoch; 
   
-  // CORRECCIÓN 1: Triggers reactivos (reemplazan a los Callbacks que causaban fugas de memoria)
   int animateStartTrigger = 0;
   int animateSecondaryTrigger = 0;
   int animateResetTrigger = 0;
@@ -89,7 +89,6 @@ class TimeLogController extends ChangeNotifier {
     String? contJson = prefs.getString('times_cont');
     if (contJson != null) recordedTimesContinuo = List<Map<String, dynamic>>.from(jsonDecode(contJson));
 
-    // Recuperación inteligente del tiempo si la app se cerró a la fuerza
     bool wasRunning = prefs.getBool('isRunning') ?? false;
     int savedStartTime = prefs.getInt('startTimeEpoch') ?? 0;
     _baseTimeMs = prefs.getInt('baseTimeMs') ?? 0;
@@ -101,7 +100,6 @@ class TimeLogController extends ChangeNotifier {
     }
 
     if (wasRunning && savedStartTime > 0) {
-      // Calculamos cuánto tiempo pasó en la vida real mientras la app estuvo cerrada
       int missedTime = DateTime.now().millisecondsSinceEpoch - savedStartTime;
       _baseTimeMs = missedTime;
       _stopwatch.start();
@@ -128,9 +126,7 @@ class TimeLogController extends ChangeNotifier {
   }
 
   Future<void> saveTimeData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('times_rac', jsonEncode(recordedTimesRegresoACero));
-    await prefs.setString('times_cont', jsonEncode(recordedTimesContinuo));
+    await _storage.saveActiveTimeData(recordedTimesRegresoACero, recordedTimesContinuo);
   }
 
   Future<void> saveTimerState() async {
@@ -186,6 +182,20 @@ class TimeLogController extends ChangeNotifier {
 
       calculateStatistics();
       _showSnackBar('Modo: ${mode == StopwatchMode.regresoACero ? "Regreso a Cero" : "Continuo"}', Icons.settings, Colors.tealAccent);
+      notifyListeners();
+    }
+  }
+
+  // Alterna el estado de un elemento entre Normal y Atípico (Outlier)
+  void toggleElementType(int index) {
+    final currentList = activeRecordedTimes;
+    if (index >= 0 && index < currentList.length) {
+      final currentType = currentList[index]['type'] ?? 'normal';
+      currentList[index]['type'] = currentType == 'normal' ? 'outlier' : 'normal';
+      
+      triggerHaptic();
+      saveTimeData();
+      calculateStatistics();
       notifyListeners();
     }
   }
@@ -296,8 +306,10 @@ class TimeLogController extends ChangeNotifier {
     if (individualTimeMs >= 0) {
       triggerHaptic();
       final name = taskNameController.text.isNotEmpty ? taskNameController.text : 'Ciclo ${currentList.length + 1}';
+      
       timeEntry['name'] = name;
       timeEntry['time'] = individualTimeMs;
+      timeEntry['type'] = 'normal'; // Por defecto, todos los ciclos nacen normales
 
       currentList.add(timeEntry);
       hasExported = false;
@@ -323,7 +335,6 @@ class TimeLogController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // CORRECCIÓN 4: "Deshacer" ya no rompe el flujo del tiempo real
   void undoLastRecord() {
     final currentList = activeRecordedTimes;
     if (currentList.isEmpty) return;
@@ -332,7 +343,6 @@ class TimeLogController extends ChangeNotifier {
     
     if (currentMode == StopwatchMode.continuo) {
       _lastRecordedTimeMs = currentList.isNotEmpty ? currentList.last['cumulative_time'] as int : 0;
-      // No tocamos ni _baseTimeMs ni _stopwatch, el tiempo de la realidad debe seguir fluyendo
     }
     
     saveTimeData();
@@ -346,12 +356,19 @@ class TimeLogController extends ChangeNotifier {
   void calculateStatistics() {
     final currentList = activeRecordedTimes;
     if (currentList.isEmpty) { averageTime = minTime = maxTime = stdDev = 0.0; return; }
-    final validTimes = currentList.map((e) => e['time'] as int).where((t) => t > 0 || currentList.length == 1).toList();
+    
+    // Ignoramos matemáticamente los elementos atípicos para no contaminar el estudio
+    final validTimes = currentList
+        .where((e) => (e['type'] ?? 'normal') != 'outlier' && (e['time'] as int) > 0)
+        .map((e) => e['time'] as int)
+        .toList();
+        
     if (validTimes.isEmpty) { averageTime = minTime = maxTime = stdDev = 0.0; return; }
     
     averageTime = validTimes.reduce((a, b) => a + b) / validTimes.length;
     minTime = validTimes.reduce(min).toDouble();
     maxTime = validTimes.reduce(max).toDouble();
+    
     if (validTimes.length > 1) {
       final variance = validTimes.map((t) => pow(t - averageTime, 2)).reduce((a, b) => a + b) / (validTimes.length - 1);
       stdDev = sqrt(variance);
@@ -373,41 +390,54 @@ class TimeLogController extends ChangeNotifier {
   }
 
   Future<void> exportData() async {
-    final currentList = activeRecordedTimes;
-    if (currentList.isEmpty) {
+    if (activeRecordedTimes.isEmpty) {
       _showSnackBar('No hay datos para exportar.', Icons.warning_amber_rounded, Colors.orange);
       return;
     }
     try {
-      List<List<dynamic>> csvData;
-      List<String> headers;
-      String modeName = currentMode == StopwatchMode.continuo ? "Continuo" : "RegresoACero";
-      if (currentMode == StopwatchMode.continuo) {
-        headers = ['#', 'Nombre', 'TC (ms)', 'TC Formateado', 'TO (ms)', 'TO Formateado'];
-        csvData = [headers, ...currentList.asMap().entries.map((entry) {
-            int index = entry.key; Map<String, dynamic> timeData = entry.value;
-            return [index + 1, timeData['name'], timeData['cumulative_time'] ?? 0, formatTime((timeData['cumulative_time'] ?? 0).toDouble()), timeData['time'], formatTime(timeData['time'].toDouble())];
-          })];
-      } else {
-        headers = ['#', 'Nombre', 'Tiempo (ms)', 'Tiempo Formateado'];
-        csvData = [headers, ...currentList.asMap().entries.map((entry) {
-            int index = entry.key; Map<String, dynamic> timeData = entry.value;
-            return [index + 1, timeData['name'], timeData['time'], formatTime(timeData['time'].toDouble())];
-          })];
-      }
-      final csv = const ListToCsvConverter().convert(csvData);
-      final bytes = Uint8List.fromList(csv.codeUnits);
-      final now = DateTime.now();
-      final timestamp = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-      final fileName = 'Tiempos_IE_${modeName}_$timestamp';
-      final result = await FileSaver.instance.saveAs(name: fileName, bytes: bytes, ext: 'csv', mimeType: MimeType.csv);
-      if (result != null) {
+      final fileName = await _export.exportDataToCsv(
+        data: activeRecordedTimes,
+        mode: currentMode,
+        timeFormatter: formatTime,
+      );
+      
+      if (fileName != null) {
         hasExported = true;
-        _showSnackBar('Exportado: $fileName.csv', Icons.check_circle, Colors.tealAccent);
+        _showSnackBar('Exportado: $fileName', Icons.check_circle, Colors.tealAccent);
       }
     } catch (e) {
       _showSnackBar('Error: ${e.toString()}', Icons.error_outline, Colors.redAccent);
     }
+  }
+
+  // --- Funciones para el Historial ---
+  Future<void> saveCurrentStudyToHistory(String studyName) async {
+    if (activeRecordedTimes.isEmpty) return;
+    
+    await _storage.saveStudyToHistory(
+      name: studyName,
+      mode: currentMode,
+      times: activeRecordedTimes,
+    );
+    _showSnackBar('Estudio "$studyName" guardado con éxito.', Icons.save, Colors.tealAccent);
+  }
+
+  void loadStudyFromHistory(StudyModel study) {
+    resetAll();
+    setMode(study.mode);
+    if (study.mode == StopwatchMode.regresoACero) {
+      recordedTimesRegresoACero = List<Map<String, dynamic>>.from(study.times);
+    } else {
+      recordedTimesContinuo = List<Map<String, dynamic>>.from(study.times);
+      if (recordedTimesContinuo.isNotEmpty) {
+        _lastRecordedTimeMs = recordedTimesContinuo.last['cumulative_time'] as int;
+        _baseTimeMs = _lastRecordedTimeMs;
+      }
+    }
+    saveTimeData();
+    calculateStatistics();
+    notifyListeners();
+    _showSnackBar('Estudio cargado: ${study.name}', Icons.folder_open, Colors.blueAccent);
   }
 
   String formatTime(double milliseconds) {
