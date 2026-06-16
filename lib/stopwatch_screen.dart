@@ -29,6 +29,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   late Animation<double> _secondaryButtonAnimation;
   late Animation<double> _exportButtonAnimation;
 
+  final ScrollController _scrollController = ScrollController();
   bool _showingAnalysis = true;
 
   @override
@@ -61,6 +62,51 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   void _toggleView() {
     setState(() => _showingAnalysis = !_showingAnalysis);
     _viewChangeController.forward().then((_) => _viewChangeController.reverse());
+  }
+
+  // NUEVO MÉTODO: Muestra el cuadro de diálogo para confirmar la fusión
+  void _promptMerge(BuildContext context, int index, TimeLogController state) {
+    if (index == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay elemento anterior para fusionar.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    final currentName = state.activeRecordedTimes[index]['name'];
+    final previousName = state.activeRecordedTimes[index - 1]['name'];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF252525),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [Icon(Icons.call_merge, color: Colors.blueAccent), SizedBox(width: 10), Text('Fusionar Elementos', style: TextStyle(color: Colors.white, fontSize: 18))]),
+        content: Text('¿Deseas fusionar "$currentName" con el elemento anterior "$previousName"?\n\nSe sumarán sus tiempos individuales (TO).', style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              state.mergeWithPrevious(index);
+            },
+            child: const Text('FUSIONAR', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   Future<void> _promptSaveStudy(BuildContext context, TimeLogController controller) async {
@@ -151,6 +197,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     _resetButtonController.dispose();
     _secondaryButtonController.dispose();
     _exportButtonController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -162,6 +209,15 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     ref.listen(timeLogProvider.select((s) => s.animateExportTrigger), (_, __) => _animateButton(_exportButtonController));
     ref.listen(timeLogProvider.select((s) => s.showResetDialogTrigger), (_, __) => _confirmReset());
     
+    ref.listen<int>(
+      timeLogProvider.select((s) => s.activeRecordedTimes.length),
+      (previous, next) {
+        if (previous != null && next > previous && !_showingAnalysis) {
+          _scrollToBottom();
+        }
+      },
+    );
+
     ref.listen(timeLogProvider.select((s) => s.isRunning), (_, isRunning) {
       if (isRunning && !_pulseController.isAnimating) {
         _pulseController.repeat(reverse: true);
@@ -377,10 +433,56 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         Expanded(
           child: AnimatedBuilder(
             animation: _exportButtonAnimation,
-            builder: (_, __) => Transform.scale(scale: _exportButtonAnimation.value, child: _buildSecondaryButton(icon: Icons.upload_file, label: 'Export', onPressed: () { _animateButton(_exportButtonController); state.exportData(); }, color: Colors.blueAccent)),
+            builder: (_, __) => Transform.scale(scale: _exportButtonAnimation.value, child: _buildSecondaryButton(
+              icon: Icons.import_export, 
+              label: 'Archivos',         
+              onPressed: () { 
+                _animateButton(_exportButtonController); 
+                _showExportImportOptions(context, state); 
+              }, 
+              color: Colors.blueAccent
+            )),
           )
         ),
       ],
+    );
+  }
+
+  // Modal interactivo para decidir qué hacer con los archivos
+  void _showExportImportOptions(BuildContext context, TimeLogController state) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF252525),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Manejo de Datos', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.download, color: Colors.white)),
+              title: const Text('Importar desde CSV', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Cargar un estudio previo desde tus archivos.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              onTap: () {
+                Navigator.pop(context);
+                state.importCsv();
+              },
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              leading: const CircleAvatar(backgroundColor: Colors.blueAccent, child: Icon(Icons.upload, color: Colors.white)),
+              title: const Text('Exportar a CSV', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Guardar el estudio actual en tus archivos.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              onTap: () {
+                Navigator.pop(context);
+                state.exportData();
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -443,7 +545,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     );
   }
 
-  // Componente interactivo para nombres con pestaña de elemento atípico
   Widget _buildElementNameWidget(Map<String, dynamic> timeData, int index, TimeLogController state) {
     bool isOutlier = timeData['type'] == 'outlier';
     return Column(
@@ -479,6 +580,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   Widget _buildContinuousTable(TimeLogController state) {
     if (state.recordedTimesContinuo.isEmpty) return _buildEmptyState();
     return SingleChildScrollView(
+      controller: _scrollController,
       scrollDirection: Axis.vertical,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -490,6 +592,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             rows: state.recordedTimesContinuo.asMap().entries.map((e) {
               bool isOutlier = e.value['type'] == 'outlier';
               return DataRow(
+                onLongPress: () => _promptMerge(context, e.key, state), // Agregado el evento de mantener presionado
                 color: WidgetStateProperty.all(isOutlier ? Colors.redAccent.withOpacity(0.05) : null),
                 cells: [
                   DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), 
@@ -509,6 +612,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   Widget _buildSimpleRecordsList(TimeLogController state) {
     if (state.recordedTimesRegresoACero.isEmpty) return _buildEmptyState();
     return ListView.separated(
+      controller: _scrollController,
       padding: const EdgeInsets.all(16), itemCount: state.recordedTimesRegresoACero.length, separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final timeData = state.recordedTimesRegresoACero[index];
@@ -521,6 +625,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             border: Border.all(color: isOutlier ? Colors.redAccent.withOpacity(0.2) : Colors.transparent),
           ),
           child: ListTile(
+            onLongPress: () => _promptMerge(context, index, state), // Agregado el evento de mantener presionado
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), 
             leading: Text('${index + 1}', style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
             title: _buildElementNameWidget(timeData, index, state),

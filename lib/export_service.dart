@@ -1,5 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_saver/file_saver.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:csv/csv.dart';
 import 'models.dart';
 
@@ -16,7 +19,6 @@ class ExportService {
       List<String> headers;
       String modeName = mode == StopwatchMode.continuo ? "Continuo" : "RegresoACero";
       
-      // Hemos integrado la columna "Tipo" para mantener la trazabilidad de los atípicos
       if (mode == StopwatchMode.continuo) {
         headers = ['#', 'Nombre', 'Tipo', 'TC (ms)', 'TC Formateado', 'TO (ms)', 'TO Formateado'];
         csvData = [headers, ...data.asMap().entries.map((entry) {
@@ -45,6 +47,63 @@ class ExportService {
       return result != null ? '$fileName.csv' : null;
     } catch (e) {
       throw Exception(e.toString());
+    }
+  }
+
+  // Lógica inversa para leer e importar el CSV
+  Future<Map<String, dynamic>?> importDataFromCsv() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        withData: true, 
+      );
+
+      if (result == null || result.files.isEmpty) {
+        return null;
+      }
+
+      // Obtener los bytes del archivo (manejo seguro para múltiples plataformas)
+      Uint8List? fileBytes = result.files.first.bytes;
+      if (fileBytes == null && result.files.first.path != null) {
+        fileBytes = File(result.files.first.path!).readAsBytesSync();
+      }
+
+      if (fileBytes == null) throw Exception("No se pudo leer el contenido del archivo.");
+
+      final String csvString = utf8.decode(fileBytes);
+      final List<List<dynamic>> csvTable = const CsvToListConverter().convert(csvString);
+
+      if (csvTable.isEmpty) throw Exception("El archivo CSV está vacío o corrupto.");
+
+      final headers = csvTable.first.map((e) => e.toString().toLowerCase()).toList();
+      
+      // Detección automática del modo por el encabezado
+      bool isContinuo = headers.contains('tc (ms)');
+      StopwatchMode mode = isContinuo ? StopwatchMode.continuo : StopwatchMode.regresoACero;
+
+      List<Map<String, dynamic>> importedTimes = [];
+
+      for (int i = 1; i < csvTable.length; i++) {
+        final row = csvTable[i];
+        if (row.isEmpty || row.length < 4) continue; 
+        
+        String name = row[1].toString();
+        String type = row[2].toString().toLowerCase() == 'atípico' ? 'outlier' : 'normal';
+        
+        if (isContinuo) {
+          int tc = int.tryParse(row[3].toString()) ?? 0;
+          int to = int.tryParse(row[5].toString()) ?? 0;
+          importedTimes.add({'name': name, 'type': type, 'cumulative_time': tc, 'time': to});
+        } else {
+          int to = int.tryParse(row[3].toString()) ?? 0;
+          importedTimes.add({'name': name, 'type': type, 'time': to});
+        }
+      }
+
+      return {'mode': mode, 'times': importedTimes};
+    } catch (e) {
+      throw Exception("Error al leer el CSV: ${e.toString()}");
     }
   }
 }
