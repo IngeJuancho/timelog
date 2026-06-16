@@ -209,39 +209,41 @@ class TimeLogController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // NUEVA FUNCIÓN: Fusión matemática de elementos adyacentes
+  // --- LÓGICA DE FUSIÓN (MERGE) ---
   void mergeWithPrevious(int index) {
     final currentList = activeRecordedTimes;
     if (index <= 0 || index >= currentList.length) return;
 
-    final current = currentList[index];
-    final previous = currentList[index - 1];
+    final prev = currentList[index - 1];
+    final curr = currentList[index];
 
-    // Combinamos los nombres
-    final newName = '${previous['name']} + ${current['name']}';
-    // Sumamos los tiempos individuales (TO)
-    final newTime = (previous['time'] as int) + (current['time'] as int);
+    // Se suman los tiempos observados
+    int mergedTime = (prev['time'] as int) + (curr['time'] as int);
+    
+    // Se concatenan los nombres
+    String mergedName = '${prev['name']} + ${curr['name']}';
 
     Map<String, dynamic> mergedEntry = {
-      'name': newName,
-      'time': newTime,
-      'type': 'normal', // Reseteamos el estado a 'normal' por si alguno era atípico
+      'name': mergedName,
+      'time': mergedTime,
+      'type': 'normal', // Al fusionar se reinicia a normal por defecto
     };
 
-    // Si es continuo, conservamos el tiempo acumulado de la última etapa para no romper la línea temporal
+    // Respetamos la línea de tiempo del modo continuo
     if (currentMode == StopwatchMode.continuo) {
-      mergedEntry['cumulative_time'] = current['cumulative_time'];
+      mergedEntry['cumulative_time'] = curr['cumulative_time'];
     }
 
-    // Eliminamos los dos registros viejos y colocamos el nuevo
+    // Reemplazamos el anterior con el fusionado y borramos el actual
+    currentList[index - 1] = mergedEntry;
     currentList.removeAt(index);
-    currentList.removeAt(index - 1);
-    currentList.insert(index - 1, mergedEntry);
 
-    hasExported = false;
+    triggerHaptic();
     saveTimeData();
     calculateStatistics();
     notifyListeners();
+    
+    _showSnackBar('Elementos fusionados correctamente.', Icons.call_merge, Colors.tealAccent);
   }
 
   void _handleNativeButtonPress({required bool isVolumeUp}) {
@@ -443,7 +445,6 @@ class TimeLogController extends ChangeNotifier {
     }
   }
 
-  // --- Nueva Lógica de Importación ---
   Future<void> importCsv() async {
     try {
       final result = await _export.importDataFromCsv();
@@ -451,7 +452,7 @@ class TimeLogController extends ChangeNotifier {
         final StopwatchMode importedMode = result['mode'];
         final List<Map<String, dynamic>> importedTimes = result['times'];
 
-        resetAll(); // Limpiar entorno actual antes de cargar
+        resetAll();
         setMode(importedMode);
 
         if (importedMode == StopwatchMode.regresoACero) {
@@ -459,13 +460,12 @@ class TimeLogController extends ChangeNotifier {
         } else {
           recordedTimesContinuo = importedTimes;
           if (recordedTimesContinuo.isNotEmpty) {
-            // Inyección del tiempo base para el modo continuo
             _lastRecordedTimeMs = recordedTimesContinuo.last['cumulative_time'] as int;
             _baseTimeMs = _lastRecordedTimeMs;
           }
         }
         
-        hasExported = true; // Acabamos de cargar los datos desde la persistencia
+        hasExported = true; 
         saveTimeData();
         calculateStatistics();
         _syncStartTime(); 
@@ -478,7 +478,6 @@ class TimeLogController extends ChangeNotifier {
     }
   }
 
-  // --- Funciones para el Historial ---
   Future<void> saveCurrentStudyToHistory(String studyName) async {
     if (activeRecordedTimes.isEmpty) return;
     

@@ -64,39 +64,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     _viewChangeController.forward().then((_) => _viewChangeController.reverse());
   }
 
-  // NUEVO MÉTODO: Muestra el cuadro de diálogo para confirmar la fusión
-  void _promptMerge(BuildContext context, int index, TimeLogController state) {
-    if (index == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay elemento anterior para fusionar.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), backgroundColor: Colors.orange),
-      );
-      return;
-    }
-
-    final currentName = state.activeRecordedTimes[index]['name'];
-    final previousName = state.activeRecordedTimes[index - 1]['name'];
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF252525),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(children: [Icon(Icons.call_merge, color: Colors.blueAccent), SizedBox(width: 10), Text('Fusionar Elementos', style: TextStyle(color: Colors.white, fontSize: 18))]),
-        content: Text('¿Deseas fusionar "$currentName" con el elemento anterior "$previousName"?\n\nSe sumarán sus tiempos individuales (TO).', style: const TextStyle(color: Colors.white70)),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              state.mergeWithPrevious(index);
-            },
-            child: const Text('FUSIONAR', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -107,6 +74,34 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         );
       }
     });
+  }
+
+  void _promptMerge(int index, TimeLogController state) {
+    if (index == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se puede fusionar el primer registro.', style: TextStyle(fontWeight: FontWeight.bold)), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF252525),
+        title: const Row(children: [Icon(Icons.call_merge, color: Colors.tealAccent), SizedBox(width: 10), Text('Fusionar Registros', style: TextStyle(color: Colors.white, fontSize: 18))]),
+        content: const Text('¿Deseas combinar este registro con el anterior?\n\nLos tiempos se sumarán y la línea temporal del estudio se mantendrá intacta.', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              state.mergeWithPrevious(index);
+            },
+            child: const Text('FUSIONAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _promptSaveStudy(BuildContext context, TimeLogController controller) async {
@@ -448,7 +443,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     );
   }
 
-  // Modal interactivo para decidir qué hacer con los archivos
   void _showExportImportOptions(BuildContext context, TimeLogController state) {
     showModalBottomSheet(
       context: context,
@@ -592,7 +586,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             rows: state.recordedTimesContinuo.asMap().entries.map((e) {
               bool isOutlier = e.value['type'] == 'outlier';
               return DataRow(
-                onLongPress: () => _promptMerge(context, e.key, state), // Agregado el evento de mantener presionado
+                onLongPress: () => _promptMerge(e.key, state), // NUEVO: Gesto para fusionar
                 color: WidgetStateProperty.all(isOutlier ? Colors.redAccent.withOpacity(0.05) : null),
                 cells: [
                   DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), 
@@ -625,7 +619,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             border: Border.all(color: isOutlier ? Colors.redAccent.withOpacity(0.2) : Colors.transparent),
           ),
           child: ListTile(
-            onLongPress: () => _promptMerge(context, index, state), // Agregado el evento de mantener presionado
+            onLongPress: () => _promptMerge(index, state), // NUEVO: Gesto para fusionar
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), 
             leading: Text('${index + 1}', style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
             title: _buildElementNameWidget(timeData, index, state),

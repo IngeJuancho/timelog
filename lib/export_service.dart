@@ -50,7 +50,6 @@ class ExportService {
     }
   }
 
-  // Lógica inversa para leer e importar el CSV
   Future<Map<String, dynamic>?> importDataFromCsv() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -63,7 +62,6 @@ class ExportService {
         return null;
       }
 
-      // Obtener los bytes del archivo (manejo seguro para múltiples plataformas)
       Uint8List? fileBytes = result.files.first.bytes;
       if (fileBytes == null && result.files.first.path != null) {
         fileBytes = File(result.files.first.path!).readAsBytesSync();
@@ -71,14 +69,14 @@ class ExportService {
 
       if (fileBytes == null) throw Exception("No se pudo leer el contenido del archivo.");
 
-      final String csvString = utf8.decode(fileBytes);
+      // CORRECCIÓN DEL ERROR: allowMalformed evita que la tilde en "Atípico" crasheé la app
+      final String csvString = utf8.decode(fileBytes, allowMalformed: true);
       final List<List<dynamic>> csvTable = const CsvToListConverter().convert(csvString);
 
       if (csvTable.isEmpty) throw Exception("El archivo CSV está vacío o corrupto.");
 
       final headers = csvTable.first.map((e) => e.toString().toLowerCase()).toList();
       
-      // Detección automática del modo por el encabezado
       bool isContinuo = headers.contains('tc (ms)');
       StopwatchMode mode = isContinuo ? StopwatchMode.continuo : StopwatchMode.regresoACero;
 
@@ -89,7 +87,9 @@ class ExportService {
         if (row.isEmpty || row.length < 4) continue; 
         
         String name = row[1].toString();
-        String type = row[2].toString().toLowerCase() == 'atípico' ? 'outlier' : 'normal';
+        // Limpiamos los caracteres especiales o corruptos por si acaso en la lectura del tipo
+        String rawType = row[2].toString().toLowerCase();
+        String type = (rawType.contains('at') || rawType.contains('típico') || rawType.contains('outlier')) ? 'outlier' : 'normal';
         
         if (isContinuo) {
           int tc = int.tryParse(row[3].toString()) ?? 0;
