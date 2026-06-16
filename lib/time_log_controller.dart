@@ -22,6 +22,8 @@ class TimeLogController extends ChangeNotifier {
   int _baseTimeMs = 0;
   int? _startTimeEpoch; 
   
+  String? activeStudyId;
+  
   int animateStartTrigger = 0;
   int animateSecondaryTrigger = 0;
   int animateResetTrigger = 0;
@@ -92,6 +94,7 @@ class TimeLogController extends ChangeNotifier {
     bool wasRunning = prefs.getBool('isRunning') ?? false;
     int savedStartTime = prefs.getInt('startTimeEpoch') ?? 0;
     _baseTimeMs = prefs.getInt('baseTimeMs') ?? 0;
+    activeStudyId = prefs.getString('activeStudyId'); 
     
     if (currentMode == StopwatchMode.continuo && recordedTimesContinuo.isNotEmpty) {
       _lastRecordedTimeMs = recordedTimesContinuo.last['cumulative_time'] as int;
@@ -134,6 +137,11 @@ class TimeLogController extends ChangeNotifier {
     await prefs.setBool('isRunning', _stopwatch.isRunning);
     await prefs.setInt('baseTimeMs', _baseTimeMs);
     await prefs.setInt('startTimeEpoch', _startTimeEpoch ?? 0);
+    if (activeStudyId != null) {
+      await prefs.setString('activeStudyId', activeStudyId!);
+    } else {
+      await prefs.remove('activeStudyId');
+    }
   }
 
   void _syncStartTime() {
@@ -209,7 +217,6 @@ class TimeLogController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- LÓGICA DE FUSIÓN (MERGE) ---
   void mergeWithPrevious(int index) {
     final currentList = activeRecordedTimes;
     if (index <= 0 || index >= currentList.length) return;
@@ -217,24 +224,19 @@ class TimeLogController extends ChangeNotifier {
     final prev = currentList[index - 1];
     final curr = currentList[index];
 
-    // Se suman los tiempos observados
     int mergedTime = (prev['time'] as int) + (curr['time'] as int);
-    
-    // Se concatenan los nombres
     String mergedName = '${prev['name']} + ${curr['name']}';
 
     Map<String, dynamic> mergedEntry = {
       'name': mergedName,
       'time': mergedTime,
-      'type': 'normal', // Al fusionar se reinicia a normal por defecto
+      'type': 'normal', 
     };
 
-    // Respetamos la línea de tiempo del modo continuo
     if (currentMode == StopwatchMode.continuo) {
       mergedEntry['cumulative_time'] = curr['cumulative_time'];
     }
 
-    // Reemplazamos el anterior con el fusionado y borramos el actual
     currentList[index - 1] = mergedEntry;
     currentList.removeAt(index);
 
@@ -415,6 +417,7 @@ class TimeLogController extends ChangeNotifier {
     stopTimerLogic();
     _stopwatch.reset();
     _baseTimeMs = 0; 
+    activeStudyId = null; 
     _syncStartTime();
     activeRecordedTimes.clear();
     saveTimeData();
@@ -481,17 +484,38 @@ class TimeLogController extends ChangeNotifier {
   Future<void> saveCurrentStudyToHistory(String studyName) async {
     if (activeRecordedTimes.isEmpty) return;
     
-    await _storage.saveStudyToHistory(
+    activeStudyId = await _storage.saveStudyToHistory(
       name: studyName,
       mode: currentMode,
       times: activeRecordedTimes,
     );
+    saveTimerState(); 
+    notifyListeners();
+
     _showSnackBar('Estudio "$studyName" guardado con éxito.', Icons.save, Colors.tealAccent);
+  }
+
+  // Nueva lógica para actualizar un estudio en lugar de crear uno nuevo
+  Future<void> updateCurrentStudy() async {
+    if (activeRecordedTimes.isEmpty || activeStudyId == null) return;
+    
+    await _storage.updateExistingStudy(
+      id: activeStudyId!,
+      mode: currentMode,
+      times: activeRecordedTimes,
+    );
+    
+    saveTimerState();
+    notifyListeners();
+
+    _showSnackBar('Estudio actualizado correctamente.', Icons.update, Colors.tealAccent);
   }
 
   void loadStudyFromHistory(StudyModel study) {
     resetAll();
     setMode(study.mode);
+    activeStudyId = study.id; 
+    
     if (study.mode == StopwatchMode.regresoACero) {
       recordedTimesRegresoACero = List<Map<String, dynamic>>.from(study.times);
     } else {
@@ -501,10 +525,18 @@ class TimeLogController extends ChangeNotifier {
         _baseTimeMs = _lastRecordedTimeMs;
       }
     }
+    
     saveTimeData();
+    saveTimerState();
     calculateStatistics();
     notifyListeners();
     _showSnackBar('Estudio cargado: ${study.name}', Icons.folder_open, Colors.blueAccent);
+  }
+
+  void clearActiveStudyId() {
+    activeStudyId = null;
+    saveTimerState();
+    notifyListeners();
   }
 
   String formatTime(double milliseconds) {

@@ -112,6 +112,36 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       return;
     }
 
+    // Si ya existe un estudio cargado/activo, preguntamos si desea actualizarlo o guardar uno nuevo
+    if (controller.activeStudyId != null) {
+      bool? chooseUpdate = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF252525),
+          title: const Text('Actualizar Estudio', style: TextStyle(color: Colors.white)),
+          content: const Text('Este estudio ya está guardado en tu historial. ¿Deseas actualizar los datos del registro existente o guardarlo como un estudio completamente nuevo?', style: TextStyle(color: Colors.white70)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false), 
+              child: const Text('NUEVO', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true), 
+              child: const Text('ACTUALIZAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+
+      if (chooseUpdate == null) return; 
+
+      if (chooseUpdate == true) {
+        controller.updateCurrentStudy();
+        return;
+      }
+    }
+
+    // Flujo normal para guardar un estudio nuevo
     final TextEditingController nameController = TextEditingController(
       text: controller.taskNameController.text.isNotEmpty ? controller.taskNameController.text : 'Estudio ${DateTime.now().day}/${DateTime.now().month}'
     );
@@ -120,7 +150,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF252525),
-        title: const Text('Guardar Estudio', style: TextStyle(color: Colors.white)),
+        title: const Text('Guardar Estudio Nuevo', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: nameController,
           style: const TextStyle(color: Colors.white),
@@ -586,7 +616,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             rows: state.recordedTimesContinuo.asMap().entries.map((e) {
               bool isOutlier = e.value['type'] == 'outlier';
               return DataRow(
-                onLongPress: () => _promptMerge(e.key, state), // NUEVO: Gesto para fusionar
+                onLongPress: () => _promptMerge(e.key, state), 
                 color: WidgetStateProperty.all(isOutlier ? Colors.redAccent.withOpacity(0.05) : null),
                 cells: [
                   DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), 
@@ -619,7 +649,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             border: Border.all(color: isOutlier ? Colors.redAccent.withOpacity(0.2) : Colors.transparent),
           ),
           child: ListTile(
-            onLongPress: () => _promptMerge(index, state), // NUEVO: Gesto para fusionar
+            onLongPress: () => _promptMerge(index, state), 
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), 
             leading: Text('${index + 1}', style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
             title: _buildElementNameWidget(timeData, index, state),

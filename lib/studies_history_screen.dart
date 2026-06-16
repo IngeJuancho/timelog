@@ -32,6 +32,11 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
   }
 
   Future<void> _deleteStudy(String id) async {
+    // Si borramos el estudio que estamos utilizando ahora mismo, le quitamos la marca de activo
+    if (ref.read(timeLogProvider).activeStudyId == id) {
+      ref.read(timeLogProvider).clearActiveStudyId();
+    }
+    
     await _storage.deleteStudyFromHistory(id);
     _loadHistory();
   }
@@ -57,6 +62,40 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
     );
   }
 
+  void _editStudyName(StudyModel study) {
+    final nameController = TextEditingController(text: study.name);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF252525),
+        title: const Text('Renombrar Estudio', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: nameController,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent)),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final newName = nameController.text.trim();
+              if (newName.isNotEmpty && newName != study.name) {
+                await _storage.updateStudyName(study.id, newName);
+                _loadHistory(); // Recargamos para reflejar el cambio en la lista visual
+              }
+            },
+            child: const Text('GUARDAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _loadStudyToActive(StudyModel study) {
     ref.read(timeLogProvider).loadStudyFromHistory(study);
     Navigator.pop(context);
@@ -64,6 +103,9 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Escuchamos el ID del estudio activo en tiempo real
+    final activeStudyId = ref.watch(timeLogProvider).activeStudyId;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Historial de Estudios'),
@@ -92,11 +134,20 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                     final dateStr = '${study.date.day}/${study.date.month}/${study.date.year}';
                     final modeStr = study.mode == StopwatchMode.continuo ? 'Continuo' : 'Regreso a Cero';
                     
+                    // Condición para saber si este elemento es el que la app está utilizando
+                    final isActive = study.id == activeStudyId;
+                    
                     return Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF252525),
+                        color: isActive ? Colors.tealAccent.withOpacity(0.05) : const Color(0xFF252525),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white10),
+                        border: Border.all(
+                          color: isActive ? Colors.tealAccent : Colors.white10,
+                          width: isActive ? 1.5 : 1.0,
+                        ),
+                        boxShadow: isActive
+                            ? [BoxShadow(color: Colors.tealAccent.withOpacity(0.15), blurRadius: 10, spreadRadius: 1)]
+                            : [],
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -118,6 +169,11 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, color: Colors.white70),
+                              onPressed: () => _editStudyName(study),
+                              tooltip: 'Renombrar',
+                            ),
                             IconButton(
                               icon: const Icon(Icons.folder_open, color: Colors.blueAccent),
                               onPressed: () => _loadStudyToActive(study),
