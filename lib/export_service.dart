@@ -75,28 +75,49 @@ class ExportService {
 
       if (csvTable.isEmpty) throw Exception("El archivo CSV está vacío o corrupto.");
 
-      final headers = csvTable.first.map((e) => e.toString().toLowerCase()).toList();
+      final headers = csvTable.first.map((e) => e.toString().trim().toLowerCase()).toList();
       
       bool isContinuo = headers.contains('tc (ms)');
       StopwatchMode mode = isContinuo ? StopwatchMode.continuo : StopwatchMode.regresoACero;
+
+      // SOLUCIÓN: Búsqueda inteligente de columnas (soporta CSV nuevos y viejos)
+      int nameIdx = headers.indexOf('nombre');
+      int typeIdx = headers.indexOf('tipo');
+      int tcIdx = headers.indexOf('tc (ms)');
+      int toIdx = headers.indexOf('to (ms)');
+      int tiempoIdx = headers.indexOf('tiempo (ms)');
+
+      // Fallbacks por si es un archivo de versión antigua sin columna Tipo
+      if (nameIdx == -1) nameIdx = 1;
+      if (isContinuo && tcIdx == -1) tcIdx = 2; 
+      if (isContinuo && toIdx == -1) toIdx = 4;
+      if (!isContinuo && tiempoIdx == -1) tiempoIdx = 2;
 
       List<Map<String, dynamic>> importedTimes = [];
 
       for (int i = 1; i < csvTable.length; i++) {
         final row = csvTable[i];
-        if (row.isEmpty || row.length < 4) continue; 
+        if (row.isEmpty) continue; 
         
-        String name = row[1].toString();
-        // Limpiamos los caracteres especiales o corruptos por si acaso en la lectura del tipo
-        String rawType = row[2].toString().toLowerCase();
-        String type = (rawType.contains('at') || rawType.contains('típico') || rawType.contains('outlier')) ? 'outlier' : 'normal';
+        String name = (nameIdx < row.length) ? row[nameIdx].toString() : 'Ciclo $i';
         
+        String type = 'normal';
+        if (typeIdx != -1 && typeIdx < row.length) {
+          String rawType = row[typeIdx].toString().toLowerCase();
+          type = (rawType.contains('at') || rawType.contains('típico') || rawType.contains('outlier')) ? 'outlier' : 'normal';
+        }
+        
+        // Función ultra-segura para parsear los números, limpia espacios y decimales perdidos
+        int parseSafeInt(dynamic val) {
+          return (double.tryParse(val.toString().trim()) ?? 0).toInt();
+        }
+
         if (isContinuo) {
-          int tc = int.tryParse(row[3].toString()) ?? 0;
-          int to = int.tryParse(row[5].toString()) ?? 0;
+          int tc = (tcIdx < row.length) ? parseSafeInt(row[tcIdx]) : 0;
+          int to = (toIdx < row.length) ? parseSafeInt(row[toIdx]) : 0;
           importedTimes.add({'name': name, 'type': type, 'cumulative_time': tc, 'time': to});
         } else {
-          int to = int.tryParse(row[3].toString()) ?? 0;
+          int to = (tiempoIdx < row.length) ? parseSafeInt(row[tiempoIdx]) : 0;
           importedTimes.add({'name': name, 'type': type, 'time': to});
         }
       }
