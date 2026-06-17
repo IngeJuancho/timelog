@@ -436,7 +436,8 @@ class TimeLogController extends ChangeNotifier {
       final fileName = await _export.exportDataToCsv(
         data: activeRecordedTimes,
         mode: currentMode,
-        timeFormatter: formatTime,
+        // Pasamos forExport: true para evitar el sufijo ("s" o "min") en el CSV
+        timeFormatter: (val) => formatTime(val, forExport: true),
       );
       
       if (fileName != null) {
@@ -495,7 +496,6 @@ class TimeLogController extends ChangeNotifier {
     _showSnackBar('Estudio "$studyName" guardado con éxito.', Icons.save, Colors.tealAccent);
   }
 
-  // Nueva lógica para actualizar un estudio en lugar de crear uno nuevo
   Future<void> updateCurrentStudy() async {
     if (activeRecordedTimes.isEmpty || activeStudyId == null) return;
     
@@ -539,13 +539,16 @@ class TimeLogController extends ChangeNotifier {
     notifyListeners();
   }
 
-  String formatTime(double milliseconds) {
+  // Agregamos el parámetro 'forExport' para decidir si omitir el sufijo literal
+  String formatTime(double milliseconds, {bool forExport = false}) {
     if (milliseconds < 0) return "00:00.00";
     
     if (timeFormat == TimeFormat.seconds) {
-      return '${(milliseconds / 1000).toStringAsFixed(2)} s';
+      String val = (milliseconds / 1000).toStringAsFixed(2);
+      return forExport ? val : '$val s';
     } else if (timeFormat == TimeFormat.minutes) {
-      return '${(milliseconds / 60000).toStringAsFixed(3)} min';
+      String val = (milliseconds / 60000).toStringAsFixed(3);
+      return forExport ? val : '$val min';
     } else {
       final minutes = (milliseconds / 60000).truncate();
       final seconds = (milliseconds / 1000).truncate() % 60;

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Agregado para SystemChannels
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'time_log_controller.dart';
 import 'models.dart';
@@ -30,12 +31,21 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   late Animation<double> _exportButtonAnimation;
 
   final ScrollController _scrollController = ScrollController();
+  
+  final FocusNode _taskNameFocusNode = FocusNode();
+  
   bool _showingAnalysis = true;
 
   @override
   void initState() {
     super.initState();
     _initAnimations();
+    
+    _taskNameFocusNode.addListener(() {
+      if (!_taskNameFocusNode.hasFocus) {
+        SystemChannels.textInput.invokeMethod('TextInput.hide');
+      }
+    });
   }
 
   void _initAnimations() {
@@ -112,7 +122,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       return;
     }
 
-    // Si ya existe un estudio cargado/activo, preguntamos si desea actualizarlo o guardar uno nuevo
     if (controller.activeStudyId != null) {
       bool? chooseUpdate = await showDialog<bool>(
         context: context,
@@ -133,6 +142,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         ),
       );
 
+      if (!mounted) return; // Corrección async gap
       if (chooseUpdate == null) return; 
 
       if (chooseUpdate == true) {
@@ -141,7 +151,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       }
     }
 
-    // Flujo normal para guardar un estudio nuevo
     final TextEditingController nameController = TextEditingController(
       text: controller.taskNameController.text.isNotEmpty ? controller.taskNameController.text : 'Estudio ${DateTime.now().day}/${DateTime.now().month}'
     );
@@ -211,6 +220,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       }
     );
 
+    if (!mounted) return; // Corrección async gap
     if (shouldReset == true) controller.resetAll();
   }
 
@@ -223,6 +233,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     _secondaryButtonController.dispose();
     _exportButtonController.dispose();
     _scrollController.dispose();
+    _taskNameFocusNode.dispose(); 
     super.dispose();
   }
 
@@ -258,39 +269,46 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       WidgetsBinding.instance.addPostFrameCallback((_) => state.calculateStatistics());
     }
 
-    return Scaffold(
-      drawer: _buildDrawer(state),
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.analytics_outlined, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 10),
-            const Text('TimeLog', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-          ],
+    return TapRegion(
+      onTapOutside: (_) {
+        if (_taskNameFocusNode.hasFocus) {
+          _taskNameFocusNode.unfocus();
+        }
+      },
+      child: Scaffold(
+        drawer: _buildDrawer(state),
+        appBar: AppBar(
+          title: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.analytics_outlined, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 10),
+              const Text('TimeLog', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+            ],
+          ),
+          centerTitle: true,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
         ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
-      body: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-            child: Column(
-              children: [
-                _buildTimerDisplay(state),
-                const SizedBox(height: 24),
-                _buildTaskNameField(state),
-                const SizedBox(height: 24),
-                _buildControlButtons(state),
-                const SizedBox(height: 16),
-                _buildSecondaryButtons(state),
-                const SizedBox(height: 24),
-                Expanded(child: _buildStatsCard(state)),
-              ],
+        body: Container(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+              child: Column(
+                children: [
+                  _buildTimerDisplay(state),
+                  const SizedBox(height: 24),
+                  _buildTaskNameField(state),
+                  const SizedBox(height: 24),
+                  _buildControlButtons(state),
+                  const SizedBox(height: 16),
+                  _buildSecondaryButtons(state),
+                  const SizedBox(height: 24),
+                  Expanded(child: _buildStatsCard(state)),
+                ],
+              ),
             ),
           ),
         ),
@@ -346,7 +364,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         leading: Icon(icon, color: isSelected ? Colors.tealAccent : Colors.white70),
         title: Text(title, style: TextStyle(color: isSelected ? Colors.tealAccent : Colors.white, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
         subtitle: Text(subtitle, style: TextStyle(color: isSelected ? Colors.teal.withOpacity(0.7) : Colors.white38, fontSize: 12)),
-        tileColor: isSelected ? Colors.teal.withOpacity(0.15) : null,
+        tileColor: isSelected ? Colors.teal.withValues(alpha: 0.15) : null,
         onTap: () { state.setMode(mode); Navigator.pop(context); },
       ),
     );
@@ -381,13 +399,26 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       height: 50,
       child: TextField(
         controller: state.taskNameController,
-        onSubmitted: (_) => FocusScope.of(context).unfocus(),
+        focusNode: _taskNameFocusNode, 
+        enableInteractiveSelection: true, 
+        onTap: () {
+          final text = state.taskNameController.text;
+          if (text.isNotEmpty && state.taskNameController.selection.isCollapsed) {
+            state.taskNameController.selection = TextSelection.fromPosition(
+              TextPosition(offset: state.taskNameController.selection.baseOffset)
+            );
+          }
+        },
+        onSubmitted: (_) => _taskNameFocusNode.unfocus(),
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: 'Nombre de la tarea...',
           hintStyle: const TextStyle(color: Colors.white24),
           prefixIcon: Icon(Icons.edit, color: Colors.teal.shade200, size: 20),
-          suffixIcon: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.black87, size: 20), onPressed: () => state.taskNameController.clear()),
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.white54, size: 20), 
+            onPressed: () => state.taskNameController.clear(),
+          ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 20),
           filled: true,
           fillColor: const Color(0xFF252525),
@@ -398,13 +429,31 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   }
 
   Widget _buildControlButtons(TimeLogController state) {
-    String primaryLabel; IconData primaryIcon; Color primaryColor;
+    String primaryLabel; 
+    IconData primaryIcon; 
+    Color primaryColor;
+    
+    // Corrección: Encapsulamiento con llaves en sentencias if
     if (state.currentMode == StopwatchMode.regresoACero) {
-      if (state.isRunning) { primaryLabel = 'Parar'; primaryIcon = Icons.pause_circle_filled; primaryColor = Colors.redAccent; } 
-      else { primaryLabel = 'Iniciar'; primaryIcon = Icons.play_circle_fill; primaryColor = Colors.tealAccent; }
+      if (state.isRunning) { 
+        primaryLabel = 'Parar'; 
+        primaryIcon = Icons.pause_circle_filled; 
+        primaryColor = Colors.redAccent; 
+      } else { 
+        primaryLabel = 'Iniciar'; 
+        primaryIcon = Icons.play_circle_fill; 
+        primaryColor = Colors.tealAccent; 
+      }
     } else {
-      if (state.isRunning) { primaryLabel = 'Lap'; primaryIcon = Icons.flag; primaryColor = Colors.indigoAccent; } 
-      else { primaryLabel = 'Iniciar'; primaryIcon = Icons.play_circle_fill; primaryColor = Colors.tealAccent; }
+      if (state.isRunning) { 
+        primaryLabel = 'Lap'; 
+        primaryIcon = Icons.flag; 
+        primaryColor = Colors.indigoAccent; 
+      } else { 
+        primaryLabel = 'Iniciar'; 
+        primaryIcon = Icons.play_circle_fill; 
+        primaryColor = Colors.tealAccent; 
+      }
     }
     
     return AnimatedBuilder(
@@ -417,13 +466,26 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             onPressed: () {
               _animateButton(_startButtonController);
               if (state.isRunning) {
-                if (state.currentMode == StopwatchMode.continuo) state.recordTime(resetStopwatch: false, keepRunning: true);
-                else { state.stopTimerLogic(); state.recordTime(resetStopwatch: true, keepRunning: false); }
-              } else state.startTimerLogic();
+                // Corrección: Encapsulamiento con llaves
+                if (state.currentMode == StopwatchMode.continuo) {
+                  state.recordTime(resetStopwatch: false, keepRunning: true);
+                } else { 
+                  state.stopTimerLogic(); 
+                  state.recordTime(resetStopwatch: true, keepRunning: false); 
+                }
+              } else {
+                state.startTimerLogic();
+              }
             },
             icon: Icon(primaryIcon, size: 28),
             label: Text(primaryLabel.toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-            style: ElevatedButton.styleFrom(backgroundColor: primaryColor.withOpacity(0.2), foregroundColor: primaryColor, elevation: 0, side: BorderSide(color: primaryColor.withOpacity(0.5), width: 1.5), shape: const StadiumBorder()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor.withValues(alpha: 0.2), 
+              foregroundColor: primaryColor, 
+              elevation: 0, 
+              side: BorderSide(color: primaryColor.withValues(alpha: 0.5), width: 1.5), 
+              shape: const StadiumBorder()
+            ),
           ),
         ),
       ),
@@ -440,33 +502,60 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         Expanded(
           child: AnimatedBuilder(
             animation: _secondaryButtonAnimation,
-            builder: (_, __) => Transform.scale(scale: _secondaryButtonAnimation.value, child: _buildSecondaryButton(icon: secondaryIcon, label: secondaryLabel, onPressed: isEnabled ? () {
-              _animateButton(_secondaryButtonController);
-              if (state.currentMode == StopwatchMode.regresoACero) state.recordTime(resetStopwatch: true, keepRunning: true);
-              else { state.stopTimerLogic(); state.recordTime(resetStopwatch: true, keepRunning: false); }
-            } : null, color: Colors.orangeAccent)),
+            builder: (_, __) => Transform.scale(
+              scale: _secondaryButtonAnimation.value, 
+              child: _buildSecondaryButton(
+                icon: secondaryIcon, 
+                label: secondaryLabel, 
+                onPressed: isEnabled ? () {
+                  _animateButton(_secondaryButtonController);
+                  // Corrección: Encapsulamiento con llaves
+                  if (state.currentMode == StopwatchMode.regresoACero) {
+                    state.recordTime(resetStopwatch: true, keepRunning: true);
+                  } else { 
+                    state.stopTimerLogic(); 
+                    state.recordTime(resetStopwatch: true, keepRunning: false); 
+                  }
+                } : null, 
+                color: Colors.orangeAccent
+              )
+            ),
           )
         ),
         const SizedBox(width: 16),
         Expanded(
           child: AnimatedBuilder(
             animation: _resetButtonAnimation,
-            builder: (_, __) => Transform.scale(scale: _resetButtonAnimation.value, child: _buildSecondaryButton(icon: Icons.refresh, label: 'Reset', onPressed: () { _animateButton(_resetButtonController); _confirmReset(); }, color: Colors.white70)),
+            builder: (_, __) => Transform.scale(
+              scale: _resetButtonAnimation.value, 
+              child: _buildSecondaryButton(
+                icon: Icons.refresh, 
+                label: 'Reset', 
+                onPressed: () { 
+                  _animateButton(_resetButtonController); 
+                  _confirmReset(); 
+                }, 
+                color: Colors.white70
+              )
+            ),
           )
         ),
         const SizedBox(width: 16),
         Expanded(
           child: AnimatedBuilder(
             animation: _exportButtonAnimation,
-            builder: (_, __) => Transform.scale(scale: _exportButtonAnimation.value, child: _buildSecondaryButton(
-              icon: Icons.import_export, 
-              label: 'Archivos',         
-              onPressed: () { 
-                _animateButton(_exportButtonController); 
-                _showExportImportOptions(context, state); 
-              }, 
-              color: Colors.blueAccent
-            )),
+            builder: (_, __) => Transform.scale(
+              scale: _exportButtonAnimation.value, 
+              child: _buildSecondaryButton(
+                icon: Icons.import_export, 
+                label: 'Archivos',         
+                onPressed: () { 
+                  _animateButton(_exportButtonController); 
+                  _showExportImportOptions(context, state); 
+                }, 
+                color: Colors.blueAccent
+              )
+            ),
           )
         ),
       ],
@@ -513,8 +602,21 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   Widget _buildSecondaryButton({required IconData icon, required String label, required VoidCallback? onPressed, required Color color}) {
     return ElevatedButton(
       onPressed: onPressed,
-      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF252525), foregroundColor: color, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 20), const SizedBox(height: 4), Text(label, style: const TextStyle(fontSize: 10))]),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF252525), 
+        foregroundColor: color, 
+        elevation: 0, 
+        padding: const EdgeInsets.symmetric(vertical: 16), 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min, 
+        children: [
+          Icon(icon, size: 20), 
+          const SizedBox(height: 4), 
+          Text(label, style: const TextStyle(fontSize: 10))
+        ]
+      ),
     );
   }
 
@@ -564,8 +666,20 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 
   Widget _buildStatBox(String label, double value, Color color, TimeLogController state) {
     return Container(
-      padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(16), border: Border.all(color: color.withOpacity(0.3))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label.toUpperCase(), style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)), const SizedBox(height: 8), Text(state.formatTime(value), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))]),
+      padding: const EdgeInsets.all(16), 
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1), 
+        borderRadius: BorderRadius.circular(16), 
+        border: Border.all(color: color.withValues(alpha: 0.3))
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, 
+        children: [
+          Text(label.toUpperCase(), style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)), 
+          const SizedBox(height: 8), 
+          Text(state.formatTime(value), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))
+        ]
+      ),
     );
   }
 
@@ -585,9 +699,9 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isOutlier ? Colors.redAccent.withOpacity(0.15) : Colors.tealAccent.withOpacity(0.1),
+                  color: isOutlier ? Colors.redAccent.withValues(alpha: 0.15) : Colors.tealAccent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: isOutlier ? Colors.redAccent.withOpacity(0.5) : Colors.tealAccent.withOpacity(0.3)),
+                  border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.5) : Colors.tealAccent.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   isOutlier ? 'ATÍPICO' : 'NORMAL',
@@ -611,18 +725,21 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.white10),
           child: DataTable(
-            columnSpacing: 20, headingRowColor: WidgetStateProperty.all(const Color(0xFF252525)), headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent, fontSize: 12), dataTextStyle: const TextStyle(fontSize: 13, color: Colors.white70),
+            columnSpacing: 20, 
+            headingRowColor: WidgetStateProperty.all(const Color(0xFF252525)), 
+            headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent, fontSize: 12), 
+            dataTextStyle: const TextStyle(fontSize: 13, color: Colors.white70),
             columns: const [DataColumn(label: Text('#')), DataColumn(label: Text('ELEMENTO')), DataColumn(label: Text('TC (Acum)')), DataColumn(label: Text('TO (Indiv)')), DataColumn(label: Text(''))],
             rows: state.recordedTimesContinuo.asMap().entries.map((e) {
               bool isOutlier = e.value['type'] == 'outlier';
               return DataRow(
                 onLongPress: () => _promptMerge(e.key, state), 
-                color: WidgetStateProperty.all(isOutlier ? Colors.redAccent.withOpacity(0.05) : null),
+                color: WidgetStateProperty.all(isOutlier ? Colors.redAccent.withValues(alpha: 0.05) : null),
                 cells: [
                   DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), 
                   DataCell(_buildElementNameWidget(e.value, e.key, state)), 
                   DataCell(Text(state.formatTime((e.value['cumulative_time'] ?? 0).toDouble()), style: TextStyle(color: isOutlier ? Colors.white54 : Colors.white70))), 
-                  DataCell(Text(state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withOpacity(0.7) : Colors.white))), 
+                  DataCell(Text(state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : Colors.white))), 
                   DataCell(IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => state.deleteItem(e.key)))
                 ]
               );
@@ -637,16 +754,18 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     if (state.recordedTimesRegresoACero.isEmpty) return _buildEmptyState();
     return ListView.separated(
       controller: _scrollController,
-      padding: const EdgeInsets.all(16), itemCount: state.recordedTimesRegresoACero.length, separatorBuilder: (_, __) => const SizedBox(height: 8),
+      padding: const EdgeInsets.all(16), 
+      itemCount: state.recordedTimesRegresoACero.length, 
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final timeData = state.recordedTimesRegresoACero[index];
         bool isOutlier = timeData['type'] == 'outlier';
         
         return Container(
           decoration: BoxDecoration(
-            color: isOutlier ? Colors.redAccent.withOpacity(0.05) : const Color(0xFF252525), 
+            color: isOutlier ? Colors.redAccent.withValues(alpha: 0.05) : const Color(0xFF252525), 
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isOutlier ? Colors.redAccent.withOpacity(0.2) : Colors.transparent),
+            border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.2) : Colors.transparent),
           ),
           child: ListTile(
             onLongPress: () => _promptMerge(index, state), 
@@ -656,7 +775,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             trailing: Row(
               mainAxisSize: MainAxisSize.min, 
               children: [
-                Text(state.formatTime(timeData['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withOpacity(0.7) : Colors.white70, fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')), 
+                Text(state.formatTime(timeData['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : Colors.white70, fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')), 
                 const SizedBox(width: 10), 
                 IconButton(icon: const Icon(Icons.close, size: 18, color: Colors.redAccent), onPressed: () => state.deleteItem(index))
               ]
