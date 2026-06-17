@@ -38,7 +38,12 @@ class ExportService {
       }
       
       final csv = const ListToCsvConverter().convert(csvData);
-      final bytes = Uint8List.fromList(csv.codeUnits);
+      
+      // SOLUCIÓN BUG: Inyección del BOM (Byte Order Mark) para UTF-8. 
+      // Esto fuerza a que Excel en Windows lea los acentos (como la 'í' de Atípico) de manera perfecta.
+      final List<int> utf8Bytes = utf8.encode(csv);
+      final bytes = Uint8List.fromList([0xEF, 0xBB, 0xBF, ...utf8Bytes]);
+      
       final now = DateTime.now();
       final timestamp = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
       final fileName = 'Tiempos_IE_${modeName}_$timestamp';
@@ -69,7 +74,6 @@ class ExportService {
 
       if (fileBytes == null) throw Exception("No se pudo leer el contenido del archivo.");
 
-      // CORRECCIÓN DEL ERROR: allowMalformed evita que la tilde en "Atípico" crasheé la app
       final String csvString = utf8.decode(fileBytes, allowMalformed: true);
       final List<List<dynamic>> csvTable = const CsvToListConverter().convert(csvString);
 
@@ -80,14 +84,12 @@ class ExportService {
       bool isContinuo = headers.contains('tc (ms)');
       StopwatchMode mode = isContinuo ? StopwatchMode.continuo : StopwatchMode.regresoACero;
 
-      // SOLUCIÓN: Búsqueda inteligente de columnas (soporta CSV nuevos y viejos)
       int nameIdx = headers.indexOf('nombre');
       int typeIdx = headers.indexOf('tipo');
       int tcIdx = headers.indexOf('tc (ms)');
       int toIdx = headers.indexOf('to (ms)');
       int tiempoIdx = headers.indexOf('tiempo (ms)');
 
-      // Fallbacks por si es un archivo de versión antigua sin columna Tipo
       if (nameIdx == -1) nameIdx = 1;
       if (isContinuo && tcIdx == -1) tcIdx = 2; 
       if (isContinuo && toIdx == -1) toIdx = 4;
@@ -107,7 +109,6 @@ class ExportService {
           type = (rawType.contains('at') || rawType.contains('típico') || rawType.contains('outlier')) ? 'outlier' : 'normal';
         }
         
-        // Función ultra-segura para parsear los números, limpia espacios y decimales perdidos
         int parseSafeInt(dynamic val) {
           return (double.tryParse(val.toString().trim()) ?? 0).toInt();
         }

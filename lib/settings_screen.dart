@@ -1,4 +1,3 @@
-// lib/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'time_log_controller.dart';
@@ -17,6 +16,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    
+    // Escuchar cambios de pestaña para redibujar dinámicamente y adaptar la altura
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -27,7 +33,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    // CORRECCIÓN 2: Uso de '.select' enfocado para evitar redibujados innecesarios a 60 FPS.
     final useHaptic = ref.watch(timeLogProvider.select((s) => s.useHapticFeedback));
     final hapticLvl = ref.watch(timeLogProvider.select((s) => s.hapticLevel));
     final usePhysical = ref.watch(timeLogProvider.select((s) => s.usePhysicalButtons));
@@ -88,16 +93,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
 
           if (usePhysical) ...[
             const SizedBox(height: 20),
+            // SOLUCIÓN BUG: Eliminada la altura fija de 350. 
+            // Ahora usamos AnimatedSize y mostramos condicionalmente las páginas.
             Container(
-              height: 350,
               decoration: BoxDecoration(color: const Color(0xFF252525), borderRadius: BorderRadius.circular(16)),
-              child: Column(children: [
-                TabBar(controller: _tabController, indicatorColor: Colors.tealAccent, labelColor: Colors.tealAccent, unselectedLabelColor: Colors.white38, tabs: const [Tab(text: "Regreso a Cero"), Tab(text: "Continuo")]),
-                Expanded(child: TabBarView(controller: _tabController, children: [
-                  _buildButtonConfigPage("Botón Subir", vUpRAC, (v) { controller.volUpActionRAC = v!; controller.saveSettings(); }, "Botón Bajar", vDownRAC, (v) { controller.volDownActionRAC = v!; controller.saveSettings(); }),
-                  _buildButtonConfigPage("Botón Subir", vUpCont, (v) { controller.volUpActionCont = v!; controller.saveSettings(); }, "Botón Bajar", vDownCont, (v) { controller.volDownActionCont = v!; controller.saveSettings(); })
-                ]))
-              ]),
+              child: Column(
+                mainAxisSize: MainAxisSize.min, // El contenedor tomará solo el alto necesario
+                children: [
+                  TabBar(
+                    controller: _tabController, 
+                    indicatorColor: Colors.tealAccent, 
+                    labelColor: Colors.tealAccent, 
+                    unselectedLabelColor: Colors.white38, 
+                    tabs: const [Tab(text: "Regreso a Cero"), Tab(text: "Continuo")]
+                  ),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOutCubic,
+                    child: _tabController.index == 0
+                        ? _buildButtonConfigPage("Botón Subir", vUpRAC, (v) { controller.volUpActionRAC = v!; controller.saveSettings(); }, "Botón Bajar", vDownRAC, (v) { controller.volDownActionRAC = v!; controller.saveSettings(); })
+                        : _buildButtonConfigPage("Botón Subir", vUpCont, (v) { controller.volUpActionCont = v!; controller.saveSettings(); }, "Botón Bajar", vDownCont, (v) { controller.volDownActionCont = v!; controller.saveSettings(); }),
+                  )
+                ]
+              ),
             )
           ]
         ],

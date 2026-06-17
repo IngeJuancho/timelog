@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -91,7 +92,6 @@ class TimeLogController extends ChangeNotifier {
     String? contJson = prefs.getString('times_cont');
     if (contJson != null) recordedTimesContinuo = List<Map<String, dynamic>>.from(jsonDecode(contJson));
 
-    // CARGA DE PERSISTENCIA (Modo y Nombre de Tarea)
     currentMode = StopwatchMode.values[prefs.getInt('currentMode') ?? StopwatchMode.regresoACero.index];
     taskNameController.text = prefs.getString('taskName') ?? '';
 
@@ -136,7 +136,6 @@ class TimeLogController extends ChangeNotifier {
     await _storage.saveActiveTimeData(recordedTimesRegresoACero, recordedTimesContinuo);
   }
 
-  // Se añaden el nombre de la tarea y el modo al guardado maestro del estado de sesión
   Future<void> saveTimerState() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isRunning', _stopwatch.isRunning);
@@ -198,7 +197,7 @@ class TimeLogController extends ChangeNotifier {
       }
       
       if (wasRunning) _stopwatch.start();
-      _syncStartTime(); 
+      _syncStartTime();
 
       calculateStatistics();
       _showSnackBar('Modo: ${mode == StopwatchMode.regresoACero ? "Regreso a Cero" : "Continuo"}', Icons.settings, Colors.tealAccent);
@@ -356,9 +355,9 @@ class TimeLogController extends ChangeNotifier {
     if (individualTimeMs >= 0) {
       triggerHaptic();
       
-      // REVERTIDO: Vuelve a tomar exactamente lo que el usuario escribió
-      final name = taskNameController.text.isNotEmpty 
-          ? taskNameController.text 
+      String baseName = taskNameController.text.trim();
+      final name = baseName.isNotEmpty 
+          ? baseName
           : 'Ciclo ${currentList.length + 1}';
       
       timeEntry['name'] = name;
@@ -531,6 +530,10 @@ class TimeLogController extends ChangeNotifier {
     setMode(study.mode);
     activeStudyId = study.id; 
     
+    // SOLUCIÓN BUG: Actualizamos el campo de texto y lo guardamos en caché
+    taskNameController.text = study.name;
+    updateTaskName(study.name);
+    
     if (study.mode == StopwatchMode.regresoACero) {
       recordedTimesRegresoACero = List<Map<String, dynamic>>.from(study.times);
     } else {
@@ -573,30 +576,50 @@ class TimeLogController extends ChangeNotifier {
 
   void _showSnackBar(String message, IconData icon, Color iconColor) {
     scaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+    
+    double bottomMargin = 16.0;
+    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+    if (view != null) {
+      final screenHeight = view.physicalSize.height / view.devicePixelRatio;
+      bottomMargin = screenHeight - 140; 
+      if (bottomMargin < 16.0) bottomMargin = 16.0;
+    }
+
     scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Row(children: [Icon(icon, color: iconColor), const SizedBox(width: 12), Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))]),
         backgroundColor: const Color(0xFF333333),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
+        margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
         elevation: 6,
-        duration: const Duration(milliseconds: 1500),
+        duration: const Duration(seconds: 3), 
+        dismissDirection: DismissDirection.up, 
       ),
     );
   }
 
   void _showSnackBarWithUndo(String message, IconData icon, Color iconColor) {
-    scaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+    scaffoldMessengerKey.currentState?.hideCurrentSnackBar(); 
+    
+    double bottomMargin = 16.0;
+    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+    if (view != null) {
+      final screenHeight = view.physicalSize.height / view.devicePixelRatio;
+      bottomMargin = screenHeight - 140; 
+      if (bottomMargin < 16.0) bottomMargin = 16.0;
+    }
+
     scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Row(children: [Icon(icon, color: iconColor), const SizedBox(width: 12), Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))]),
         backgroundColor: const Color(0xFF333333),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.all(16),
+        margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
         elevation: 6,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 3),
+        dismissDirection: DismissDirection.up,
         action: SnackBarAction(label: 'DESHACER', textColor: Colors.orangeAccent, onPressed: undoLastRecord),
       ),
     );
