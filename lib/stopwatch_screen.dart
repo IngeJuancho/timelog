@@ -31,10 +31,8 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   late Animation<double> _exportButtonAnimation;
 
   final ScrollController _scrollController = ScrollController();
-  
   final FocusNode _taskNameFocusNode = FocusNode();
   double _previousBottomInset = 0.0;
-  
   bool _showingAnalysis = true;
 
   @override
@@ -56,7 +54,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
     if (view != null) {
       final bottomInset = view.viewInsets.bottom;
-      // Solución al cierre instantáneo: Solo quitamos el foco si el teclado ESTABA abierto y ahora se CERRÓ
       if (_previousBottomInset > 0.0 && bottomInset == 0.0 && _taskNameFocusNode.hasFocus) {
         _taskNameFocusNode.unfocus();
       }
@@ -659,7 +656,12 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             Expanded(
               child: Container(
                 color: const Color(0xFF1E1E1E),
-                child: _showingAnalysis ? _buildAnalysisView(state) : (state.currentMode == StopwatchMode.continuo ? _buildContinuousTable(state) : _buildSimpleRecordsList(state)),
+                // AHORA LLAMAMOS A LOS WIDGETS INDEPENDIENTES
+                child: _showingAnalysis 
+                    ? AnalysisViewWidget(state: state) 
+                    : (state.currentMode == StopwatchMode.continuo 
+                        ? ContinuousTableWidget(state: state, scrollController: _scrollController, onMergeRequest: (i) => _promptMerge(i, state)) 
+                        : SimpleRecordsListWidget(state: state, scrollController: _scrollController, onMergeRequest: (i) => _promptMerge(i, state))),
               ),
             ),
           ],
@@ -667,16 +669,34 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       ),
     );
   }
+}
 
-  Widget _buildAnalysisView(TimeLogController state) {
-    if (state.activeRecordedTimes.isEmpty) return _buildEmptyState();
+// -------------------------------------------------------------------------------------
+// WIDGETS INDEPENDIENTES EXTRAÍDOS (REDUCCIÓN DE CARGA VISUAL EN EL ESTADO PRINCIPAL)
+// -------------------------------------------------------------------------------------
+
+class AnalysisViewWidget extends StatelessWidget {
+  final TimeLogController state;
+  const AnalysisViewWidget({super.key, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.activeRecordedTimes.isEmpty) return const EmptyStateWidget();
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
-          Row(children: [Expanded(child: _buildStatBox('Promedio', state.averageTime, Colors.blueAccent, state)), const SizedBox(width: 12), Expanded(child: _buildStatBox('Desviación', state.stdDev, Colors.orangeAccent, state))]),
+          Row(children: [
+            Expanded(child: _buildStatBox('Promedio', state.averageTime, Colors.blueAccent, state)), 
+            const SizedBox(width: 12), 
+            Expanded(child: _buildStatBox('Desviación', state.stdDev, Colors.orangeAccent, state))
+          ]),
           const SizedBox(height: 12),
-          Row(children: [Expanded(child: _buildStatBox('Mínimo', state.minTime, Colors.greenAccent, state)), const SizedBox(width: 12), Expanded(child: _buildStatBox('Máximo', state.maxTime, Colors.redAccent, state))]),
+          Row(children: [
+            Expanded(child: _buildStatBox('Mínimo', state.minTime, Colors.greenAccent, state)), 
+            const SizedBox(width: 12), 
+            Expanded(child: _buildStatBox('Máximo', state.maxTime, Colors.redAccent, state))
+          ]),
         ],
       ),
     );
@@ -700,8 +720,106 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       ),
     );
   }
+}
 
-  Widget _buildElementNameWidget(Map<String, dynamic> timeData, int index, TimeLogController state) {
+class ContinuousTableWidget extends StatelessWidget {
+  final TimeLogController state;
+  final ScrollController scrollController;
+  final void Function(int) onMergeRequest;
+
+  const ContinuousTableWidget({super.key, required this.state, required this.scrollController, required this.onMergeRequest});
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.recordedTimesContinuo.isEmpty) return const EmptyStateWidget();
+    return SingleChildScrollView(
+      controller: scrollController,
+      scrollDirection: Axis.vertical,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.white10),
+          child: DataTable(
+            columnSpacing: 20, 
+            headingRowColor: WidgetStateProperty.all(const Color(0xFF252525)), 
+            headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent, fontSize: 12), 
+            dataTextStyle: const TextStyle(fontSize: 13, color: Colors.white70),
+            columns: const [DataColumn(label: Text('#')), DataColumn(label: Text('ELEMENTO')), DataColumn(label: Text('TC (Acum)')), DataColumn(label: Text('TO (Indiv)')), DataColumn(label: Text(''))],
+            rows: state.recordedTimesContinuo.asMap().entries.map((e) {
+              bool isOutlier = e.value['type'] == 'outlier';
+              return DataRow(
+                onLongPress: () => onMergeRequest(e.key), 
+                color: WidgetStateProperty.all(isOutlier ? Colors.redAccent.withValues(alpha: 0.05) : null),
+                cells: [
+                  DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), 
+                  DataCell(ElementNameWidget(timeData: e.value, index: e.key, state: state)), 
+                  DataCell(Text(state.formatTime((e.value['cumulative_time'] ?? 0).toDouble()), style: TextStyle(color: isOutlier ? Colors.white54 : Colors.white70))), 
+                  DataCell(Text(state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : Colors.white))), 
+                  DataCell(IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => state.deleteItem(e.key)))
+                ]
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SimpleRecordsListWidget extends StatelessWidget {
+  final TimeLogController state;
+  final ScrollController scrollController;
+  final void Function(int) onMergeRequest;
+
+  const SimpleRecordsListWidget({super.key, required this.state, required this.scrollController, required this.onMergeRequest});
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.recordedTimesRegresoACero.isEmpty) return const EmptyStateWidget();
+    return ListView.separated(
+      controller: scrollController,
+      padding: const EdgeInsets.all(16), 
+      itemCount: state.recordedTimesRegresoACero.length, 
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final timeData = state.recordedTimesRegresoACero[index];
+        bool isOutlier = timeData['type'] == 'outlier';
+        
+        return Container(
+          decoration: BoxDecoration(
+            color: isOutlier ? Colors.redAccent.withValues(alpha: 0.05) : const Color(0xFF252525), 
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.2) : Colors.transparent),
+          ),
+          child: ListTile(
+            onLongPress: () => onMergeRequest(index), 
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), 
+            leading: Text('${index + 1}', style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
+            title: ElementNameWidget(timeData: timeData, index: index, state: state),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min, 
+              children: [
+                Text(state.formatTime(timeData['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : Colors.white70, fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')), 
+                const SizedBox(width: 10), 
+                IconButton(icon: const Icon(Icons.close, size: 18, color: Colors.redAccent), onPressed: () => state.deleteItem(index))
+              ]
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class ElementNameWidget extends StatelessWidget {
+  final Map<String, dynamic> timeData;
+  final int index;
+  final TimeLogController state;
+
+  const ElementNameWidget({super.key, required this.timeData, required this.index, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
     bool isOutlier = timeData['type'] == 'outlier';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -732,77 +850,22 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       ],
     );
   }
+}
 
-  Widget _buildContinuousTable(TimeLogController state) {
-    if (state.recordedTimesContinuo.isEmpty) return _buildEmptyState();
-    return SingleChildScrollView(
-      controller: _scrollController,
-      scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.white10),
-          child: DataTable(
-            columnSpacing: 20, 
-            headingRowColor: WidgetStateProperty.all(const Color(0xFF252525)), 
-            headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent, fontSize: 12), 
-            dataTextStyle: const TextStyle(fontSize: 13, color: Colors.white70),
-            columns: const [DataColumn(label: Text('#')), DataColumn(label: Text('ELEMENTO')), DataColumn(label: Text('TC (Acum)')), DataColumn(label: Text('TO (Indiv)')), DataColumn(label: Text(''))],
-            rows: state.recordedTimesContinuo.asMap().entries.map((e) {
-              bool isOutlier = e.value['type'] == 'outlier';
-              return DataRow(
-                onLongPress: () => _promptMerge(e.key, state), 
-                color: WidgetStateProperty.all(isOutlier ? Colors.redAccent.withValues(alpha: 0.05) : null),
-                cells: [
-                  DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), 
-                  DataCell(_buildElementNameWidget(e.value, e.key, state)), 
-                  DataCell(Text(state.formatTime((e.value['cumulative_time'] ?? 0).toDouble()), style: TextStyle(color: isOutlier ? Colors.white54 : Colors.white70))), 
-                  DataCell(Text(state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : Colors.white))), 
-                  DataCell(IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => state.deleteItem(e.key)))
-                ]
-              );
-            }).toList(),
-          ),
-        ),
-      ),
+class EmptyStateWidget extends StatelessWidget {
+  const EmptyStateWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center, 
+        children: [
+          Icon(Icons.hourglass_empty, size: 48, color: Colors.white10), 
+          SizedBox(height: 16), 
+          Text('Sin datos registrados', style: TextStyle(color: Colors.white24))
+        ]
+      )
     );
   }
-
-  Widget _buildSimpleRecordsList(TimeLogController state) {
-    if (state.recordedTimesRegresoACero.isEmpty) return _buildEmptyState();
-    return ListView.separated(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16), 
-      itemCount: state.recordedTimesRegresoACero.length, 
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final timeData = state.recordedTimesRegresoACero[index];
-        bool isOutlier = timeData['type'] == 'outlier';
-        
-        return Container(
-          decoration: BoxDecoration(
-            color: isOutlier ? Colors.redAccent.withValues(alpha: 0.05) : const Color(0xFF252525), 
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.2) : Colors.transparent),
-          ),
-          child: ListTile(
-            onLongPress: () => _promptMerge(index, state), 
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), 
-            leading: Text('${index + 1}', style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
-            title: _buildElementNameWidget(timeData, index, state),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min, 
-              children: [
-                Text(state.formatTime(timeData['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : Colors.white70, fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')), 
-                const SizedBox(width: 10), 
-                IconButton(icon: const Icon(Icons.close, size: 18, color: Colors.redAccent), onPressed: () => state.deleteItem(index))
-              ]
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildEmptyState() => const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.hourglass_empty, size: 48, color: Colors.white10), SizedBox(height: 16), Text('Sin datos registrados', style: TextStyle(color: Colors.white24))]));
 }

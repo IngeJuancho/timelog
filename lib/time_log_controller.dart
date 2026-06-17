@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
-import 'dart:ui';
+import 'dart:ui'; 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,7 +23,7 @@ class TimeLogController extends ChangeNotifier {
   int _baseTimeMs = 0;
   int? _startTimeEpoch; 
   
-  String? activeStudyId;
+  int? activeStudyId;
   
   int animateStartTrigger = 0;
   int animateSecondaryTrigger = 0;
@@ -98,7 +98,7 @@ class TimeLogController extends ChangeNotifier {
     bool wasRunning = prefs.getBool('isRunning') ?? false;
     int savedStartTime = prefs.getInt('startTimeEpoch') ?? 0;
     _baseTimeMs = prefs.getInt('baseTimeMs') ?? 0;
-    activeStudyId = prefs.getString('activeStudyId'); 
+    activeStudyId = prefs.getInt('activeStudyId'); 
     
     if (currentMode == StopwatchMode.continuo && recordedTimesContinuo.isNotEmpty) {
       _lastRecordedTimeMs = recordedTimesContinuo.last['cumulative_time'] as int;
@@ -144,7 +144,7 @@ class TimeLogController extends ChangeNotifier {
     await prefs.setInt('currentMode', currentMode.index);
     await prefs.setString('taskName', taskNameController.text);
     if (activeStudyId != null) {
-      await prefs.setString('activeStudyId', activeStudyId!);
+      await prefs.setInt('activeStudyId', activeStudyId!);
     } else {
       await prefs.remove('activeStudyId');
     }
@@ -153,6 +153,13 @@ class TimeLogController extends ChangeNotifier {
   Future<void> updateTaskName(String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('taskName', value);
+  }
+
+  // NUEVO: Sincroniza el nombre instantáneamente si es el estudio activo
+  void syncActiveStudyName(String newName) {
+    taskNameController.text = newName;
+    updateTaskName(newName); 
+    notifyListeners();
   }
 
   void _syncStartTime() {
@@ -530,14 +537,20 @@ class TimeLogController extends ChangeNotifier {
     setMode(study.mode);
     activeStudyId = study.id; 
     
-    // SOLUCIÓN BUG: Actualizamos el campo de texto y lo guardamos en caché
     taskNameController.text = study.name;
     updateTaskName(study.name);
     
+    final convertedTimes = study.times.map((t) => {
+      'name': t.name,
+      'time': t.time,
+      'type': t.type,
+      'cumulative_time': t.cumulativeTime,
+    }).toList();
+
     if (study.mode == StopwatchMode.regresoACero) {
-      recordedTimesRegresoACero = List<Map<String, dynamic>>.from(study.times);
+      recordedTimesRegresoACero = convertedTimes;
     } else {
-      recordedTimesContinuo = List<Map<String, dynamic>>.from(study.times);
+      recordedTimesContinuo = convertedTimes;
       if (recordedTimesContinuo.isNotEmpty) {
         _lastRecordedTimeMs = recordedTimesContinuo.last['cumulative_time'] as int;
         _baseTimeMs = _lastRecordedTimeMs;

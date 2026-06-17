@@ -1,4 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:isar/isar.dart';
+
+// Esta línea marcará error hasta que ejecutemos el comando en la Fase 2. 
+// Es el archivo que Isar construirá automáticamente por nosotros.
+part 'models.g.dart';
 
 enum StopwatchMode { regresoACero, continuo }
 
@@ -14,35 +18,31 @@ enum HapticLevel { light, medium, heavy }
 
 enum TimeFormat { standard, seconds, minutes }
 
-// Estructura para el historial de estudios
+// --- NUEVOS PLANOS ESTRICTOS PARA LA BASE DE DATOS ---
+
+@collection
 class StudyModel {
-  final String id;
-  final String name;
-  final DateTime date;
-  final StopwatchMode mode;
-  final List<Map<String, dynamic>> times;
+  // Isar exige que el ID principal sea un número entero (Id). 
+  // 'autoIncrement' hace que Isar asigne el 1, 2, 3... automáticamente.
+  Id id = Isar.autoIncrement; 
 
-  StudyModel({
-    required this.id,
-    required this.name,
-    required this.date,
-    required this.mode,
-    required this.times,
-  });
+  late String name;
+  late DateTime date;
+  
+  // Guardamos el Enum directamente, Isar se encarga de traducirlo a la BD
+  @enumerated
+  late StopwatchMode mode;
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'date': date.toIso8601String(),
-        'mode': mode.index,
-        'times': times,
-      };
+  // Lista estricta de objetos, adiós a los Mapas frágiles y JSON
+  List<TimeRecord> times = [];
+}
 
-  factory StudyModel.fromJson(Map<String, dynamic> json) => StudyModel(
-        id: json['id'],
-        name: json['name'],
-        date: DateTime.parse(json['date']),
-        mode: StopwatchMode.values[json['mode']],
-        times: List<Map<String, dynamic>>.from(json['times']),
-      );
+// @embedded significa que estos registros no tienen una tabla propia, 
+// sino que viven "incrustados" dentro del StudyModel que los contiene.
+@embedded
+class TimeRecord {
+  String? name;
+  int? time;             // Tiempo Observado (TO)
+  String? type;          // normal o outlier
+  int? cumulativeTime;   // Tiempo Acumulado (TC)
 }

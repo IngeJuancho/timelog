@@ -24,15 +24,13 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
   Future<void> _loadHistory() async {
     final studies = await _storage.getStudiesHistory();
     setState(() {
-      // Ordenamos del más reciente al más antiguo
       studies.sort((a, b) => b.date.compareTo(a.date));
       _studies = studies;
       _isLoading = false;
     });
   }
 
-  Future<void> _deleteStudy(String id) async {
-    // Si borramos el estudio que estamos utilizando ahora mismo, le quitamos la marca de activo
+  Future<void> _deleteStudy(int id) async { 
     if (ref.read(timeLogProvider).activeStudyId == id) {
       ref.read(timeLogProvider).clearActiveStudyId();
     }
@@ -85,8 +83,14 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
               Navigator.pop(context);
               final newName = nameController.text.trim();
               if (newName.isNotEmpty && newName != study.name) {
-                await _storage.updateStudyName(study.id, newName);
-                _loadHistory(); // Recargamos para reflejar el cambio en la lista visual
+                await _storage.updateStudyName(study.id, newName); 
+                
+                // NUEVO: Sincronización en tiempo real si el estudio está abierto en el cronómetro
+                if (ref.read(timeLogProvider).activeStudyId == study.id) {
+                  ref.read(timeLogProvider).syncActiveStudyName(newName);
+                }
+                
+                _loadHistory(); 
               }
             },
             child: const Text('GUARDAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
@@ -103,7 +107,6 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Escuchamos el ID del estudio activo en tiempo real
     final activeStudyId = ref.watch(timeLogProvider).activeStudyId;
 
     return Scaffold(
@@ -134,19 +137,18 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                     final dateStr = '${study.date.day}/${study.date.month}/${study.date.year}';
                     final modeStr = study.mode == StopwatchMode.continuo ? 'Continuo' : 'Regreso a Cero';
                     
-                    // Condición para saber si este elemento es el que la app está utilizando
                     final isActive = study.id == activeStudyId;
                     
                     return Container(
                       decoration: BoxDecoration(
-                        color: isActive ? Colors.tealAccent.withOpacity(0.05) : const Color(0xFF252525),
+                        color: isActive ? Colors.tealAccent.withValues(alpha: 0.05) : const Color(0xFF252525),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isActive ? Colors.tealAccent : Colors.white10,
                           width: isActive ? 1.5 : 1.0,
                         ),
                         boxShadow: isActive
-                            ? [BoxShadow(color: Colors.tealAccent.withOpacity(0.15), blurRadius: 10, spreadRadius: 1)]
+                            ? [BoxShadow(color: Colors.tealAccent.withValues(alpha: 0.15), blurRadius: 10, spreadRadius: 1)]
                             : [],
                       ),
                       child: ListTile(
