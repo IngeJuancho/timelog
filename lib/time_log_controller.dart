@@ -91,6 +91,10 @@ class TimeLogController extends ChangeNotifier {
     String? contJson = prefs.getString('times_cont');
     if (contJson != null) recordedTimesContinuo = List<Map<String, dynamic>>.from(jsonDecode(contJson));
 
+    // CARGA DE PERSISTENCIA (Modo y Nombre de Tarea)
+    currentMode = StopwatchMode.values[prefs.getInt('currentMode') ?? StopwatchMode.regresoACero.index];
+    taskNameController.text = prefs.getString('taskName') ?? '';
+
     bool wasRunning = prefs.getBool('isRunning') ?? false;
     int savedStartTime = prefs.getInt('startTimeEpoch') ?? 0;
     _baseTimeMs = prefs.getInt('baseTimeMs') ?? 0;
@@ -132,16 +136,24 @@ class TimeLogController extends ChangeNotifier {
     await _storage.saveActiveTimeData(recordedTimesRegresoACero, recordedTimesContinuo);
   }
 
+  // Se añaden el nombre de la tarea y el modo al guardado maestro del estado de sesión
   Future<void> saveTimerState() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isRunning', _stopwatch.isRunning);
     await prefs.setInt('baseTimeMs', _baseTimeMs);
     await prefs.setInt('startTimeEpoch', _startTimeEpoch ?? 0);
+    await prefs.setInt('currentMode', currentMode.index);
+    await prefs.setString('taskName', taskNameController.text);
     if (activeStudyId != null) {
       await prefs.setString('activeStudyId', activeStudyId!);
     } else {
       await prefs.remove('activeStudyId');
     }
+  }
+
+  Future<void> updateTaskName(String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('taskName', value);
   }
 
   void _syncStartTime() {
@@ -186,7 +198,7 @@ class TimeLogController extends ChangeNotifier {
       }
       
       if (wasRunning) _stopwatch.start();
-      _syncStartTime();
+      _syncStartTime(); 
 
       calculateStatistics();
       _showSnackBar('Modo: ${mode == StopwatchMode.regresoACero ? "Regreso a Cero" : "Continuo"}', Icons.settings, Colors.tealAccent);
@@ -343,7 +355,11 @@ class TimeLogController extends ChangeNotifier {
 
     if (individualTimeMs >= 0) {
       triggerHaptic();
-      final name = taskNameController.text.isNotEmpty ? taskNameController.text : 'Ciclo ${currentList.length + 1}';
+      
+      // REVERTIDO: Vuelve a tomar exactamente lo que el usuario escribió
+      final name = taskNameController.text.isNotEmpty 
+          ? taskNameController.text 
+          : 'Ciclo ${currentList.length + 1}';
       
       timeEntry['name'] = name;
       timeEntry['time'] = individualTimeMs;
@@ -436,7 +452,6 @@ class TimeLogController extends ChangeNotifier {
       final fileName = await _export.exportDataToCsv(
         data: activeRecordedTimes,
         mode: currentMode,
-        // Pasamos forExport: true para evitar el sufijo ("s" o "min") en el CSV
         timeFormatter: (val) => formatTime(val, forExport: true),
       );
       
@@ -539,7 +554,6 @@ class TimeLogController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Agregamos el parámetro 'forExport' para decidir si omitir el sufijo literal
   String formatTime(double milliseconds, {bool forExport = false}) {
     if (milliseconds < 0) return "00:00.00";
     

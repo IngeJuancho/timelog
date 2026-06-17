@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Agregado para SystemChannels
+import 'package:flutter/services.dart'; 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'time_log_controller.dart';
 import 'models.dart';
@@ -14,7 +14,7 @@ class StopwatchScreen extends ConsumerStatefulWidget {
   ConsumerState<StopwatchScreen> createState() => _StopwatchScreenState();
 }
 
-class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerProviderStateMixin {
+class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _pulseController;
   late AnimationController _viewChangeController;
   late Animation<double> _pulseAnimation;
@@ -33,12 +33,14 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   final ScrollController _scrollController = ScrollController();
   
   final FocusNode _taskNameFocusNode = FocusNode();
+  double _previousBottomInset = 0.0;
   
   bool _showingAnalysis = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); 
     _initAnimations();
     
     _taskNameFocusNode.addListener(() {
@@ -46,6 +48,20 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         SystemChannels.textInput.invokeMethod('TextInput.hide');
       }
     });
+  }
+
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+    if (view != null) {
+      final bottomInset = view.viewInsets.bottom;
+      // Solución al cierre instantáneo: Solo quitamos el foco si el teclado ESTABA abierto y ahora se CERRÓ
+      if (_previousBottomInset > 0.0 && bottomInset == 0.0 && _taskNameFocusNode.hasFocus) {
+        _taskNameFocusNode.unfocus();
+      }
+      _previousBottomInset = bottomInset;
+    }
   }
 
   void _initAnimations() {
@@ -142,7 +158,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         ),
       );
 
-      if (!mounted) return; // Corrección async gap
+      if (!mounted) return; 
       if (chooseUpdate == null) return; 
 
       if (chooseUpdate == true) {
@@ -220,12 +236,13 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       }
     );
 
-    if (!mounted) return; // Corrección async gap
+    if (!mounted) return; 
     if (shouldReset == true) controller.resetAll();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this); 
     _pulseController.dispose();
     _viewChangeController.dispose();
     _startButtonController.dispose();
@@ -401,6 +418,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         controller: state.taskNameController,
         focusNode: _taskNameFocusNode, 
         enableInteractiveSelection: true, 
+        onChanged: (value) => state.updateTaskName(value),
         onTap: () {
           final text = state.taskNameController.text;
           if (text.isNotEmpty && state.taskNameController.selection.isCollapsed) {
@@ -417,7 +435,10 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           prefixIcon: Icon(Icons.edit, color: Colors.teal.shade200, size: 20),
           suffixIcon: IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.white54, size: 20), 
-            onPressed: () => state.taskNameController.clear(),
+            onPressed: () {
+              state.taskNameController.clear();
+              state.updateTaskName(''); 
+            },
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 20),
           filled: true,
@@ -433,7 +454,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     IconData primaryIcon; 
     Color primaryColor;
     
-    // Corrección: Encapsulamiento con llaves en sentencias if
     if (state.currentMode == StopwatchMode.regresoACero) {
       if (state.isRunning) { 
         primaryLabel = 'Parar'; 
@@ -466,7 +486,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             onPressed: () {
               _animateButton(_startButtonController);
               if (state.isRunning) {
-                // Corrección: Encapsulamiento con llaves
                 if (state.currentMode == StopwatchMode.continuo) {
                   state.recordTime(resetStopwatch: false, keepRunning: true);
                 } else { 
@@ -509,7 +528,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
                 label: secondaryLabel, 
                 onPressed: isEnabled ? () {
                   _animateButton(_secondaryButtonController);
-                  // Corrección: Encapsulamiento con llaves
                   if (state.currentMode == StopwatchMode.regresoACero) {
                     state.recordTime(resetStopwatch: true, keepRunning: true);
                   } else { 
