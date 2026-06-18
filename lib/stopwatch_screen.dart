@@ -697,9 +697,10 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           children: [
             const Text('Manejo de Datos', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
+            // REQUISITO CUMPLIDO: Textos actualizados a "Importar archivo" y "Exportar archivo"
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.download, color: Colors.white)),
-              title: const Text('Importar desde CSV', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              title: const Text('Importar archivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               subtitle: const Text('Cargar un estudio previo desde tus archivos.', style: TextStyle(color: Colors.white54, fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);
@@ -709,7 +710,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             const SizedBox(height: 10),
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.blueAccent, child: Icon(Icons.upload, color: Colors.white)),
-              title: const Text('Exportar a CSV', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              title: const Text('Exportar archivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               subtitle: const Text('Guardar el estudio actual en tus archivos.', style: TextStyle(color: Colors.white54, fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);

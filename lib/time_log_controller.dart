@@ -88,13 +88,14 @@ class TimeLogController extends ChangeNotifier {
   void _appendTemplatePlaceholders() {
     if (activeTemplate == null) return;
     final currentList = activeRecordedTimes;
-    for (String step in activeTemplate!.steps) {
+    for (int i = 0; i < activeTemplate!.steps.length; i++) {
       currentList.add({
-        'name': step,
+        'name': activeTemplate!.steps[i],
         'time': 0,
         'cumulative_time': 0,
         'type': 'normal',
-        'status': 'pending' 
+        'status': 'pending',
+        'step_index': i 
       });
     }
   }
@@ -107,6 +108,7 @@ class TimeLogController extends ChangeNotifier {
     
     taskNameController.clear();
     updateTaskName('');
+    saveTimerState(); // Guardar que ya no hay plantilla
     notifyListeners();
   }
 
@@ -156,6 +158,41 @@ class TimeLogController extends ChangeNotifier {
       _startTicking();
     }
 
+    // --- NUEVO: RESTAURAR PLANTILLA (RUTA) SI ESTABA ACTIVA ---
+    int templateId = prefs.getInt('activeTemplateId') ?? -1;
+    if (templateId != -1) {
+      final templates = await _storage.getTemplates();
+      OperationTemplate? foundTemplate;
+      for (var t in templates) {
+        if (t.id == templateId) {
+          foundTemplate = t;
+          break;
+        }
+      }
+      
+      if (foundTemplate != null) {
+        activeTemplate = foundTemplate;
+        
+        // Calcular en qué paso nos quedamos con matemáticas
+        int completedItemsCount = activeRecordedTimes.length;
+        currentTemplateStepIndex = completedItemsCount % activeTemplate!.steps.length;
+        
+        // Re-inyectar los pasos faltantes del ciclo actual
+        for (int i = currentTemplateStepIndex; i < activeTemplate!.steps.length; i++) {
+          activeRecordedTimes.add({
+            'name': activeTemplate!.steps[i],
+            'time': 0,
+            'cumulative_time': 0,
+            'type': 'normal',
+            'status': 'pending',
+            'step_index': i
+          });
+        }
+        
+        taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex];
+      }
+    }
+
     calculateStatistics();
     notifyListeners();
   }
@@ -189,10 +226,18 @@ class TimeLogController extends ChangeNotifier {
     await prefs.setInt('startTimeEpoch', _startTimeEpoch ?? 0);
     await prefs.setInt('currentMode', currentMode.index);
     await prefs.setString('taskName', taskNameController.text);
+    
     if (activeStudyId != null) {
       await prefs.setInt('activeStudyId', activeStudyId!);
     } else {
       await prefs.remove('activeStudyId');
+    }
+    
+    // NUEVO: Guardar memoria de la plantilla activa
+    if (activeTemplate != null) {
+      await prefs.setInt('activeTemplateId', activeTemplate!.id);
+    } else {
+      await prefs.remove('activeTemplateId');
     }
   }
 
@@ -306,7 +351,8 @@ class TimeLogController extends ChangeNotifier {
       'name': mergedName,
       'time': mergedTime,
       'type': 'normal', 
-      'status': 'done' 
+      'status': 'done',
+      'step_index': curr['step_index'] 
     };
 
     if (currentMode == StopwatchMode.continuo) {
@@ -508,7 +554,7 @@ class TimeLogController extends ChangeNotifier {
     calculateStatistics();
     notifyListeners();
     
-    scaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+    scaffoldMessengerKey.currentState?.clearSnackBars();
     _showSnackBar('Último registro deshecho.', Icons.undo, Colors.orangeAccent);
   }
 
@@ -567,6 +613,7 @@ class TimeLogController extends ChangeNotifier {
         data: dataToExport,
         mode: currentMode,
         timeFormatter: (val) => formatTime(val, forExport: true),
+        activeTemplate: activeTemplate, 
       );
       
       if (fileName != null) {
