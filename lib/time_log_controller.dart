@@ -25,6 +25,9 @@ class TimeLogController extends ChangeNotifier {
   
   int? activeStudyId;
   
+  OperationTemplate? activeTemplate;
+  int currentTemplateStepIndex = 0;
+  
   int animateStartTrigger = 0;
   int animateSecondaryTrigger = 0;
   int animateResetTrigger = 0;
@@ -69,6 +72,44 @@ class TimeLogController extends ChangeNotifier {
     loadAllData();
   }
 
+  void loadTemplate(OperationTemplate template) {
+    if (template.steps.isEmpty) return;
+    resetAll(); 
+    activeTemplate = template;
+    currentTemplateStepIndex = 0;
+    
+    _appendTemplatePlaceholders();
+    
+    taskNameController.text = template.steps[0];
+    updateTaskName(template.steps[0]);
+    notifyListeners();
+  }
+
+  void _appendTemplatePlaceholders() {
+    if (activeTemplate == null) return;
+    final currentList = activeRecordedTimes;
+    for (String step in activeTemplate!.steps) {
+      currentList.add({
+        'name': step,
+        'time': 0,
+        'cumulative_time': 0,
+        'type': 'normal',
+        'status': 'pending' 
+      });
+    }
+  }
+
+  void clearTemplate() {
+    activeTemplate = null;
+    currentTemplateStepIndex = 0;
+    
+    activeRecordedTimes.removeWhere((e) => e['status'] == 'pending');
+    
+    taskNameController.clear();
+    updateTaskName('');
+    notifyListeners();
+  }
+
   Future<void> loadAllData() async {
     final prefs = await SharedPreferences.getInstance();
     usePhysicalButtons = prefs.getBool('usePhysicalButtons') ?? false;
@@ -100,8 +141,9 @@ class TimeLogController extends ChangeNotifier {
     _baseTimeMs = prefs.getInt('baseTimeMs') ?? 0;
     activeStudyId = prefs.getInt('activeStudyId'); 
     
-    if (currentMode == StopwatchMode.continuo && recordedTimesContinuo.isNotEmpty) {
-      _lastRecordedTimeMs = recordedTimesContinuo.last['cumulative_time'] as int;
+    if (currentMode == StopwatchMode.continuo) {
+      final doneItems = recordedTimesContinuo.where((e) => e['status'] != 'pending').toList();
+      _lastRecordedTimeMs = doneItems.isNotEmpty ? doneItems.last['cumulative_time'] as int : 0;
     } else {
       _lastRecordedTimeMs = 0;
     }
@@ -133,7 +175,11 @@ class TimeLogController extends ChangeNotifier {
   }
 
   Future<void> saveTimeData() async {
-    await _storage.saveActiveTimeData(recordedTimesRegresoACero, recordedTimesContinuo);
+    final prefs = await SharedPreferences.getInstance();
+    final racDone = recordedTimesRegresoACero.where((e) => e['status'] != 'pending').toList();
+    final contDone = recordedTimesContinuo.where((e) => e['status'] != 'pending').toList();
+    await prefs.setString('times_rac', jsonEncode(racDone));
+    await prefs.setString('times_cont', jsonEncode(contDone));
   }
 
   Future<void> saveTimerState() async {
@@ -155,7 +201,6 @@ class TimeLogController extends ChangeNotifier {
     await prefs.setString('taskName', value);
   }
 
-  // NUEVO: Sincroniza el nombre instantáneamente si es el estudio activo
   void syncActiveStudyName(String newName) {
     taskNameController.text = newName;
     updateTaskName(newName); 
@@ -192,11 +237,15 @@ class TimeLogController extends ChangeNotifier {
   void setMode(StopwatchMode mode) {
     if (currentMode != mode) {
       currentMode = mode;
+      
+      if (activeTemplate != null) clearTemplate();
+
       bool wasRunning = _stopwatch.isRunning;
       _stopwatch.reset(); 
       
-      if (currentMode == StopwatchMode.continuo && recordedTimesContinuo.isNotEmpty) {
-         _lastRecordedTimeMs = recordedTimesContinuo.last['cumulative_time'] as int;
+      if (currentMode == StopwatchMode.continuo) {
+         final doneItems = recordedTimesContinuo.where((e) => e['status'] != 'pending').toList();
+         _lastRecordedTimeMs = doneItems.isNotEmpty ? doneItems.last['cumulative_time'] as int : 0;
          _baseTimeMs = _lastRecordedTimeMs;
       } else {
          _lastRecordedTimeMs = 0;
@@ -226,10 +275,18 @@ class TimeLogController extends ChangeNotifier {
   }
 
   void deleteItem(int index) {
-    activeRecordedTimes.removeAt(index);
-    if (currentMode == StopwatchMode.continuo) {
-      _lastRecordedTimeMs = activeRecordedTimes.isNotEmpty ? activeRecordedTimes.last['cumulative_time'] as int : 0;
+    final currentList = activeRecordedTimes;
+    currentList.removeAt(index);
+    
+    if (activeTemplate != null && index < currentTemplateStepIndex) {
+      currentTemplateStepIndex--;
     }
+
+    if (currentMode == StopwatchMode.continuo) {
+      final doneItems = currentList.where((e) => e['status'] != 'pending').toList();
+      _lastRecordedTimeMs = doneItems.isNotEmpty ? doneItems.last['cumulative_time'] as int : 0;
+    }
+    
     saveTimeData();
     calculateStatistics();
     notifyListeners();
@@ -249,6 +306,7 @@ class TimeLogController extends ChangeNotifier {
       'name': mergedName,
       'time': mergedTime,
       'type': 'normal', 
+      'status': 'done' 
     };
 
     if (currentMode == StopwatchMode.continuo) {
@@ -257,6 +315,10 @@ class TimeLogController extends ChangeNotifier {
 
     currentList[index - 1] = mergedEntry;
     currentList.removeAt(index);
+    
+    if (activeTemplate != null && index <= currentTemplateStepIndex) {
+      currentTemplateStepIndex--;
+    }
 
     triggerHaptic();
     saveTimeData();
@@ -348,12 +410,13 @@ class TimeLogController extends ChangeNotifier {
     final currentList = activeRecordedTimes;
 
     if (currentTimeMs == 0) return;
-    if (currentMode == StopwatchMode.continuo && currentTimeMs <= _lastRecordedTimeMs && currentList.isNotEmpty) return;
 
-    Map<String, dynamic> timeEntry = {};
     if (currentMode == StopwatchMode.continuo) {
-      individualTimeMs = currentTimeMs - _lastRecordedTimeMs;
-      timeEntry['cumulative_time'] = currentTimeMs;
+      final doneItems = currentList.where((e) => e['status'] != 'pending').toList();
+      int lastTime = doneItems.isNotEmpty ? doneItems.last['cumulative_time'] as int : 0;
+      
+      if (currentTimeMs <= lastTime && doneItems.isNotEmpty) return;
+      individualTimeMs = currentTimeMs - lastTime;
       _lastRecordedTimeMs = currentTimeMs;
     } else {
       individualTimeMs = currentTimeMs;
@@ -362,16 +425,38 @@ class TimeLogController extends ChangeNotifier {
     if (individualTimeMs >= 0) {
       triggerHaptic();
       
-      String baseName = taskNameController.text.trim();
-      final name = baseName.isNotEmpty 
-          ? baseName
-          : 'Ciclo ${currentList.length + 1}';
-      
-      timeEntry['name'] = name;
-      timeEntry['time'] = individualTimeMs;
-      timeEntry['type'] = 'normal';
+      if (activeTemplate != null && currentTemplateStepIndex < currentList.length) {
+        currentList[currentTemplateStepIndex]['time'] = individualTimeMs;
+        if (currentMode == StopwatchMode.continuo) {
+          currentList[currentTemplateStepIndex]['cumulative_time'] = currentTimeMs;
+        }
+        currentList[currentTemplateStepIndex]['status'] = 'done';
+        
+        currentTemplateStepIndex++;
+        
+        if (currentTemplateStepIndex >= currentList.length) {
+          _appendTemplatePlaceholders();
+        }
+        
+        taskNameController.text = currentList[currentTemplateStepIndex]['name'];
+        updateTaskName(taskNameController.text);
+      } 
+      else {
+        Map<String, dynamic> timeEntry = {};
+        if (currentMode == StopwatchMode.continuo) {
+          timeEntry['cumulative_time'] = currentTimeMs;
+        }
+        String baseName = taskNameController.text.trim();
+        final name = baseName.isNotEmpty ? baseName : 'Ciclo ${currentList.length + 1}';
+        
+        timeEntry['name'] = name;
+        timeEntry['time'] = individualTimeMs;
+        timeEntry['type'] = 'normal';
+        timeEntry['status'] = 'done';
 
-      currentList.add(timeEntry);
+        currentList.add(timeEntry);
+      }
+
       hasExported = false;
       saveTimeData();
       calculateStatistics();
@@ -399,10 +484,24 @@ class TimeLogController extends ChangeNotifier {
     final currentList = activeRecordedTimes;
     if (currentList.isEmpty) return;
 
-    currentList.removeLast();
+    if (activeTemplate != null) {
+      if (currentTemplateStepIndex > 0) {
+        currentTemplateStepIndex--;
+        currentList[currentTemplateStepIndex]['time'] = 0;
+        currentList[currentTemplateStepIndex]['cumulative_time'] = 0;
+        currentList[currentTemplateStepIndex]['status'] = 'pending';
+        currentList[currentTemplateStepIndex]['type'] = 'normal';
+        
+        taskNameController.text = currentList[currentTemplateStepIndex]['name'];
+        updateTaskName(taskNameController.text);
+      }
+    } else {
+      currentList.removeLast();
+    }
     
     if (currentMode == StopwatchMode.continuo) {
-      _lastRecordedTimeMs = currentList.isNotEmpty ? currentList.last['cumulative_time'] as int : 0;
+      final doneItems = currentList.where((e) => e['status'] != 'pending').toList();
+      _lastRecordedTimeMs = doneItems.isNotEmpty ? doneItems.last['cumulative_time'] as int : 0;
     }
     
     saveTimeData();
@@ -418,7 +517,7 @@ class TimeLogController extends ChangeNotifier {
     if (currentList.isEmpty) { averageTime = minTime = maxTime = stdDev = 0.0; return; }
     
     final validTimes = currentList
-        .where((e) => (e['type'] ?? 'normal') != 'outlier' && (e['time'] as int) > 0)
+        .where((e) => (e['type'] ?? 'normal') != 'outlier' && (e['time'] as int) > 0 && e['status'] != 'pending')
         .map((e) => e['time'] as int)
         .toList();
         
@@ -442,6 +541,14 @@ class TimeLogController extends ChangeNotifier {
     activeStudyId = null; 
     _syncStartTime();
     activeRecordedTimes.clear();
+    
+    if (activeTemplate != null && activeTemplate!.steps.isNotEmpty) {
+      currentTemplateStepIndex = 0;
+      _appendTemplatePlaceholders();
+      taskNameController.text = activeTemplate!.steps[0];
+      updateTaskName(taskNameController.text);
+    }
+
     saveTimeData();
     calculateStatistics();
     _lastRecordedTimeMs = 0;
@@ -450,13 +557,14 @@ class TimeLogController extends ChangeNotifier {
   }
 
   Future<void> exportData() async {
-    if (activeRecordedTimes.isEmpty) {
+    final dataToExport = activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
+    if (dataToExport.isEmpty) {
       _showSnackBar('No hay datos para exportar.', Icons.warning_amber_rounded, Colors.orange);
       return;
     }
     try {
       final fileName = await _export.exportDataToCsv(
-        data: activeRecordedTimes,
+        data: dataToExport,
         mode: currentMode,
         timeFormatter: (val) => formatTime(val, forExport: true),
       );
@@ -474,10 +582,12 @@ class TimeLogController extends ChangeNotifier {
     try {
       final result = await _export.importDataFromCsv();
       if (result != null) {
+        clearTemplate(); 
+        resetAll();
+        
         final StopwatchMode importedMode = result['mode'];
         final List<Map<String, dynamic>> importedTimes = result['times'];
 
-        resetAll();
         setMode(importedMode);
 
         if (importedMode == StopwatchMode.regresoACero) {
@@ -504,12 +614,13 @@ class TimeLogController extends ChangeNotifier {
   }
 
   Future<void> saveCurrentStudyToHistory(String studyName) async {
-    if (activeRecordedTimes.isEmpty) return;
+    final dataToSave = activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
+    if (dataToSave.isEmpty) return;
     
     activeStudyId = await _storage.saveStudyToHistory(
       name: studyName,
       mode: currentMode,
-      times: activeRecordedTimes,
+      times: dataToSave,
     );
     saveTimerState(); 
     notifyListeners();
@@ -518,12 +629,13 @@ class TimeLogController extends ChangeNotifier {
   }
 
   Future<void> updateCurrentStudy() async {
-    if (activeRecordedTimes.isEmpty || activeStudyId == null) return;
+    final dataToSave = activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
+    if (dataToSave.isEmpty || activeStudyId == null) return;
     
     await _storage.updateExistingStudy(
       id: activeStudyId!,
       mode: currentMode,
-      times: activeRecordedTimes,
+      times: dataToSave,
     );
     
     saveTimerState();
@@ -533,6 +645,7 @@ class TimeLogController extends ChangeNotifier {
   }
 
   void loadStudyFromHistory(StudyModel study) {
+    clearTemplate(); 
     resetAll();
     setMode(study.mode);
     activeStudyId = study.id; 
@@ -545,6 +658,7 @@ class TimeLogController extends ChangeNotifier {
       'time': t.time,
       'type': t.type,
       'cumulative_time': t.cumulativeTime,
+      'status': 'done' 
     }).toList();
 
     if (study.mode == StopwatchMode.regresoACero) {
@@ -606,8 +720,7 @@ class TimeLogController extends ChangeNotifier {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
         elevation: 6,
-        duration: const Duration(seconds: 3), 
-        dismissDirection: DismissDirection.up, 
+        duration: const Duration(milliseconds: 2500), 
       ),
     );
   }
@@ -631,8 +744,7 @@ class TimeLogController extends ChangeNotifier {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
         elevation: 6,
-        duration: const Duration(seconds: 3),
-        dismissDirection: DismissDirection.up,
+        duration: const Duration(milliseconds: 2500),
         action: SnackBarAction(label: 'DESHACER', textColor: Colors.orangeAccent, onPressed: undoLastRecord),
       ),
     );

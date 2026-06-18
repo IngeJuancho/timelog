@@ -7,6 +7,8 @@ import 'models.dart';
 import 'settings_screen.dart';
 import 'calculator_screen.dart';
 import 'studies_history_screen.dart';
+import 'template_manager_screen.dart';
+import 'storage_service.dart'; 
 
 class StopwatchScreen extends ConsumerStatefulWidget {
   const StopwatchScreen({super.key});
@@ -99,6 +101,37 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     });
   }
 
+  // NUEVO: Scroll inteligente que persigue al renglón activo
+  void _scrollToIndex(int index, bool isContinuous) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        // Altura estimada de los elementos: ~48px en tabla, ~72px en lista simple
+        double estimatedItemHeight = isContinuous ? 48.0 : 72.0;
+        double headerOffset = isContinuous ? 56.0 : 0.0; // Espacio del encabezado en DataTable
+        
+        double targetItemOffset = (index * estimatedItemHeight) + headerOffset;
+        double currentOffset = _scrollController.offset;
+        double viewportHeight = _scrollController.position.viewportDimension;
+
+        // Si el elemento activo se sale de la pantalla, centrar la cámara en él
+        if (targetItemOffset < currentOffset || targetItemOffset > currentOffset + viewportHeight - estimatedItemHeight) {
+          double targetScroll = targetItemOffset - (viewportHeight / 2) + (estimatedItemHeight / 2);
+          
+          if (targetScroll < 0) targetScroll = 0;
+          if (targetScroll > _scrollController.position.maxScrollExtent) {
+            targetScroll = _scrollController.position.maxScrollExtent;
+          }
+
+          _scrollController.animateTo(
+            targetScroll,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      }
+    });
+  }
+
   void _promptMerge(int index, TimeLogController state) {
     if (index == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -128,9 +161,10 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   }
 
   Future<void> _promptSaveStudy(BuildContext context, TimeLogController controller) async {
-    if (controller.activeRecordedTimes.isEmpty) {
+    final realData = controller.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
+    if (realData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay datos para guardar.'), backgroundColor: Colors.orange),
+        const SnackBar(content: Text('No hay tiempos tomados para guardar.'), backgroundColor: Colors.orange),
       );
       return;
     }
@@ -165,7 +199,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     }
 
     final TextEditingController nameController = TextEditingController(
-      text: controller.taskNameController.text.isNotEmpty ? controller.taskNameController.text : 'Estudio ${DateTime.now().day}/${DateTime.now().month}'
+      text: controller.taskNameController.text.isNotEmpty && controller.activeTemplate == null ? controller.taskNameController.text : 'Estudio ${DateTime.now().day}/${DateTime.now().month}'
     );
 
     showDialog(
@@ -206,7 +240,8 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     bool? shouldReset = await showDialog<bool>(
       context: context,
       builder: (context) {
-        if (!controller.hasExported && controller.activeRecordedTimes.isNotEmpty) {
+        final realData = controller.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
+        if (!controller.hasExported && realData.isNotEmpty) {
           return AlertDialog(
             backgroundColor: const Color(0xFF252525),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -237,6 +272,52 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     if (shouldReset == true) controller.resetAll();
   }
 
+  Future<void> _showTemplateSelector(TimeLogController state) async {
+    final templates = await StorageService().getTemplates();
+    if (!mounted) return;
+
+    if (templates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay plantillas guardadas. Crea una en el menú lateral.'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF252525),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Seleccionar Ruta Estándar', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: templates.length,
+                itemBuilder: (context, index) {
+                  final t = templates[index];
+                  return ListTile(
+                    leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.route, color: Colors.white, size: 20)),
+                    title: Text(t.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    subtitle: Text('${t.steps.length} pasos programados', style: const TextStyle(color: Colors.white54)),
+                    onTap: () {
+                      state.loadTemplate(t);
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this); 
@@ -259,11 +340,29 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     ref.listen(timeLogProvider.select((s) => s.animateExportTrigger), (_, __) => _animateButton(_exportButtonController));
     ref.listen(timeLogProvider.select((s) => s.showResetDialogTrigger), (_, __) => _confirmReset());
     
+    // Escucha #1: Modo Libre (crece la lista normal)
     ref.listen<int>(
       timeLogProvider.select((s) => s.activeRecordedTimes.length),
       (previous, next) {
+        final state = ref.read(timeLogProvider);
         if (previous != null && next > previous && !_showingAnalysis) {
-          _scrollToBottom();
+          if (state.activeTemplate == null) {
+            _scrollToBottom();
+          } else {
+            // Si la plantilla acaba de inyectar un nuevo bloque de pasos vacíos, hacer scroll al activo
+            _scrollToIndex(state.currentTemplateStepIndex, state.currentMode == StopwatchMode.continuo);
+          }
+        }
+      },
+    );
+
+    // Escucha #2: Modo Plantilla (cuando avanza el cuadro turquesa)
+    ref.listen<int>(
+      timeLogProvider.select((s) => s.currentTemplateStepIndex),
+      (previous, next) {
+        final state = ref.read(timeLogProvider);
+        if (previous != null && next != previous && !_showingAnalysis && state.activeTemplate != null) {
+          _scrollToIndex(next, state.currentMode == StopwatchMode.continuo);
         }
       },
     );
@@ -278,10 +377,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     });
 
     final state = ref.watch(timeLogProvider);
-    
-    if (state.activeRecordedTimes.isNotEmpty && state.averageTime == 0.0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => state.calculateStatistics());
-    }
 
     return TapRegion(
       onTapOutside: (_) {
@@ -362,6 +457,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 
           const Divider(color: Colors.white10, indent: 24, endIndent: 24, height: 40),
           const Padding(padding: EdgeInsets.fromLTRB(24, 0, 24, 10), child: Text("UTILIDADES", style: TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
+          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.route, color: Colors.white70), title: const Text('Rutas Estándar', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const TemplateManagerScreen())); }),
           ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.calculate_outlined, color: Colors.white70), title: const Text('Calculadora Muestra', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const SampleCalculatorScreen())); }),
           ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.settings_outlined, color: Colors.white70), title: const Text('Configuración', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())); }),
         ],
@@ -378,7 +474,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         leading: Icon(icon, color: isSelected ? Colors.tealAccent : Colors.white70),
         title: Text(title, style: TextStyle(color: isSelected ? Colors.tealAccent : Colors.white, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
         subtitle: Text(subtitle, style: TextStyle(color: isSelected ? Colors.teal.withOpacity(0.7) : Colors.white38, fontSize: 12)),
-        tileColor: isSelected ? Colors.teal.withValues(alpha: 0.15) : null,
+        tileColor: isSelected ? Colors.teal.withOpacity(0.15) : null,
         onTap: () { state.setMode(mode); Navigator.pop(context); },
       ),
     );
@@ -409,6 +505,8 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   }
 
   Widget _buildTaskNameField(TimeLogController state) {
+    bool isTemplateActive = state.activeTemplate != null;
+
     return SizedBox(
       height: 50,
       child: TextField(
@@ -425,22 +523,38 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           }
         },
         onSubmitted: (_) => _taskNameFocusNode.unfocus(),
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(
+          color: isTemplateActive ? Colors.tealAccent : Colors.white, 
+          fontWeight: isTemplateActive ? FontWeight.bold : FontWeight.normal
+        ),
         decoration: InputDecoration(
           hintText: 'Nombre de la tarea...',
           hintStyle: const TextStyle(color: Colors.white24),
-          prefixIcon: Icon(Icons.edit, color: Colors.teal.shade200, size: 20),
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.white54, size: 20), 
-            onPressed: () {
-              state.taskNameController.clear();
-              state.updateTaskName(''); 
-            },
+          prefixIcon: IconButton(
+            icon: Icon(isTemplateActive ? Icons.route : Icons.alt_route, color: isTemplateActive ? Colors.orangeAccent : Colors.teal.shade200, size: 20),
+            tooltip: 'Cargar Ruta Estándar',
+            onPressed: () => _showTemplateSelector(state),
           ),
+          suffixIcon: isTemplateActive
+              ? IconButton(
+                  icon: const Icon(Icons.cancel_presentation, color: Colors.orangeAccent, size: 20),
+                  tooltip: 'Desvincular Ruta',
+                  onPressed: () => state.clearTemplate(),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.white54, size: 20), 
+                  onPressed: () {
+                    state.taskNameController.clear();
+                    state.updateTaskName(''); 
+                  },
+                ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 20),
           filled: true,
           fillColor: const Color(0xFF252525),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30), 
+            borderSide: isTemplateActive ? const BorderSide(color: Colors.tealAccent, width: 1) : BorderSide.none
+          ),
         ),
       ),
     );
@@ -496,10 +610,10 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             icon: Icon(primaryIcon, size: 28),
             label: Text(primaryLabel.toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor.withValues(alpha: 0.2), 
+              backgroundColor: primaryColor.withOpacity(0.2), 
               foregroundColor: primaryColor, 
               elevation: 0, 
-              side: BorderSide(color: primaryColor.withValues(alpha: 0.5), width: 1.5), 
+              side: BorderSide(color: primaryColor.withOpacity(0.5), width: 1.5), 
               shape: const StadiumBorder()
             ),
           ),
@@ -656,7 +770,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             Expanded(
               child: Container(
                 color: const Color(0xFF1E1E1E),
-                // AHORA LLAMAMOS A LOS WIDGETS INDEPENDIENTES
                 child: _showingAnalysis 
                     ? AnalysisViewWidget(state: state) 
                     : (state.currentMode == StopwatchMode.continuo 
@@ -672,7 +785,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 }
 
 // -------------------------------------------------------------------------------------
-// WIDGETS INDEPENDIENTES EXTRAÍDOS (REDUCCIÓN DE CARGA VISUAL EN EL ESTADO PRINCIPAL)
+// WIDGETS INDEPENDIENTES 
 // -------------------------------------------------------------------------------------
 
 class AnalysisViewWidget extends StatelessWidget {
@@ -681,7 +794,9 @@ class AnalysisViewWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (state.activeRecordedTimes.isEmpty) return const EmptyStateWidget();
+    final realData = state.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
+    if (realData.isEmpty) return const EmptyStateWidget();
+    
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -706,9 +821,9 @@ class AnalysisViewWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16), 
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1), 
+        color: color.withOpacity(0.1), 
         borderRadius: BorderRadius.circular(16), 
-        border: Border.all(color: color.withValues(alpha: 0.3))
+        border: Border.all(color: color.withOpacity(0.3))
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, 
@@ -747,15 +862,22 @@ class ContinuousTableWidget extends StatelessWidget {
             columns: const [DataColumn(label: Text('#')), DataColumn(label: Text('ELEMENTO')), DataColumn(label: Text('TC (Acum)')), DataColumn(label: Text('TO (Indiv)')), DataColumn(label: Text(''))],
             rows: state.recordedTimesContinuo.asMap().entries.map((e) {
               bool isOutlier = e.value['type'] == 'outlier';
+              bool isPending = e.value['status'] == 'pending';
+              bool isActiveStep = state.activeTemplate != null && e.key == state.currentTemplateStepIndex;
+
               return DataRow(
-                onLongPress: () => onMergeRequest(e.key), 
-                color: WidgetStateProperty.all(isOutlier ? Colors.redAccent.withValues(alpha: 0.05) : null),
+                onLongPress: isPending ? null : () => onMergeRequest(e.key), 
+                color: WidgetStateProperty.resolveWith((states) {
+                  if (isActiveStep) return Colors.tealAccent.withOpacity(0.15); 
+                  if (isOutlier) return Colors.redAccent.withOpacity(0.05);
+                  return null;
+                }),
                 cells: [
                   DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), 
                   DataCell(ElementNameWidget(timeData: e.value, index: e.key, state: state)), 
-                  DataCell(Text(state.formatTime((e.value['cumulative_time'] ?? 0).toDouble()), style: TextStyle(color: isOutlier ? Colors.white54 : Colors.white70))), 
-                  DataCell(Text(state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : Colors.white))), 
-                  DataCell(IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => state.deleteItem(e.key)))
+                  DataCell(Text(isPending ? '--:--.--' : state.formatTime((e.value['cumulative_time'] ?? 0).toDouble()), style: TextStyle(color: isOutlier ? Colors.white54 : (isPending ? Colors.white38 : Colors.white70)))), 
+                  DataCell(Text(isPending ? '--:--.--' : state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withOpacity(0.7) : (isPending ? Colors.white38 : Colors.white)))), 
+                  DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => state.deleteItem(e.key)))
                 ]
               );
             }).toList(),
@@ -784,24 +906,26 @@ class SimpleRecordsListWidget extends StatelessWidget {
       itemBuilder: (context, index) {
         final timeData = state.recordedTimesRegresoACero[index];
         bool isOutlier = timeData['type'] == 'outlier';
+        bool isPending = timeData['status'] == 'pending';
+        bool isActiveStep = state.activeTemplate != null && index == state.currentTemplateStepIndex;
         
         return Container(
           decoration: BoxDecoration(
-            color: isOutlier ? Colors.redAccent.withValues(alpha: 0.05) : const Color(0xFF252525), 
+            color: isActiveStep ? Colors.tealAccent.withOpacity(0.1) : (isOutlier ? Colors.redAccent.withOpacity(0.05) : const Color(0xFF252525)), 
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.2) : Colors.transparent),
+            border: Border.all(color: isActiveStep ? Colors.tealAccent.withOpacity(0.5) : (isOutlier ? Colors.redAccent.withOpacity(0.2) : Colors.transparent)),
           ),
           child: ListTile(
-            onLongPress: () => onMergeRequest(index), 
+            onLongPress: isPending ? null : () => onMergeRequest(index), 
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), 
             leading: Text('${index + 1}', style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
             title: ElementNameWidget(timeData: timeData, index: index, state: state),
             trailing: Row(
               mainAxisSize: MainAxisSize.min, 
               children: [
-                Text(state.formatTime(timeData['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : Colors.white70, fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')), 
+                Text(isPending ? '--:--.--' : state.formatTime(timeData['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withOpacity(0.7) : (isPending ? Colors.white38 : Colors.white70), fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')), 
                 const SizedBox(width: 10), 
-                IconButton(icon: const Icon(Icons.close, size: 18, color: Colors.redAccent), onPressed: () => state.deleteItem(index))
+                isPending ? const SizedBox(width: 34) : IconButton(icon: const Icon(Icons.close, size: 18, color: Colors.redAccent), onPressed: () => state.deleteItem(index))
               ]
             ),
           ),
@@ -821,6 +945,8 @@ class ElementNameWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     bool isOutlier = timeData['type'] == 'outlier';
+    bool isPending = timeData['status'] == 'pending';
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -828,16 +954,16 @@ class ElementNameWidget extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(timeData['name'], style: TextStyle(fontWeight: FontWeight.w500, color: isOutlier ? Colors.white54 : Colors.white, decoration: isOutlier ? TextDecoration.lineThrough : null)),
+            Text(timeData['name'], style: TextStyle(fontWeight: FontWeight.w500, color: isOutlier ? Colors.white54 : (isPending ? Colors.white60 : Colors.white), decoration: isOutlier ? TextDecoration.lineThrough : null)),
             const SizedBox(width: 8),
-            GestureDetector(
+            if (!isPending) GestureDetector(
               onTap: () => state.toggleElementType(index),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isOutlier ? Colors.redAccent.withValues(alpha: 0.15) : Colors.tealAccent.withValues(alpha: 0.1),
+                  color: isOutlier ? Colors.redAccent.withOpacity(0.15) : Colors.tealAccent.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.5) : Colors.tealAccent.withValues(alpha: 0.3)),
+                  border: Border.all(color: isOutlier ? Colors.redAccent.withOpacity(0.5) : Colors.tealAccent.withOpacity(0.3)),
                 ),
                 child: Text(
                   isOutlier ? 'ATÍPICO' : 'NORMAL',
