@@ -35,7 +35,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   final ScrollController _scrollController = ScrollController();
   final FocusNode _taskNameFocusNode = FocusNode();
   double _previousBottomInset = 0.0;
-  bool _showingAnalysis = true;
+  bool _showingAnalysis = false;
 
   @override
   void initState() {
@@ -101,19 +101,16 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     });
   }
 
-  // NUEVO: Scroll inteligente que persigue al renglón activo
   void _scrollToIndex(int index, bool isContinuous) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        // Altura estimada de los elementos: ~48px en tabla, ~72px en lista simple
         double estimatedItemHeight = isContinuous ? 48.0 : 72.0;
-        double headerOffset = isContinuous ? 56.0 : 0.0; // Espacio del encabezado en DataTable
+        double headerOffset = isContinuous ? 56.0 : 0.0; 
         
         double targetItemOffset = (index * estimatedItemHeight) + headerOffset;
         double currentOffset = _scrollController.offset;
         double viewportHeight = _scrollController.position.viewportDimension;
 
-        // Si el elemento activo se sale de la pantalla, centrar la cámara en él
         if (targetItemOffset < currentOffset || targetItemOffset > currentOffset + viewportHeight - estimatedItemHeight) {
           double targetScroll = targetItemOffset - (viewportHeight / 2) + (estimatedItemHeight / 2);
           
@@ -340,7 +337,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     ref.listen(timeLogProvider.select((s) => s.animateExportTrigger), (_, __) => _animateButton(_exportButtonController));
     ref.listen(timeLogProvider.select((s) => s.showResetDialogTrigger), (_, __) => _confirmReset());
     
-    // Escucha #1: Modo Libre (crece la lista normal)
     ref.listen<int>(
       timeLogProvider.select((s) => s.activeRecordedTimes.length),
       (previous, next) {
@@ -349,14 +345,12 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           if (state.activeTemplate == null) {
             _scrollToBottom();
           } else {
-            // Si la plantilla acaba de inyectar un nuevo bloque de pasos vacíos, hacer scroll al activo
             _scrollToIndex(state.currentTemplateStepIndex, state.currentMode == StopwatchMode.continuo);
           }
         }
       },
     );
 
-    // Escucha #2: Modo Plantilla (cuando avanza el cuadro turquesa)
     ref.listen<int>(
       timeLogProvider.select((s) => s.currentTemplateStepIndex),
       (previous, next) {

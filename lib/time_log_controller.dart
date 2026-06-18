@@ -702,7 +702,6 @@ class TimeLogController extends ChangeNotifier {
   }
 
   void _showSnackBar(String message, IconData icon, Color iconColor) {
-    // SOLUCIÓN: clearSnackBars destruye la cola y evita que se queden trabados en pantalla
     scaffoldMessengerKey.currentState?.clearSnackBars();
     
     double bottomMargin = 16.0;
@@ -721,14 +720,13 @@ class TimeLogController extends ChangeNotifier {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
         elevation: 6,
-        duration: const Duration(milliseconds: 2000), // Bajado a 2 segundos exactos
-        dismissDirection: DismissDirection.up, // SOLUCIÓN: Permite ocultarlo deslizando hacia arriba
+        duration: const Duration(milliseconds: 2000), 
+        dismissDirection: DismissDirection.up, 
       ),
     );
   }
 
   void _showSnackBarWithUndo(String message, IconData icon, Color iconColor) {
-    // SOLUCIÓN: clearSnackBars destruye la cola de inmediato
     scaffoldMessengerKey.currentState?.clearSnackBars(); 
     
     double bottomMargin = 16.0;
@@ -747,8 +745,8 @@ class TimeLogController extends ChangeNotifier {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
         elevation: 6,
-        duration: const Duration(milliseconds: 2000), // Bajado a 2 segundos
-        dismissDirection: DismissDirection.up, // SOLUCIÓN: Permite deslizar hacia arriba de nuevo
+        duration: const Duration(milliseconds: 2000),
+        dismissDirection: DismissDirection.up,
         action: SnackBarAction(label: 'DESHACER', textColor: Colors.orangeAccent, onPressed: undoLastRecord),
       ),
     );
