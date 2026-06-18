@@ -36,7 +36,8 @@ class StorageService {
         ..name = e['name'] as String?
         ..time = e['time'] as int?
         ..type = e['type'] as String?
-        ..cumulativeTime = e['cumulative_time'] as int?;
+        ..cumulativeTime = e['cumulative_time'] as int?
+        ..stepIndex = e['step_index'] as int?; // NUEVO: Atrapamos el índice
     }).toList();
   }
 
@@ -44,13 +45,16 @@ class StorageService {
     required String name,
     required StopwatchMode mode,
     required List<Map<String, dynamic>> times,
+    OperationTemplate? template, // NUEVO: Recibimos la plantilla
   }) async {
     final isar = await db;
     final newStudy = StudyModel()
       ..name = name
       ..date = DateTime.now()
       ..mode = mode
-      ..times = _mapToTimeRecords(times);
+      ..times = _mapToTimeRecords(times)
+      ..isTemplate = template != null // Marcamos que es plantilla
+      ..templateSteps = template?.steps ?? []; // Guardamos una copia de seguridad de los pasos
     
     await isar.writeTxn(() async {
       await isar.studyModels.put(newStudy); 
@@ -62,6 +66,7 @@ class StorageService {
     required int id,
     required StopwatchMode mode,
     required List<Map<String, dynamic>> times,
+    OperationTemplate? template, // NUEVO: Recibimos la plantilla
   }) async {
     final isar = await db;
     final existingStudy = await isar.studyModels.get(id);
@@ -70,6 +75,12 @@ class StorageService {
       existingStudy.date = DateTime.now(); 
       existingStudy.mode = mode;
       existingStudy.times = _mapToTimeRecords(times);
+      
+      // Si hay plantilla, actualizamos la memoria del estudio
+      if (template != null) {
+        existingStudy.isTemplate = true;
+        existingStudy.templateSteps = template.steps;
+      }
       
       await isar.writeTxn(() async {
         await isar.studyModels.put(existingStudy);

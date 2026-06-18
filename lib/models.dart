@@ -27,6 +27,10 @@ class StudyModel {
   late StopwatchMode mode;
 
   List<TimeRecord> times = [];
+
+  // NUEVOS CAMPOS: Memoria independiente para Rutas Estándar
+  bool isTemplate = false;
+  List<String> templateSteps = [];
 }
 
 @embedded
@@ -34,7 +38,8 @@ class TimeRecord {
   String? name;
   int? time;             
   String? type;          
-  int? cumulativeTime;   
+  int? cumulativeTime;
+  int? stepIndex; // NUEVO: Para saber exactamente a qué paso del Excel pertenece
 }
 
 // --- NUEVA ESTRUCTURA PARA PLANTILLAS DE OPERACIÓN ---

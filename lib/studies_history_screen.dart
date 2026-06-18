@@ -165,6 +165,20 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                               Icon(study.mode == StopwatchMode.continuo ? Icons.timeline : Icons.replay, size: 14, color: Colors.tealAccent),
                               const SizedBox(width: 4),
                               Text(modeStr, style: const TextStyle(color: Colors.tealAccent, fontSize: 12)),
+                              
+                              // NUEVO: Etiqueta Visual de "Plantilla"
+                              if (study.isTemplate) ...[
+                                const SizedBox(width: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.yellowAccent.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.yellowAccent.withValues(alpha: 0.5)),
+                                  ),
+                                  child: const Text('PLANTILLA', style: TextStyle(color: Colors.yellowAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
                             ],
                           ),
                         ),

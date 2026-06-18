@@ -13,9 +13,10 @@ class ExportService {
     required StopwatchMode mode,
     required String Function(double) timeFormatter,
     OperationTemplate? activeTemplate,
+    required String studyName, // Recibe el Nombre Maestro interconectado
   }) async {
     if (activeTemplate != null) {
-      return await _exportJabilTemplateToExcel(data, activeTemplate);
+      return await _exportJabilTemplateToExcel(data, activeTemplate, studyName);
     }
 
     // --- EXPORTACIÓN NORMAL (.CSV Libre) ---
@@ -26,11 +27,12 @@ class ExportService {
       csv.writeln("${item['name']},${timeFormatter(item['time'].toDouble())},${timeFormatter((item['cumulative_time'] ?? 0).toDouble())},${item['type']}");
     }
 
-    return await _saveFile(csv.toString(), 'TimeLog', 'csv', MimeType.csv);
+    // Usa el Nombre Maestro para el archivo
+    return await _saveFile(csv.toString(), studyName.replaceAll(' ', '_'), 'csv', MimeType.csv);
   }
 
   // --- MOTOR DE EXPORTACIÓN EXCEL (.XLSX) - TABLA EXACTA ---
-  Future<String?> _exportJabilTemplateToExcel(List<Map<String, dynamic>> data, OperationTemplate template) async {
+  Future<String?> _exportJabilTemplateToExcel(List<Map<String, dynamic>> data, OperationTemplate template, String studyName) async {
     int numSteps = template.steps.length;
     var excel = Excel.createExcel();
     Sheet sheet = excel['Sheet1'];
@@ -48,6 +50,8 @@ class ExportService {
       verticalAlign: VerticalAlign.Center,
       textWrapping: TextWrapping.WrapText
     );
+    
+    CellStyle boldStyle = CellStyle(bold: true);
 
     // 1. Agrupar los tiempos
     List<List<double>> stepTimes = List.generate(numSteps, (_) => []);
@@ -99,7 +103,7 @@ class ExportService {
     }
 
     // =========================================================================
-    // CONSTRUCCIÓN DE LOS DATOS
+    // CONSTRUCCIÓN DE LOS DATOS 
     // =========================================================================
     int currentRow = 2; // Fila 3
     int firstDataRowExcel = currentRow + 1; 
@@ -148,7 +152,7 @@ class ExportService {
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).cellStyle = headerStyle;
 
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("Hand");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = headerStyle;
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = boldStyle;
     for(int c = 0; c < maxCycles; c++) {
         String col = _getColumnLetter(4 + c);
         String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"Hand",${col}\$$firstDataRowExcel:$col\$$endDataRowExcel)';
@@ -158,7 +162,7 @@ class ExportService {
     currentRow++;
 
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("Mach");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = headerStyle;
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = boldStyle;
     for(int c = 0; c < maxCycles; c++) {
         String col = _getColumnLetter(4 + c);
         String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"Mach",${col}\$$firstDataRowExcel:$col\$$endDataRowExcel)';
@@ -168,7 +172,7 @@ class ExportService {
     currentRow++;
 
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("IMT");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = headerStyle;
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = boldStyle;
     for(int c = 0; c < maxCycles; c++) {
         String col = _getColumnLetter(4 + c);
         String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"IMT",${col}\$$firstDataRowExcel:$col\$$endDataRowExcel)';
@@ -188,9 +192,9 @@ class ExportService {
     var fileBytes = excel.encode();
     if (fileBytes == null) throw Exception("Error al codificar el libro de Excel");
 
-    // REQUISITO CUMPLIDO: Jabil eliminado del nombre del archivo
     final date = DateTime.now();
-    final baseName = 'Study_${template.name.replaceAll(' ', '_')}';
+    // REQUISITO CUMPLIDO: Sin Jabil, usa el Nombre Maestro (studyName)
+    final baseName = studyName.replaceAll(' ', '_');
     final name = "${baseName}_${date.year}${date.month}${date.day}_${date.hour}${date.minute}";
 
     final result = await FileSaver.instance.saveAs(

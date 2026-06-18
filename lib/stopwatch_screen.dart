@@ -195,8 +195,11 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       }
     }
 
+    // INTERCONEXIÓN: Sugerir el Nombre Maestro por default
     final TextEditingController nameController = TextEditingController(
-      text: controller.taskNameController.text.isNotEmpty && controller.activeTemplate == null ? controller.taskNameController.text : 'Estudio ${DateTime.now().day}/${DateTime.now().month}'
+      text: controller.taskNameController.text.isNotEmpty 
+          ? controller.taskNameController.text 
+          : 'Estudio ${DateTime.now().day}/${DateTime.now().month}'
     );
 
     showDialog(
@@ -697,7 +700,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           children: [
             const Text('Manejo de Datos', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            // REQUISITO CUMPLIDO: Textos actualizados a "Importar archivo" y "Exportar archivo"
+            // REQUISITO CUMPLIDO: Textos limpios (Importar archivo y Exportar archivo)
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.download, color: Colors.white)),
               title: const Text('Importar archivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),

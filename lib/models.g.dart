@@ -22,19 +22,29 @@ const StudyModelSchema = CollectionSchema(
       name: r'date',
       type: IsarType.dateTime,
     ),
-    r'mode': PropertySchema(
+    r'isTemplate': PropertySchema(
       id: 1,
+      name: r'isTemplate',
+      type: IsarType.bool,
+    ),
+    r'mode': PropertySchema(
+      id: 2,
       name: r'mode',
       type: IsarType.byte,
       enumMap: _StudyModelmodeEnumValueMap,
     ),
     r'name': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'name',
       type: IsarType.string,
     ),
+    r'templateSteps': PropertySchema(
+      id: 4,
+      name: r'templateSteps',
+      type: IsarType.stringList,
+    ),
     r'times': PropertySchema(
-      id: 3,
+      id: 5,
       name: r'times',
       type: IsarType.objectList,
       target: r'TimeRecord',
@@ -61,6 +71,13 @@ int _studyModelEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.name.length * 3;
+  bytesCount += 3 + object.templateSteps.length * 3;
+  {
+    for (var i = 0; i < object.templateSteps.length; i++) {
+      final value = object.templateSteps[i];
+      bytesCount += value.length * 3;
+    }
+  }
   bytesCount += 3 + object.times.length * 3;
   {
     final offsets = allOffsets[TimeRecord]!;
@@ -79,10 +96,12 @@ void _studyModelSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeDateTime(offsets[0], object.date);
-  writer.writeByte(offsets[1], object.mode.index);
-  writer.writeString(offsets[2], object.name);
+  writer.writeBool(offsets[1], object.isTemplate);
+  writer.writeByte(offsets[2], object.mode.index);
+  writer.writeString(offsets[3], object.name);
+  writer.writeStringList(offsets[4], object.templateSteps);
   writer.writeObjectList<TimeRecord>(
-    offsets[3],
+    offsets[5],
     allOffsets,
     TimeRecordSchema.serialize,
     object.times,
@@ -98,12 +117,14 @@ StudyModel _studyModelDeserialize(
   final object = StudyModel();
   object.date = reader.readDateTime(offsets[0]);
   object.id = id;
+  object.isTemplate = reader.readBool(offsets[1]);
   object.mode =
-      _StudyModelmodeValueEnumMap[reader.readByteOrNull(offsets[1])] ??
+      _StudyModelmodeValueEnumMap[reader.readByteOrNull(offsets[2])] ??
           StopwatchMode.regresoACero;
-  object.name = reader.readString(offsets[2]);
+  object.name = reader.readString(offsets[3]);
+  object.templateSteps = reader.readStringList(offsets[4]) ?? [];
   object.times = reader.readObjectList<TimeRecord>(
-        offsets[3],
+        offsets[5],
         TimeRecordSchema.deserialize,
         allOffsets,
         TimeRecord(),
@@ -122,11 +143,15 @@ P _studyModelDeserializeProp<P>(
     case 0:
       return (reader.readDateTime(offset)) as P;
     case 1:
+      return (reader.readBool(offset)) as P;
+    case 2:
       return (_StudyModelmodeValueEnumMap[reader.readByteOrNull(offset)] ??
           StopwatchMode.regresoACero) as P;
-    case 2:
-      return (reader.readString(offset)) as P;
     case 3:
+      return (reader.readString(offset)) as P;
+    case 4:
+      return (reader.readStringList(offset) ?? []) as P;
+    case 5:
       return (reader.readObjectList<TimeRecord>(
             offset,
             TimeRecordSchema.deserialize,
@@ -345,6 +370,16 @@ extension StudyModelQueryFilter
     });
   }
 
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition> isTemplateEqualTo(
+      bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isTemplate',
+        value: value,
+      ));
+    });
+  }
+
   QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition> modeEqualTo(
       StopwatchMode value) {
     return QueryBuilder.apply(this, (query) {
@@ -529,6 +564,231 @@ extension StudyModelQueryFilter
   }
 
   QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsElementEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'templateSteps',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsElementGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'templateSteps',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'templateSteps',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsElementBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'templateSteps',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsElementStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'templateSteps',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsElementEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'templateSteps',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsElementContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'templateSteps',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsElementMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'templateSteps',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'templateSteps',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'templateSteps',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'templateSteps',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'templateSteps',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'templateSteps',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'templateSteps',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'templateSteps',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      templateStepsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'templateSteps',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
       timesLengthEqualTo(int length) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
@@ -644,6 +904,18 @@ extension StudyModelQuerySortBy
     });
   }
 
+  QueryBuilder<StudyModel, StudyModel, QAfterSortBy> sortByIsTemplate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isTemplate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterSortBy> sortByIsTemplateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isTemplate', Sort.desc);
+    });
+  }
+
   QueryBuilder<StudyModel, StudyModel, QAfterSortBy> sortByMode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mode', Sort.asc);
@@ -695,6 +967,18 @@ extension StudyModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<StudyModel, StudyModel, QAfterSortBy> thenByIsTemplate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isTemplate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterSortBy> thenByIsTemplateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isTemplate', Sort.desc);
+    });
+  }
+
   QueryBuilder<StudyModel, StudyModel, QAfterSortBy> thenByMode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'mode', Sort.asc);
@@ -728,6 +1012,12 @@ extension StudyModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<StudyModel, StudyModel, QDistinct> distinctByIsTemplate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isTemplate');
+    });
+  }
+
   QueryBuilder<StudyModel, StudyModel, QDistinct> distinctByMode() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'mode');
@@ -738,6 +1028,12 @@ extension StudyModelQueryWhereDistinct
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'name', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QDistinct> distinctByTemplateSteps() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'templateSteps');
     });
   }
 }
@@ -756,6 +1052,12 @@ extension StudyModelQueryProperty
     });
   }
 
+  QueryBuilder<StudyModel, bool, QQueryOperations> isTemplateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isTemplate');
+    });
+  }
+
   QueryBuilder<StudyModel, StopwatchMode, QQueryOperations> modeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'mode');
@@ -765,6 +1067,13 @@ extension StudyModelQueryProperty
   QueryBuilder<StudyModel, String, QQueryOperations> nameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'name');
+    });
+  }
+
+  QueryBuilder<StudyModel, List<String>, QQueryOperations>
+      templateStepsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'templateSteps');
     });
   }
 
@@ -1494,13 +1803,18 @@ const TimeRecordSchema = Schema(
       name: r'name',
       type: IsarType.string,
     ),
-    r'time': PropertySchema(
+    r'stepIndex': PropertySchema(
       id: 2,
+      name: r'stepIndex',
+      type: IsarType.long,
+    ),
+    r'time': PropertySchema(
+      id: 3,
       name: r'time',
       type: IsarType.long,
     ),
     r'type': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'type',
       type: IsarType.string,
     )
@@ -1540,8 +1854,9 @@ void _timeRecordSerialize(
 ) {
   writer.writeLong(offsets[0], object.cumulativeTime);
   writer.writeString(offsets[1], object.name);
-  writer.writeLong(offsets[2], object.time);
-  writer.writeString(offsets[3], object.type);
+  writer.writeLong(offsets[2], object.stepIndex);
+  writer.writeLong(offsets[3], object.time);
+  writer.writeString(offsets[4], object.type);
 }
 
 TimeRecord _timeRecordDeserialize(
@@ -1553,8 +1868,9 @@ TimeRecord _timeRecordDeserialize(
   final object = TimeRecord();
   object.cumulativeTime = reader.readLongOrNull(offsets[0]);
   object.name = reader.readStringOrNull(offsets[1]);
-  object.time = reader.readLongOrNull(offsets[2]);
-  object.type = reader.readStringOrNull(offsets[3]);
+  object.stepIndex = reader.readLongOrNull(offsets[2]);
+  object.time = reader.readLongOrNull(offsets[3]);
+  object.type = reader.readStringOrNull(offsets[4]);
   return object;
 }
 
@@ -1572,6 +1888,8 @@ P _timeRecordDeserializeProp<P>(
     case 2:
       return (reader.readLongOrNull(offset)) as P;
     case 3:
+      return (reader.readLongOrNull(offset)) as P;
+    case 4:
       return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1796,6 +2114,78 @@ extension TimeRecordQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'name',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition>
+      stepIndexIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'stepIndex',
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition>
+      stepIndexIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'stepIndex',
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> stepIndexEqualTo(
+      int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'stepIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition>
+      stepIndexGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'stepIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> stepIndexLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'stepIndex',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TimeRecord, TimeRecord, QAfterFilterCondition> stepIndexBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'stepIndex',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }

@@ -80,8 +80,9 @@ class TimeLogController extends ChangeNotifier {
     
     _appendTemplatePlaceholders();
     
-    taskNameController.text = template.steps[0];
-    updateTaskName(template.steps[0]);
+    // INTERCONEXIÓN: El Nombre Maestro ahora es el nombre de la plantilla
+    taskNameController.text = template.name;
+    updateTaskName(template.name);
     notifyListeners();
   }
 
@@ -108,7 +109,7 @@ class TimeLogController extends ChangeNotifier {
     
     taskNameController.clear();
     updateTaskName('');
-    saveTimerState(); // Guardar que ya no hay plantilla
+    saveTimerState();
     notifyListeners();
   }
 
@@ -158,7 +159,7 @@ class TimeLogController extends ChangeNotifier {
       _startTicking();
     }
 
-    // --- NUEVO: RESTAURAR PLANTILLA (RUTA) SI ESTABA ACTIVA ---
+    // RESTAURAR PLANTILLA (RUTA) SI ESTABA ACTIVA AL CERRAR LA APP
     int templateId = prefs.getInt('activeTemplateId') ?? -1;
     if (templateId != -1) {
       final templates = await _storage.getTemplates();
@@ -173,11 +174,9 @@ class TimeLogController extends ChangeNotifier {
       if (foundTemplate != null) {
         activeTemplate = foundTemplate;
         
-        // Calcular en qué paso nos quedamos con matemáticas
         int completedItemsCount = activeRecordedTimes.length;
         currentTemplateStepIndex = completedItemsCount % activeTemplate!.steps.length;
         
-        // Re-inyectar los pasos faltantes del ciclo actual
         for (int i = currentTemplateStepIndex; i < activeTemplate!.steps.length; i++) {
           activeRecordedTimes.add({
             'name': activeTemplate!.steps[i],
@@ -188,8 +187,6 @@ class TimeLogController extends ChangeNotifier {
             'step_index': i
           });
         }
-        
-        taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex];
       }
     }
 
@@ -233,7 +230,6 @@ class TimeLogController extends ChangeNotifier {
       await prefs.remove('activeStudyId');
     }
     
-    // NUEVO: Guardar memoria de la plantilla activa
     if (activeTemplate != null) {
       await prefs.setInt('activeTemplateId', activeTemplate!.id);
     } else {
@@ -484,8 +480,6 @@ class TimeLogController extends ChangeNotifier {
           _appendTemplatePlaceholders();
         }
         
-        taskNameController.text = currentList[currentTemplateStepIndex]['name'];
-        updateTaskName(taskNameController.text);
       } 
       else {
         Map<String, dynamic> timeEntry = {};
@@ -538,8 +532,6 @@ class TimeLogController extends ChangeNotifier {
         currentList[currentTemplateStepIndex]['status'] = 'pending';
         currentList[currentTemplateStepIndex]['type'] = 'normal';
         
-        taskNameController.text = currentList[currentTemplateStepIndex]['name'];
-        updateTaskName(taskNameController.text);
       }
     } else {
       currentList.removeLast();
@@ -591,8 +583,10 @@ class TimeLogController extends ChangeNotifier {
     if (activeTemplate != null && activeTemplate!.steps.isNotEmpty) {
       currentTemplateStepIndex = 0;
       _appendTemplatePlaceholders();
-      taskNameController.text = activeTemplate!.steps[0];
-      updateTaskName(taskNameController.text);
+      
+      // Mantenemos el Nombre Maestro
+      taskNameController.text = activeTemplate!.name;
+      updateTaskName(activeTemplate!.name);
     }
 
     saveTimeData();
@@ -613,7 +607,9 @@ class TimeLogController extends ChangeNotifier {
         data: dataToExport,
         mode: currentMode,
         timeFormatter: (val) => formatTime(val, forExport: true),
-        activeTemplate: activeTemplate, 
+        activeTemplate: activeTemplate,
+        // INTERCONEXIÓN: Pasamos el nombre maestro a la exportación
+        studyName: taskNameController.text.trim().isNotEmpty ? taskNameController.text.trim() : 'Estudio_General',
       );
       
       if (fileName != null) {
@@ -668,7 +664,12 @@ class TimeLogController extends ChangeNotifier {
       name: studyName,
       mode: currentMode,
       times: dataToSave,
+      template: activeTemplate, // NUEVO: Le pasamos la ruta activa
     );
+    // INTERCONEXIÓN: Si se guardó, el nombre se convierte en maestro
+    taskNameController.text = studyName;
+    updateTaskName(studyName);
+
     saveTimerState(); 
     notifyListeners();
 
@@ -683,6 +684,7 @@ class TimeLogController extends ChangeNotifier {
       id: activeStudyId!,
       mode: currentMode,
       times: dataToSave,
+      template: activeTemplate, // NUEVO: Le pasamos la ruta activa
     );
     
     saveTimerState();
@@ -697,6 +699,7 @@ class TimeLogController extends ChangeNotifier {
     setMode(study.mode);
     activeStudyId = study.id; 
     
+    // INTERCONEXIÓN: El Nombre Maestro se hereda del historial
     taskNameController.text = study.name;
     updateTaskName(study.name);
     
@@ -705,7 +708,8 @@ class TimeLogController extends ChangeNotifier {
       'time': t.time,
       'type': t.type,
       'cumulative_time': t.cumulativeTime,
-      'status': 'done' 
+      'status': 'done',
+      'step_index': t.stepIndex // RESTAURAMOS EL ÍNDICE EXACTO
     }).toList();
 
     if (study.mode == StopwatchMode.regresoACero) {
@@ -715,6 +719,29 @@ class TimeLogController extends ChangeNotifier {
       if (recordedTimesContinuo.isNotEmpty) {
         _lastRecordedTimeMs = recordedTimesContinuo.last['cumulative_time'] as int;
         _baseTimeMs = _lastRecordedTimeMs;
+      }
+    }
+    
+    // NUEVO: RESTAURAR EL MODO PLANTILLA Y SUS ESPACIOS VACÍOS
+    if (study.isTemplate && study.templateSteps.isNotEmpty) {
+      activeTemplate = OperationTemplate()
+        ..id = -1 // ID en memoria solamente
+        ..name = study.name
+        ..steps = study.templateSteps;
+      
+      // Calculamos en qué paso se había quedado
+      currentTemplateStepIndex = convertedTimes.length % activeTemplate!.steps.length;
+      
+      // Re-dibujamos los pasos grises faltantes para completar el ciclo
+      for (int i = currentTemplateStepIndex; i < activeTemplate!.steps.length; i++) {
+        activeRecordedTimes.add({
+          'name': activeTemplate!.steps[i],
+          'time': 0,
+          'cumulative_time': 0,
+          'type': 'normal',
+          'status': 'pending',
+          'step_index': i
+        });
       }
     }
     
