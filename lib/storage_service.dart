@@ -1,35 +1,30 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:file_saver/file_saver.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:file_saver/file_saver.dart';
 import 'models.dart';
 
 class StorageService {
-  static Isar? _isar;
+  static late Isar _isar;
+  static bool _isInitialized = false;
 
-  static Future<Isar> get db async {
-    if (_isar != null) return _isar!;
-    
+  Future<Isar> get db async {
+    if (_isInitialized) return _isar;
     final dir = await getApplicationDocumentsDirectory();
-    
     _isar = await Isar.open(
-      [StudyModelSchema, OperationTemplateSchema], // Añadimos el esquema de plantillas
+      [StudyModelSchema, OperationTemplateSchema, TemplateFolderSchema],
       directory: dir.path,
     );
-    
-    return _isar!;
+    _isInitialized = true;
+    return _isar;
   }
 
-  Future<void> saveActiveTimeData(List<Map<String, dynamic>> rac, List<Map<String, dynamic>> cont) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('times_rac', jsonEncode(rac));
-    await prefs.setString('times_cont', jsonEncode(cont));
-  }
-
+  // ===========================================================================
+  // MANEJO DE HISTORIAL DE ESTUDIOS
+  // ===========================================================================
   List<TimeRecord> _mapToTimeRecords(List<Map<String, dynamic>> rawTimes) {
     return rawTimes.map((e) {
       return TimeRecord()
@@ -37,7 +32,7 @@ class StorageService {
         ..time = e['time'] as int?
         ..type = e['type'] as String?
         ..cumulativeTime = e['cumulative_time'] as int?
-        ..stepIndex = e['step_index'] as int?; // NUEVO: Atrapamos el índice
+        ..stepIndex = e['step_index'] as int?;
     }).toList();
   }
 
@@ -45,7 +40,7 @@ class StorageService {
     required String name,
     required StopwatchMode mode,
     required List<Map<String, dynamic>> times,
-    OperationTemplate? template, // NUEVO: Recibimos la plantilla
+    OperationTemplate? template,
   }) async {
     final isar = await db;
     final newStudy = StudyModel()
@@ -53,8 +48,8 @@ class StorageService {
       ..date = DateTime.now()
       ..mode = mode
       ..times = _mapToTimeRecords(times)
-      ..isTemplate = template != null // Marcamos que es plantilla
-      ..templateSteps = template?.steps ?? []; // Guardamos una copia de seguridad de los pasos
+      ..isTemplate = template != null
+      ..templateSteps = template?.steps ?? [];
     
     await isar.writeTxn(() async {
       await isar.studyModels.put(newStudy); 
@@ -66,7 +61,7 @@ class StorageService {
     required int id,
     required StopwatchMode mode,
     required List<Map<String, dynamic>> times,
-    OperationTemplate? template, // NUEVO: Recibimos la plantilla
+    OperationTemplate? template,
   }) async {
     final isar = await db;
     final existingStudy = await isar.studyModels.get(id);
@@ -76,7 +71,6 @@ class StorageService {
       existingStudy.mode = mode;
       existingStudy.times = _mapToTimeRecords(times);
       
-      // Si hay plantilla, actualizamos la memoria del estudio
       if (template != null) {
         existingStudy.isTemplate = true;
         existingStudy.templateSteps = template.steps;
@@ -90,46 +84,94 @@ class StorageService {
 
   Future<List<StudyModel>> getStudiesHistory() async {
     final isar = await db;
-    return await isar.studyModels.where().findAll();
+    return await isar.studyModels.where().sortByDateDesc().findAll();
   }
 
-  Future<void> deleteStudyFromHistory(int id) async { 
+  Future<void> deleteStudyFromHistory(int id) async {
     final isar = await db;
     await isar.writeTxn(() async {
-      await isar.studyModels.delete(id); 
+      await isar.studyModels.delete(id);
     });
   }
 
-  Future<void> updateStudyName(int id, String newName) async { 
+  Future<void> updateStudyName(int id, String newName) async {
     final isar = await db;
-    final existingStudy = await isar.studyModels.get(id);
-    
-    if (existingStudy != null) {
-      existingStudy.name = newName;
+    final study = await isar.studyModels.get(id);
+    if (study != null) {
+      study.name = newName;
       await isar.writeTxn(() async {
-        await isar.studyModels.put(existingStudy);
+        await isar.studyModels.put(study);
       });
     }
   }
 
-  // --- MÉTODOS PARA PLANTILLAS DE SECUENCIA ---
-
-  Future<List<OperationTemplate>> getTemplates() async {
+  // ===========================================================================
+  // MANEJO DE CARPETAS
+  // ===========================================================================
+  Future<List<TemplateFolder>> getFolders() async {
     final isar = await db;
-    return await isar.operationTemplates.where().findAll();
+    return await isar.templateFolders.where().sortByName().findAll();
   }
 
-  Future<void> saveTemplate(String name, List<String> steps) async {
+  Future<int> createFolder(String name) async {
+    final isar = await db;
+    final folder = TemplateFolder()..name = name;
+    await isar.writeTxn(() async {
+      await isar.templateFolders.put(folder);
+    });
+    return folder.id;
+  }
+
+  Future<void> updateFolderName(int id, String newName) async {
+    final isar = await db;
+    final folder = await isar.templateFolders.get(id);
+    if (folder != null) {
+      folder.name = newName;
+      await isar.writeTxn(() async {
+        await isar.templateFolders.put(folder);
+      });
+    }
+  }
+
+  Future<void> deleteFolder(int id) async {
+    final isar = await db;
+    await isar.writeTxn(() async {
+      await isar.operationTemplates.filter().folderIdEqualTo(id).deleteAll();
+      await isar.templateFolders.delete(id);
+    });
+  }
+
+  // ===========================================================================
+  // MANEJO DE PLANTILLAS (RUTAS ESTÁNDAR)
+  // ===========================================================================
+
+  // NUEVO: Método para traer absolutamente TODAS las plantillas (para el cronómetro)
+  Future<List<OperationTemplate>> getAllTemplates() async {
+    final isar = await db;
+    return await isar.operationTemplates.where().sortByName().findAll();
+  }
+  
+  Future<List<OperationTemplate>> getTemplates({int? folderId}) async {
+    final isar = await db;
+    if (folderId == null) {
+      return await isar.operationTemplates.filter().folderIdIsNull().sortByName().findAll();
+    } else {
+      return await isar.operationTemplates.filter().folderIdEqualTo(folderId).sortByName().findAll();
+    }
+  }
+
+  Future<void> saveTemplate(String name, List<String> steps, {int? folderId}) async {
     final isar = await db;
     final template = OperationTemplate()
       ..name = name
-      ..steps = steps;
+      ..steps = steps
+      ..folderId = folderId; 
+      
     await isar.writeTxn(() async {
       await isar.operationTemplates.put(template);
     });
   }
 
-  // NUEVO: Para actualizar el nombre de una plantilla existente
   Future<void> updateTemplateName(int id, String newName) async {
     final isar = await db;
     final template = await isar.operationTemplates.get(id);
@@ -141,7 +183,6 @@ class StorageService {
     }
   }
 
-  // NUEVO: Para actualizar la lista de pasos completa de una plantilla
   Future<void> updateTemplateSteps(int id, List<String> newSteps) async {
     final isar = await db;
     final template = await isar.operationTemplates.get(id);
@@ -160,49 +201,111 @@ class StorageService {
     });
   }
 
+  // --- IMPORTAR / EXPORTAR PLANTILLAS (FORMATO JSON) ---
   Future<String?> exportTemplate(OperationTemplate template) async {
     try {
       final Map<String, dynamic> data = {
         'name': template.name,
         'steps': template.steps,
       };
-      final String jsonStr = jsonEncode(data);
-      final bytes = Uint8List.fromList(utf8.encode(jsonStr));
+      String jsonString = jsonEncode(data);
+      Uint8List bytes = Uint8List.fromList(utf8.encode(jsonString));
       
-      final fileName = 'Plantilla_${template.name.replaceAll(' ', '_')}';
-      final result = await FileSaver.instance.saveAs(name: fileName, bytes: bytes, ext: 'json', mimeType: MimeType.json);
+      final date = DateTime.now();
+      final baseName = template.name.replaceAll(' ', '_');
+      final fileName = 'Ruta_${baseName}_${date.year}${date.month}${date.day}';
+
+      final result = await FileSaver.instance.saveAs(
+        name: fileName,
+        bytes: bytes,
+        ext: 'json',
+        mimeType: MimeType.json
+      );
       return result != null ? '$fileName.json' : null;
     } catch (e) {
-      throw Exception("Error al exportar: $e");
+      return null;
     }
   }
 
-  Future<bool> importTemplate() async {
+  Future<bool> importTemplate({int? currentFolderId}) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
-        withData: true,
       );
-      if (result == null || result.files.isEmpty) return false;
       
-      Uint8List? fileBytes = result.files.first.bytes;
-      if (fileBytes == null && result.files.first.path != null) {
-        fileBytes = File(result.files.first.path!).readAsBytesSync();
+      if (result == null || result.files.isEmpty) return false;
+
+      Uint8List? bytes = result.files.first.bytes;
+      if (bytes == null && result.files.first.path != null) {
+        bytes = File(result.files.first.path!).readAsBytesSync();
       }
-      if (fileBytes == null) return false;
+      if (bytes == null) return false;
 
-      final String jsonString = utf8.decode(fileBytes);
-      final Map<String, dynamic> data = jsonDecode(jsonString);
-
+      String jsonString = utf8.decode(bytes);
+      Map<String, dynamic> data = jsonDecode(jsonString);
+      
       if (data.containsKey('name') && data.containsKey('steps')) {
+        String name = data['name'];
         List<String> steps = List<String>.from(data['steps']);
-        await saveTemplate(data['name'], steps);
+        await saveTemplate(name, steps, folderId: currentFolderId);
         return true;
       }
       return false;
     } catch (e) {
-      throw Exception("Error al importar archivo: Formato incorrecto.");
+      return false;
+    }
+  }
+
+  // --- NUEVO: IMPORTACIÓN MASIVA SELECCIONANDO MÚLTIPLES ARCHIVOS ---
+  Future<bool> importMultipleTemplates({int? targetFolderId, String? newFolderName}) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true, // LA MAGIA ESTÁ AQUÍ
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+      
+      if (result == null || result.files.isEmpty) return false;
+
+      // Si estamos en raíz, creamos la carpeta con el nombre que nos dio el usuario
+      int folderIdToUse = targetFolderId ?? await createFolder(newFolderName ?? "Rutas Importadas");
+      bool importedAny = false;
+
+      // Leemos todos los archivos seleccionados de forma segura
+      for (var file in result.files) {
+        Uint8List? bytes = file.bytes;
+        if (bytes == null && file.path != null) {
+          bytes = File(file.path!).readAsBytesSync();
+        }
+        
+        if (bytes != null) {
+          try {
+            String jsonString = utf8.decode(bytes);
+            Map<String, dynamic> data = jsonDecode(jsonString);
+            
+            if (data.containsKey('name') && data.containsKey('steps')) {
+              String name = data['name'];
+              List<String> steps = List<String>.from(data['steps']);
+              
+              await saveTemplate(name, steps, folderId: folderIdToUse);
+              importedAny = true;
+            }
+          } catch (_) {
+            // Si un archivo no es válido, lo saltamos silenciosamente
+          }
+        }
+      }
+
+      // Si falló todo y habíamos creado una carpeta nueva en la raíz, la borramos para no dejar basura
+      if (!importedAny && targetFolderId == null) {
+        await deleteFolder(folderIdToUse);
+        return false;
+      }
+
+      return importedAny;
+    } catch (e) {
+      return false;
     }
   }
 }

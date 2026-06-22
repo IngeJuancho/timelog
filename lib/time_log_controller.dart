@@ -23,11 +23,40 @@ class TimeLogController extends ChangeNotifier {
   int _baseTimeMs = 0;
   int? _startTimeEpoch; 
   
-  int? activeStudyId;
-  
-  OperationTemplate? activeTemplate;
-  int currentTemplateStepIndex = 0;
-  
+  // --- INDEPENDENCIA TOTAL DE MODOS ---
+  int? _activeStudyIdRAC;
+  int? _activeStudyIdCont;
+
+  OperationTemplate? _activeTemplateRAC;
+  int _currentTemplateStepIndexRAC = 0;
+
+  OperationTemplate? _activeTemplateCont;
+  int _currentTemplateStepIndexCont = 0;
+
+  String _savedTaskNameRAC = '';
+  String _savedTaskNameCont = '';
+
+  // Getters y Setters que redirigen automáticamente al modo activo
+  int? get activeStudyId => currentMode == StopwatchMode.regresoACero ? _activeStudyIdRAC : _activeStudyIdCont;
+  set activeStudyId(int? id) {
+    if (currentMode == StopwatchMode.regresoACero) _activeStudyIdRAC = id;
+    else _activeStudyIdCont = id;
+  }
+
+  OperationTemplate? get activeTemplate => currentMode == StopwatchMode.regresoACero ? _activeTemplateRAC : _activeTemplateCont;
+  set activeTemplate(OperationTemplate? template) {
+    if (currentMode == StopwatchMode.regresoACero) _activeTemplateRAC = template;
+    else _activeTemplateCont = template;
+  }
+
+  int get currentTemplateStepIndex => currentMode == StopwatchMode.regresoACero ? _currentTemplateStepIndexRAC : _currentTemplateStepIndexCont;
+  set currentTemplateStepIndex(int index) {
+    if (currentMode == StopwatchMode.regresoACero) _currentTemplateStepIndexRAC = index;
+    else _currentTemplateStepIndexCont = index;
+  }
+
+  // -------------------------------------
+
   int animateStartTrigger = 0;
   int animateSecondaryTrigger = 0;
   int animateResetTrigger = 0;
@@ -80,7 +109,6 @@ class TimeLogController extends ChangeNotifier {
     
     _appendTemplatePlaceholders();
     
-    // INTERCONEXIÓN: El Nombre Maestro ahora es el nombre de la plantilla
     taskNameController.text = template.name;
     updateTaskName(template.name);
     notifyListeners();
@@ -136,13 +164,19 @@ class TimeLogController extends ChangeNotifier {
     String? contJson = prefs.getString('times_cont');
     if (contJson != null) recordedTimesContinuo = List<Map<String, dynamic>>.from(jsonDecode(contJson));
 
+    // Cargar nombres independientes
+    _savedTaskNameRAC = prefs.getString('taskNameRAC') ?? prefs.getString('taskName') ?? '';
+    _savedTaskNameCont = prefs.getString('taskNameCont') ?? prefs.getString('taskName') ?? '';
+
     currentMode = StopwatchMode.values[prefs.getInt('currentMode') ?? StopwatchMode.regresoACero.index];
-    taskNameController.text = prefs.getString('taskName') ?? '';
+    taskNameController.text = currentMode == StopwatchMode.regresoACero ? _savedTaskNameRAC : _savedTaskNameCont;
 
     bool wasRunning = prefs.getBool('isRunning') ?? false;
     int savedStartTime = prefs.getInt('startTimeEpoch') ?? 0;
     _baseTimeMs = prefs.getInt('baseTimeMs') ?? 0;
-    activeStudyId = prefs.getInt('activeStudyId'); 
+    
+    _activeStudyIdRAC = prefs.getInt('activeStudyIdRAC') ?? prefs.getInt('activeStudyId'); 
+    _activeStudyIdCont = prefs.getInt('activeStudyIdCont') ?? prefs.getInt('activeStudyId'); 
     
     if (currentMode == StopwatchMode.continuo) {
       final doneItems = recordedTimesContinuo.where((e) => e['status'] != 'pending').toList();
@@ -159,34 +193,25 @@ class TimeLogController extends ChangeNotifier {
       _startTicking();
     }
 
-    // RESTAURAR PLANTILLA (RUTA) SI ESTABA ACTIVA AL CERRAR LA APP
-    int templateId = prefs.getInt('activeTemplateId') ?? -1;
-    if (templateId != -1) {
-      final templates = await _storage.getTemplates();
-      OperationTemplate? foundTemplate;
-      for (var t in templates) {
-        if (t.id == templateId) {
-          foundTemplate = t;
-          break;
-        }
+    // RESTAURAR PLANTILLAS (RUTAS) INDEPENDIENTEMENTE PARA CADA MODO
+    int templateIdRAC = prefs.getInt('activeTemplateIdRAC') ?? prefs.getInt('activeTemplateId') ?? -1;
+    int templateIdCont = prefs.getInt('activeTemplateIdCont') ?? prefs.getInt('activeTemplateId') ?? -1;
+    
+    final templates = await _storage.getTemplates();
+    
+    if (templateIdRAC != -1) {
+      _activeTemplateRAC = templates.cast<OperationTemplate?>().firstWhere((t) => t?.id == templateIdRAC, orElse: () => null);
+      if (_activeTemplateRAC != null) {
+        _currentTemplateStepIndexRAC = recordedTimesRegresoACero.length % _activeTemplateRAC!.steps.length;
+        if (currentMode == StopwatchMode.regresoACero) _appendTemplatePlaceholders();
       }
-      
-      if (foundTemplate != null) {
-        activeTemplate = foundTemplate;
-        
-        int completedItemsCount = activeRecordedTimes.length;
-        currentTemplateStepIndex = completedItemsCount % activeTemplate!.steps.length;
-        
-        for (int i = currentTemplateStepIndex; i < activeTemplate!.steps.length; i++) {
-          activeRecordedTimes.add({
-            'name': activeTemplate!.steps[i],
-            'time': 0,
-            'cumulative_time': 0,
-            'type': 'normal',
-            'status': 'pending',
-            'step_index': i
-          });
-        }
+    }
+
+    if (templateIdCont != -1) {
+      _activeTemplateCont = templates.cast<OperationTemplate?>().firstWhere((t) => t?.id == templateIdCont, orElse: () => null);
+      if (_activeTemplateCont != null) {
+        _currentTemplateStepIndexCont = recordedTimesContinuo.length % _activeTemplateCont!.steps.length;
+        if (currentMode == StopwatchMode.continuo) _appendTemplatePlaceholders();
       }
     }
 
@@ -222,24 +247,32 @@ class TimeLogController extends ChangeNotifier {
     await prefs.setInt('baseTimeMs', _baseTimeMs);
     await prefs.setInt('startTimeEpoch', _startTimeEpoch ?? 0);
     await prefs.setInt('currentMode', currentMode.index);
-    await prefs.setString('taskName', taskNameController.text);
     
-    if (activeStudyId != null) {
-      await prefs.setInt('activeStudyId', activeStudyId!);
-    } else {
-      await prefs.remove('activeStudyId');
-    }
+    await prefs.setString('taskNameRAC', _savedTaskNameRAC);
+    await prefs.setString('taskNameCont', _savedTaskNameCont);
     
-    if (activeTemplate != null) {
-      await prefs.setInt('activeTemplateId', activeTemplate!.id);
-    } else {
-      await prefs.remove('activeTemplateId');
-    }
+    if (_activeStudyIdRAC != null) await prefs.setInt('activeStudyIdRAC', _activeStudyIdRAC!);
+    else await prefs.remove('activeStudyIdRAC');
+
+    if (_activeStudyIdCont != null) await prefs.setInt('activeStudyIdCont', _activeStudyIdCont!);
+    else await prefs.remove('activeStudyIdCont');
+    
+    if (_activeTemplateRAC != null) await prefs.setInt('activeTemplateIdRAC', _activeTemplateRAC!.id);
+    else await prefs.remove('activeTemplateIdRAC');
+
+    if (_activeTemplateCont != null) await prefs.setInt('activeTemplateIdCont', _activeTemplateCont!.id);
+    else await prefs.remove('activeTemplateIdCont');
   }
 
   Future<void> updateTaskName(String value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('taskName', value);
+    if (currentMode == StopwatchMode.regresoACero) {
+      _savedTaskNameRAC = value;
+      await prefs.setString('taskNameRAC', value);
+    } else {
+      _savedTaskNameCont = value;
+      await prefs.setString('taskNameCont', value);
+    }
   }
 
   void syncActiveStudyName(String newName) {
@@ -277,9 +310,20 @@ class TimeLogController extends ChangeNotifier {
 
   void setMode(StopwatchMode mode) {
     if (currentMode != mode) {
+      // 1. Limpiamos SOLO la basura de la lista de la que estamos saliendo
+      activeRecordedTimes.removeWhere((e) => e['status'] == 'pending');
+
+      // 2. Guardamos el nombre actual en su respectiva memoria
+      if (currentMode == StopwatchMode.regresoACero) {
+        _savedTaskNameRAC = taskNameController.text;
+      } else {
+        _savedTaskNameCont = taskNameController.text;
+      }
+
       currentMode = mode;
       
-      if (activeTemplate != null) clearTemplate();
+      // 3. Restauramos el nombre del nuevo modo
+      taskNameController.text = currentMode == StopwatchMode.regresoACero ? _savedTaskNameRAC : _savedTaskNameCont;
 
       bool wasRunning = _stopwatch.isRunning;
       _stopwatch.reset(); 
@@ -295,6 +339,16 @@ class TimeLogController extends ChangeNotifier {
       
       if (wasRunning) _stopwatch.start();
       _syncStartTime();
+
+      // 4. Si el NUEVO modo tiene una plantilla en SU memoria, la redibujamos
+      if (activeTemplate != null) {
+        int completedItemsCount = activeRecordedTimes.length; 
+        currentTemplateStepIndex = completedItemsCount % activeTemplate!.steps.length;
+        _appendTemplatePlaceholders();
+        
+        taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex];
+        updateTaskName(taskNameController.text);
+      }
 
       calculateStatistics();
       _showSnackBar('Modo: ${mode == StopwatchMode.regresoACero ? "Regreso a Cero" : "Continuo"}', Icons.settings, Colors.tealAccent);
@@ -480,6 +534,8 @@ class TimeLogController extends ChangeNotifier {
           _appendTemplatePlaceholders();
         }
         
+        taskNameController.text = currentList[currentTemplateStepIndex]['name'];
+        updateTaskName(taskNameController.text);
       } 
       else {
         Map<String, dynamic> timeEntry = {};
@@ -532,6 +588,8 @@ class TimeLogController extends ChangeNotifier {
         currentList[currentTemplateStepIndex]['status'] = 'pending';
         currentList[currentTemplateStepIndex]['type'] = 'normal';
         
+        taskNameController.text = currentList[currentTemplateStepIndex]['name'];
+        updateTaskName(taskNameController.text);
       }
     } else {
       currentList.removeLast();
@@ -584,9 +642,11 @@ class TimeLogController extends ChangeNotifier {
       currentTemplateStepIndex = 0;
       _appendTemplatePlaceholders();
       
-      // Mantenemos el Nombre Maestro
       taskNameController.text = activeTemplate!.name;
       updateTaskName(activeTemplate!.name);
+    } else {
+      taskNameController.text = ''; 
+      updateTaskName('');
     }
 
     saveTimeData();
@@ -608,7 +668,6 @@ class TimeLogController extends ChangeNotifier {
         mode: currentMode,
         timeFormatter: (val) => formatTime(val, forExport: true),
         activeTemplate: activeTemplate,
-        // INTERCONEXIÓN: Pasamos el nombre maestro a la exportación
         studyName: taskNameController.text.trim().isNotEmpty ? taskNameController.text.trim() : 'Estudio_General',
       );
       
@@ -625,14 +684,13 @@ class TimeLogController extends ChangeNotifier {
     try {
       final result = await _export.importDataFromCsv();
       if (result != null) {
-        clearTemplate(); 
-        resetAll();
-        
         final StopwatchMode importedMode = result['mode'];
         final List<Map<String, dynamic>> importedTimes = result['times'];
 
-        setMode(importedMode);
-
+        setMode(importedMode); // Fija el modo al importado primero
+        clearTemplate(); // Limpia plantilla SOLO de este modo
+        resetAll();
+        
         if (importedMode == StopwatchMode.regresoACero) {
           recordedTimesRegresoACero = importedTimes;
         } else {
@@ -664,9 +722,8 @@ class TimeLogController extends ChangeNotifier {
       name: studyName,
       mode: currentMode,
       times: dataToSave,
-      template: activeTemplate, // NUEVO: Le pasamos la ruta activa
+      template: activeTemplate, 
     );
-    // INTERCONEXIÓN: Si se guardó, el nombre se convierte en maestro
     taskNameController.text = studyName;
     updateTaskName(studyName);
 
@@ -684,7 +741,7 @@ class TimeLogController extends ChangeNotifier {
       id: activeStudyId!,
       mode: currentMode,
       times: dataToSave,
-      template: activeTemplate, // NUEVO: Le pasamos la ruta activa
+      template: activeTemplate, 
     );
     
     saveTimerState();
@@ -694,12 +751,11 @@ class TimeLogController extends ChangeNotifier {
   }
 
   void loadStudyFromHistory(StudyModel study) {
+    setMode(study.mode); // Aislamos el modo primero
     clearTemplate(); 
     resetAll();
-    setMode(study.mode);
-    activeStudyId = study.id; 
     
-    // INTERCONEXIÓN: El Nombre Maestro se hereda del historial
+    activeStudyId = study.id; 
     taskNameController.text = study.name;
     updateTaskName(study.name);
     
@@ -709,7 +765,7 @@ class TimeLogController extends ChangeNotifier {
       'type': t.type,
       'cumulative_time': t.cumulativeTime,
       'status': 'done',
-      'step_index': t.stepIndex // RESTAURAMOS EL ÍNDICE EXACTO
+      'step_index': t.stepIndex 
     }).toList();
 
     if (study.mode == StopwatchMode.regresoACero) {
@@ -722,27 +778,19 @@ class TimeLogController extends ChangeNotifier {
       }
     }
     
-    // NUEVO: RESTAURAR EL MODO PLANTILLA Y SUS ESPACIOS VACÍOS
+    // RESTAURAR EL MODO PLANTILLA Y SUS ESPACIOS VACÍOS
     if (study.isTemplate && study.templateSteps.isNotEmpty) {
       activeTemplate = OperationTemplate()
-        ..id = -1 // ID en memoria solamente
+        ..id = -1 
         ..name = study.name
         ..steps = study.templateSteps;
       
-      // Calculamos en qué paso se había quedado
       currentTemplateStepIndex = convertedTimes.length % activeTemplate!.steps.length;
       
-      // Re-dibujamos los pasos grises faltantes para completar el ciclo
-      for (int i = currentTemplateStepIndex; i < activeTemplate!.steps.length; i++) {
-        activeRecordedTimes.add({
-          'name': activeTemplate!.steps[i],
-          'time': 0,
-          'cumulative_time': 0,
-          'type': 'normal',
-          'status': 'pending',
-          'step_index': i
-        });
-      }
+      _appendTemplatePlaceholders();
+      
+      taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex];
+      updateTaskName(taskNameController.text);
     }
     
     saveTimeData();

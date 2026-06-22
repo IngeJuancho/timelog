@@ -28,7 +28,6 @@ class StudyModel {
 
   List<TimeRecord> times = [];
 
-  // NUEVOS CAMPOS: Memoria independiente para Rutas Estándar
   bool isTemplate = false;
   List<String> templateSteps = [];
 }
@@ -39,14 +38,23 @@ class TimeRecord {
   int? time;             
   String? type;          
   int? cumulativeTime;
-  int? stepIndex; // NUEVO: Para saber exactamente a qué paso del Excel pertenece
+  int? stepIndex; 
 }
 
-// --- NUEVA ESTRUCTURA PARA PLANTILLAS DE OPERACIÓN ---
+// --- NUEVA ESTRUCTURA DE CARPETAS ---
+@collection
+class TemplateFolder {
+  Id id = Isar.autoIncrement;
+  late String name;
+}
+
 @collection
 class OperationTemplate {
   Id id = Isar.autoIncrement;
   
   late String name;
   List<String> steps = [];
+  
+  // NUEVO: Identificador de la carpeta a la que pertenece (null = carpeta principal)
+  int? folderId; 
 }

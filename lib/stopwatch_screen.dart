@@ -195,7 +195,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       }
     }
 
-    // INTERCONEXIÓN: Sugerir el Nombre Maestro por default
     final TextEditingController nameController = TextEditingController(
       text: controller.taskNameController.text.isNotEmpty 
           ? controller.taskNameController.text 
@@ -272,48 +271,18 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     if (shouldReset == true) controller.resetAll();
   }
 
+  // --- NUEVA FUNCIÓN: Ahora abre nuestro Widget Mini-Explorador ---
   Future<void> _showTemplateSelector(TimeLogController state) async {
-    final templates = await StorageService().getTemplates();
-    if (!mounted) return;
-
-    if (templates.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay plantillas guardadas. Crea una en el menú lateral.'), backgroundColor: Colors.orange),
-      );
-      return;
-    }
-
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF252525),
+      isScrollControlled: true, // Permite que el sheet crezca más si es necesario
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Seleccionar Ruta Estándar', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: templates.length,
-                itemBuilder: (context, index) {
-                  final t = templates[index];
-                  return ListTile(
-                    leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.route, color: Colors.white, size: 20)),
-                    title: Text(t.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    subtitle: Text('${t.steps.length} pasos programados', style: const TextStyle(color: Colors.white54)),
-                    onTap: () {
-                      state.loadTemplate(t);
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
+      builder: (context) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7, // Ocupará máximo el 70% de la pantalla
         ),
+        child: _TemplateSelectorSheet(state: state),
       ),
     );
   }
@@ -700,7 +669,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           children: [
             const Text('Manejo de Datos', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
-            // REQUISITO CUMPLIDO: Textos limpios (Importar archivo y Exportar archivo)
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.download, color: Colors.white)),
               title: const Text('Importar archivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -785,6 +753,109 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 // -------------------------------------------------------------------------------------
 // WIDGETS INDEPENDIENTES 
 // -------------------------------------------------------------------------------------
+
+// --- NUEVO: EXPLORADOR DE CARPETAS PARA EL SELECTOR ---
+class _TemplateSelectorSheet extends StatefulWidget {
+  final TimeLogController state;
+  const _TemplateSelectorSheet({required this.state});
+
+  @override
+  State<_TemplateSelectorSheet> createState() => _TemplateSelectorSheetState();
+}
+
+class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
+  final StorageService _storage = StorageService();
+  TemplateFolder? _currentFolder;
+  List<TemplateFolder> _folders = [];
+  List<OperationTemplate> _templates = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    if (_currentFolder == null) {
+      _folders = await _storage.getFolders();
+      _templates = await _storage.getTemplates(folderId: null);
+    } else {
+      _folders = [];
+      _templates = await _storage.getTemplates(folderId: _currentFolder!.id);
+    }
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  void _navigateIntoFolder(TemplateFolder folder) {
+    setState(() => _currentFolder = folder);
+    _loadData();
+  }
+
+  void _navigateBack() {
+    setState(() => _currentFolder = null);
+    _loadData();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              if (_currentFolder != null)
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: _navigateBack,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              if (_currentFolder != null) const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _currentFolder == null ? 'Seleccionar Ruta Estándar' : _currentFolder!.name,
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: _currentFolder == null ? TextAlign.center : TextAlign.left,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Flexible(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.tealAccent))
+                : (_folders.isEmpty && _templates.isEmpty)
+                    ? const Center(child: Padding(padding: EdgeInsets.all(20.0), child: Text('Carpeta vacía', style: TextStyle(color: Colors.white54))))
+                    : ListView(
+                        shrinkWrap: true,
+                        children: [
+                          ..._folders.map((folder) => ListTile(
+                            leading: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.folder, color: Colors.white, size: 20)),
+                            title: Text(folder.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+                            onTap: () => _navigateIntoFolder(folder),
+                          )),
+                          ..._templates.map((template) => ListTile(
+                            leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.route, color: Colors.white, size: 20)),
+                            title: Text(template.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            subtitle: Text('${template.steps.length} pasos programados', style: const TextStyle(color: Colors.white54)),
+                            onTap: () {
+                              widget.state.loadTemplate(template);
+                              Navigator.pop(context);
+                            },
+                          )),
+                        ],
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class AnalysisViewWidget extends StatelessWidget {
   final TimeLogController state;
@@ -896,39 +967,48 @@ class SimpleRecordsListWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (state.recordedTimesRegresoACero.isEmpty) return const EmptyStateWidget();
-    return ListView.separated(
+    
+    return SingleChildScrollView(
       controller: scrollController,
-      padding: const EdgeInsets.all(16), 
-      itemCount: state.recordedTimesRegresoACero.length, 
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final timeData = state.recordedTimesRegresoACero[index];
-        bool isOutlier = timeData['type'] == 'outlier';
-        bool isPending = timeData['status'] == 'pending';
-        bool isActiveStep = state.activeTemplate != null && index == state.currentTemplateStepIndex;
-        
-        return Container(
-          decoration: BoxDecoration(
-            color: isActiveStep ? Colors.tealAccent.withOpacity(0.1) : (isOutlier ? Colors.redAccent.withOpacity(0.05) : const Color(0xFF252525)), 
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isActiveStep ? Colors.tealAccent.withOpacity(0.5) : (isOutlier ? Colors.redAccent.withOpacity(0.2) : Colors.transparent)),
+      scrollDirection: Axis.vertical,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.white10),
+          child: DataTable(
+            columnSpacing: 20,
+            headingRowColor: WidgetStateProperty.all(const Color(0xFF252525)),
+            headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent, fontSize: 12),
+            dataTextStyle: const TextStyle(fontSize: 13, color: Colors.white70),
+            columns: const [
+              DataColumn(label: Text('#')),
+              DataColumn(label: Text('ELEMENTO')),
+              DataColumn(label: Text('TIEMPO (TO)')), // Regreso a cero solo maneja TO
+              DataColumn(label: Text('')),
+            ],
+            rows: state.recordedTimesRegresoACero.asMap().entries.map((e) {
+              bool isOutlier = e.value['type'] == 'outlier';
+              bool isPending = e.value['status'] == 'pending';
+              bool isActiveStep = state.activeTemplate != null && e.key == state.currentTemplateStepIndex;
+
+              return DataRow(
+                onLongPress: isPending ? null : () => onMergeRequest(e.key),
+                color: WidgetStateProperty.resolveWith((states) {
+                  if (isActiveStep) return Colors.tealAccent.withOpacity(0.15);
+                  if (isOutlier) return Colors.redAccent.withOpacity(0.05);
+                  return null;
+                }),
+                cells: [
+                  DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))),
+                  DataCell(ElementNameWidget(timeData: e.value, index: e.key, state: state)),
+                  DataCell(Text(isPending ? '--:--.--' : state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withOpacity(0.7) : (isPending ? Colors.white38 : Colors.white)))),
+                  DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => state.deleteItem(e.key)))
+                ],
+              );
+            }).toList(),
           ),
-          child: ListTile(
-            onLongPress: isPending ? null : () => onMergeRequest(index), 
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), 
-            leading: Text('${index + 1}', style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 16)), 
-            title: ElementNameWidget(timeData: timeData, index: index, state: state),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min, 
-              children: [
-                Text(isPending ? '--:--.--' : state.formatTime(timeData['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withOpacity(0.7) : (isPending ? Colors.white38 : Colors.white70), fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'monospace')), 
-                const SizedBox(width: 10), 
-                isPending ? const SizedBox(width: 34) : IconButton(icon: const Icon(Icons.close, size: 18, color: Colors.redAccent), onPressed: () => state.deleteItem(index))
-              ]
-            ),
-          ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
