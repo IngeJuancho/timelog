@@ -144,13 +144,12 @@ class StorageService {
   // ===========================================================================
   // MANEJO DE PLANTILLAS (RUTAS ESTÁNDAR)
   // ===========================================================================
-
-  // NUEVO: Método para traer absolutamente TODAS las plantillas (para el cronómetro)
+  
   Future<List<OperationTemplate>> getAllTemplates() async {
     final isar = await db;
     return await isar.operationTemplates.where().sortByName().findAll();
   }
-  
+
   Future<List<OperationTemplate>> getTemplates({int? folderId}) async {
     final isar = await db;
     if (folderId == null) {

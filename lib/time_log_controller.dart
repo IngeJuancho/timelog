@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
-import 'dart:ui'; 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +17,6 @@ class TimeLogController extends ChangeNotifier {
   final ExportService _export = ExportService();
   
   final Stopwatch _stopwatch = Stopwatch();
-  Timer? _timer;
   
   int _baseTimeMs = 0;
   int? _startTimeEpoch; 
@@ -33,10 +31,10 @@ class TimeLogController extends ChangeNotifier {
   OperationTemplate? _activeTemplateCont;
   int _currentTemplateStepIndexCont = 0;
 
+  // Variables para guardar el "Nombre Maestro" independiente de los pasos
   String _savedTaskNameRAC = '';
   String _savedTaskNameCont = '';
 
-  // Getters y Setters que redirigen automáticamente al modo activo
   int? get activeStudyId => currentMode == StopwatchMode.regresoACero ? _activeStudyIdRAC : _activeStudyIdCont;
   set activeStudyId(int? id) {
     if (currentMode == StopwatchMode.regresoACero) _activeStudyIdRAC = id;
@@ -53,6 +51,15 @@ class TimeLogController extends ChangeNotifier {
   set currentTemplateStepIndex(int index) {
     if (currentMode == StopwatchMode.regresoACero) _currentTemplateStepIndexRAC = index;
     else _currentTemplateStepIndexCont = index;
+  }
+
+  // Getter que devuelve el Nombre Maestro real para usarlo al exportar o guardar
+  String get masterStudyName {
+    String name = currentMode == StopwatchMode.regresoACero ? _savedTaskNameRAC : _savedTaskNameCont;
+    if (name.isNotEmpty) return name;
+    if (activeTemplate != null) return activeTemplate!.name;
+    if (taskNameController.text.trim().isNotEmpty) return taskNameController.text.trim();
+    return '';
   }
 
   // -------------------------------------
@@ -101,6 +108,15 @@ class TimeLogController extends ChangeNotifier {
     loadAllData();
   }
 
+  // Helper interno para actualizar el nombre maestro
+  void _setMasterName(String name) {
+    if (currentMode == StopwatchMode.regresoACero) {
+      _savedTaskNameRAC = name;
+    } else {
+      _savedTaskNameCont = name;
+    }
+  }
+
   void loadTemplate(OperationTemplate template) {
     if (template.steps.isEmpty) return;
     resetAll(); 
@@ -109,8 +125,12 @@ class TimeLogController extends ChangeNotifier {
     
     _appendTemplatePlaceholders();
     
-    taskNameController.text = template.name;
-    updateTaskName(template.name);
+    // Asignamos el nombre maestro a la plantilla
+    _setMasterName(template.name);
+    
+    // Pero en la interfaz mostramos el primer paso
+    taskNameController.text = template.steps[0];
+    saveTimerState();
     notifyListeners();
   }
 
@@ -136,7 +156,7 @@ class TimeLogController extends ChangeNotifier {
     activeRecordedTimes.removeWhere((e) => e['status'] == 'pending');
     
     taskNameController.clear();
-    updateTaskName('');
+    _setMasterName('');
     saveTimerState();
     notifyListeners();
   }
@@ -164,16 +184,10 @@ class TimeLogController extends ChangeNotifier {
     String? contJson = prefs.getString('times_cont');
     if (contJson != null) recordedTimesContinuo = List<Map<String, dynamic>>.from(jsonDecode(contJson));
 
-    // Cargar nombres independientes
     _savedTaskNameRAC = prefs.getString('taskNameRAC') ?? prefs.getString('taskName') ?? '';
     _savedTaskNameCont = prefs.getString('taskNameCont') ?? prefs.getString('taskName') ?? '';
 
     currentMode = StopwatchMode.values[prefs.getInt('currentMode') ?? StopwatchMode.regresoACero.index];
-    taskNameController.text = currentMode == StopwatchMode.regresoACero ? _savedTaskNameRAC : _savedTaskNameCont;
-
-    bool wasRunning = prefs.getBool('isRunning') ?? false;
-    int savedStartTime = prefs.getInt('startTimeEpoch') ?? 0;
-    _baseTimeMs = prefs.getInt('baseTimeMs') ?? 0;
     
     _activeStudyIdRAC = prefs.getInt('activeStudyIdRAC') ?? prefs.getInt('activeStudyId'); 
     _activeStudyIdCont = prefs.getInt('activeStudyIdCont') ?? prefs.getInt('activeStudyId'); 
@@ -185,19 +199,10 @@ class TimeLogController extends ChangeNotifier {
       _lastRecordedTimeMs = 0;
     }
 
-    if (wasRunning && savedStartTime > 0) {
-      int missedTime = DateTime.now().millisecondsSinceEpoch - savedStartTime;
-      _baseTimeMs = missedTime;
-      _stopwatch.start();
-      _syncStartTime();
-      _startTicking();
-    }
-
-    // RESTAURAR PLANTILLAS (RUTAS) INDEPENDIENTEMENTE PARA CADA MODO
+    // RESTAURAR PLANTILLAS
     int templateIdRAC = prefs.getInt('activeTemplateIdRAC') ?? prefs.getInt('activeTemplateId') ?? -1;
     int templateIdCont = prefs.getInt('activeTemplateIdCont') ?? prefs.getInt('activeTemplateId') ?? -1;
-    
-    final templates = await _storage.getTemplates();
+    final templates = await _storage.getAllTemplates(); // CORRECCIÓN: Busca en TODAS las carpetas, no solo en la raíz
     
     if (templateIdRAC != -1) {
       _activeTemplateRAC = templates.cast<OperationTemplate?>().firstWhere((t) => t?.id == templateIdRAC, orElse: () => null);
@@ -213,6 +218,23 @@ class TimeLogController extends ChangeNotifier {
         _currentTemplateStepIndexCont = recordedTimesContinuo.length % _activeTemplateCont!.steps.length;
         if (currentMode == StopwatchMode.continuo) _appendTemplatePlaceholders();
       }
+    }
+
+    // Restaurar lo que se ve en el TextField
+    if (activeTemplate != null) {
+      taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex];
+    } else {
+      taskNameController.text = currentMode == StopwatchMode.regresoACero ? _savedTaskNameRAC : _savedTaskNameCont;
+    }
+
+    bool wasRunning = prefs.getBool('isRunning') ?? false;
+    int savedStartTime = prefs.getInt('startTimeEpoch') ?? 0;
+    
+    if (wasRunning && savedStartTime > 0) {
+      int missedTime = DateTime.now().millisecondsSinceEpoch - savedStartTime;
+      _baseTimeMs = missedTime;
+      _stopwatch.start();
+      _syncStartTime();
     }
 
     calculateStatistics();
@@ -265,19 +287,23 @@ class TimeLogController extends ChangeNotifier {
   }
 
   Future<void> updateTaskName(String value) async {
+    // Si hay plantilla activa, lo que escribe el usuario no debe sobreescribir el Nombre Maestro
+    if (activeTemplate != null) return;
+    
+    _setMasterName(value);
     final prefs = await SharedPreferences.getInstance();
     if (currentMode == StopwatchMode.regresoACero) {
-      _savedTaskNameRAC = value;
       await prefs.setString('taskNameRAC', value);
     } else {
-      _savedTaskNameCont = value;
       await prefs.setString('taskNameCont', value);
     }
   }
 
   void syncActiveStudyName(String newName) {
-    taskNameController.text = newName;
-    updateTaskName(newName); 
+    _setMasterName(newName);
+    if (activeTemplate == null) {
+      taskNameController.text = newName;
+    }
     notifyListeners();
   }
 
@@ -310,21 +336,14 @@ class TimeLogController extends ChangeNotifier {
 
   void setMode(StopwatchMode mode) {
     if (currentMode != mode) {
-      // 1. Limpiamos SOLO la basura de la lista de la que estamos saliendo
       activeRecordedTimes.removeWhere((e) => e['status'] == 'pending');
 
-      // 2. Guardamos el nombre actual en su respectiva memoria
-      if (currentMode == StopwatchMode.regresoACero) {
-        _savedTaskNameRAC = taskNameController.text;
-      } else {
-        _savedTaskNameCont = taskNameController.text;
+      if (activeTemplate == null) {
+        _setMasterName(taskNameController.text);
       }
 
       currentMode = mode;
       
-      // 3. Restauramos el nombre del nuevo modo
-      taskNameController.text = currentMode == StopwatchMode.regresoACero ? _savedTaskNameRAC : _savedTaskNameCont;
-
       bool wasRunning = _stopwatch.isRunning;
       _stopwatch.reset(); 
       
@@ -340,14 +359,14 @@ class TimeLogController extends ChangeNotifier {
       if (wasRunning) _stopwatch.start();
       _syncStartTime();
 
-      // 4. Si el NUEVO modo tiene una plantilla en SU memoria, la redibujamos
       if (activeTemplate != null) {
         int completedItemsCount = activeRecordedTimes.length; 
         currentTemplateStepIndex = completedItemsCount % activeTemplate!.steps.length;
         _appendTemplatePlaceholders();
         
         taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex];
-        updateTaskName(taskNameController.text);
+      } else {
+        taskNameController.text = currentMode == StopwatchMode.regresoACero ? _savedTaskNameRAC : _savedTaskNameCont;
       }
 
       calculateStatistics();
@@ -402,7 +421,7 @@ class TimeLogController extends ChangeNotifier {
       'time': mergedTime,
       'type': 'normal', 
       'status': 'done',
-      'step_index': curr['step_index'] 
+      'step_index': prev['step_index'] // CORRECCIÓN: Ahora se ancla al paso donde inició la acción
     };
 
     if (currentMode == StopwatchMode.continuo) {
@@ -470,11 +489,6 @@ class TimeLogController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _startTicking() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => notifyListeners());
-  }
-
   void startTimerLogic() {
     if (!_stopwatch.isRunning) {
       triggerHaptic();
@@ -483,7 +497,7 @@ class TimeLogController extends ChangeNotifier {
       }
       _stopwatch.start();
       _syncStartTime();
-      _startTicking();
+      // Ya no llamamos a Timer.periodic. La interfaz gráfica se encargará de consultar el tiempo.
       notifyListeners();
     }
   }
@@ -495,7 +509,6 @@ class TimeLogController extends ChangeNotifier {
       _stopwatch.reset();
       _stopwatch.stop();
       _syncStartTime();
-      _timer?.cancel();
       notifyListeners();
     }
   }
@@ -535,7 +548,6 @@ class TimeLogController extends ChangeNotifier {
         }
         
         taskNameController.text = currentList[currentTemplateStepIndex]['name'];
-        updateTaskName(taskNameController.text);
       } 
       else {
         Map<String, dynamic> timeEntry = {};
@@ -582,14 +594,35 @@ class TimeLogController extends ChangeNotifier {
 
     if (activeTemplate != null) {
       if (currentTemplateStepIndex > 0) {
+        // Deshacer normal dentro de un mismo ciclo
         currentTemplateStepIndex--;
         currentList[currentTemplateStepIndex]['time'] = 0;
-        currentList[currentTemplateStepIndex]['cumulative_time'] = 0;
+        if (currentMode == StopwatchMode.continuo) currentList[currentTemplateStepIndex]['cumulative_time'] = 0;
         currentList[currentTemplateStepIndex]['status'] = 'pending';
         currentList[currentTemplateStepIndex]['type'] = 'normal';
         
         taskNameController.text = currentList[currentTemplateStepIndex]['name'];
-        updateTaskName(taskNameController.text);
+      } else if (currentList.length > activeTemplate!.steps.length) {
+        // CORRECCIÓN BUG 3: El usuario quiere retroceder al ciclo anterior estando en el Paso 0
+        int stepCount = activeTemplate!.steps.length;
+        // 1. Eliminamos todos los espacios vacíos generados para este ciclo
+        currentList.removeRange(currentList.length - stepCount, currentList.length);
+        // 2. Colocamos el índice en el último paso del ciclo anterior
+        currentTemplateStepIndex = stepCount - 1;
+        // 3. Devolvemos su estado a pendiente
+        currentList.last['time'] = 0;
+        if (currentMode == StopwatchMode.continuo) currentList.last['cumulative_time'] = 0;
+        currentList.last['status'] = 'pending';
+        currentList.last['type'] = 'normal';
+        
+        taskNameController.text = currentList.last['name'];
+      } else {
+         // Si quiere deshacer estando en el mero principio absoluto, solo limpiamos el primero
+         currentList[0]['time'] = 0;
+         if (currentMode == StopwatchMode.continuo) currentList[0]['cumulative_time'] = 0;
+         currentList[0]['status'] = 'pending';
+         currentList[0]['type'] = 'normal';
+         taskNameController.text = currentList[0]['name'];
       }
     } else {
       currentList.removeLast();
@@ -641,12 +674,10 @@ class TimeLogController extends ChangeNotifier {
     if (activeTemplate != null && activeTemplate!.steps.isNotEmpty) {
       currentTemplateStepIndex = 0;
       _appendTemplatePlaceholders();
-      
-      taskNameController.text = activeTemplate!.name;
-      updateTaskName(activeTemplate!.name);
+      taskNameController.text = activeTemplate!.steps[0];
     } else {
       taskNameController.text = ''; 
-      updateTaskName('');
+      _setMasterName('');
     }
 
     saveTimeData();
@@ -668,7 +699,7 @@ class TimeLogController extends ChangeNotifier {
         mode: currentMode,
         timeFormatter: (val) => formatTime(val, forExport: true),
         activeTemplate: activeTemplate,
-        studyName: taskNameController.text.trim().isNotEmpty ? taskNameController.text.trim() : 'Estudio_General',
+        studyName: masterStudyName.isNotEmpty ? masterStudyName : 'Estudio_General',
       );
       
       if (fileName != null) {
@@ -687,8 +718,8 @@ class TimeLogController extends ChangeNotifier {
         final StopwatchMode importedMode = result['mode'];
         final List<Map<String, dynamic>> importedTimes = result['times'];
 
-        setMode(importedMode); // Fija el modo al importado primero
-        clearTemplate(); // Limpia plantilla SOLO de este modo
+        setMode(importedMode); 
+        clearTemplate(); 
         resetAll();
         
         if (importedMode == StopwatchMode.regresoACero) {
@@ -724,8 +755,11 @@ class TimeLogController extends ChangeNotifier {
       times: dataToSave,
       template: activeTemplate, 
     );
-    taskNameController.text = studyName;
-    updateTaskName(studyName);
+    _setMasterName(studyName);
+    
+    if (activeTemplate == null) {
+      taskNameController.text = studyName;
+    }
 
     saveTimerState(); 
     notifyListeners();
@@ -751,13 +785,12 @@ class TimeLogController extends ChangeNotifier {
   }
 
   void loadStudyFromHistory(StudyModel study) {
-    setMode(study.mode); // Aislamos el modo primero
+    setMode(study.mode); 
     clearTemplate(); 
     resetAll();
     
     activeStudyId = study.id; 
-    taskNameController.text = study.name;
-    updateTaskName(study.name);
+    _setMasterName(study.name);
     
     final convertedTimes = study.times.map((t) => {
       'name': t.name,
@@ -778,7 +811,6 @@ class TimeLogController extends ChangeNotifier {
       }
     }
     
-    // RESTAURAR EL MODO PLANTILLA Y SUS ESPACIOS VACÍOS
     if (study.isTemplate && study.templateSteps.isNotEmpty) {
       activeTemplate = OperationTemplate()
         ..id = -1 
@@ -786,11 +818,10 @@ class TimeLogController extends ChangeNotifier {
         ..steps = study.templateSteps;
       
       currentTemplateStepIndex = convertedTimes.length % activeTemplate!.steps.length;
-      
       _appendTemplatePlaceholders();
-      
       taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex];
-      updateTaskName(taskNameController.text);
+    } else {
+      taskNameController.text = study.name;
     }
     
     saveTimeData();
@@ -825,7 +856,6 @@ class TimeLogController extends ChangeNotifier {
 
   void _showSnackBar(String message, IconData icon, Color iconColor) {
     scaffoldMessengerKey.currentState?.clearSnackBars();
-    
     double bottomMargin = 16.0;
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
     if (view != null) {
@@ -850,7 +880,6 @@ class TimeLogController extends ChangeNotifier {
 
   void _showSnackBarWithUndo(String message, IconData icon, Color iconColor) {
     scaffoldMessengerKey.currentState?.clearSnackBars(); 
-    
     double bottomMargin = 16.0;
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
     if (view != null) {
@@ -867,8 +896,7 @@ class TimeLogController extends ChangeNotifier {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
         elevation: 6,
-        duration: const Duration(milliseconds: 2000),
-        dismissDirection: DismissDirection.up,
+        duration: const Duration(seconds: 4),
         action: SnackBarAction(label: 'DESHACER', textColor: Colors.orangeAccent, onPressed: undoLastRecord),
       ),
     );
@@ -876,8 +904,6 @@ class TimeLogController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _timer?.cancel();
-    taskNameController.dispose();
     platform.setMethodCallHandler(null);
     super.dispose();
   }

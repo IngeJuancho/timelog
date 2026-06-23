@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -186,7 +185,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         ),
       );
 
-      if (!mounted) return; 
+      if (!context.mounted) return; 
       if (chooseUpdate == null) return; 
 
       if (chooseUpdate == true) {
@@ -195,11 +194,14 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       }
     }
 
+    final String currentMasterName = controller.masterStudyName;
     final TextEditingController nameController = TextEditingController(
-      text: controller.taskNameController.text.isNotEmpty 
-          ? controller.taskNameController.text 
+      text: currentMasterName.isNotEmpty 
+          ? currentMasterName 
           : 'Estudio ${DateTime.now().day}/${DateTime.now().month}'
     );
+
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
@@ -267,22 +269,26 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       }
     );
 
-    if (!mounted) return; 
+    if (!context.mounted) return; 
     if (shouldReset == true) controller.resetAll();
   }
 
-  // --- NUEVA FUNCIÓN: Ahora abre nuestro Widget Mini-Explorador ---
   Future<void> _showTemplateSelector(TimeLogController state) async {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF252525),
-      isScrollControlled: true, // Permite que el sheet crezca más si es necesario
+      isScrollControlled: true, 
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.7, // Ocupará máximo el 70% de la pantalla
+      builder: (context) => Padding(
+        // CORRECCIÓN 2: Este padding dinámico previene que el teclado cubra los resultados
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            // Le damos hasta el 85% de la pantalla para que tenga holgura
+            maxHeight: MediaQuery.of(context).size.height * 0.85, 
+          ),
+          child: _TemplateSelectorSheet(state: state),
         ),
-        child: _TemplateSelectorSheet(state: state),
       ),
     );
   }
@@ -439,8 +445,8 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         leading: Icon(icon, color: isSelected ? Colors.tealAccent : Colors.white70),
         title: Text(title, style: TextStyle(color: isSelected ? Colors.tealAccent : Colors.white, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-        subtitle: Text(subtitle, style: TextStyle(color: isSelected ? Colors.teal.withOpacity(0.7) : Colors.white38, fontSize: 12)),
-        tileColor: isSelected ? Colors.teal.withOpacity(0.15) : null,
+        subtitle: Text(subtitle, style: TextStyle(color: isSelected ? Colors.teal.withValues(alpha: 0.7) : Colors.white38, fontSize: 12)),
+        tileColor: isSelected ? Colors.teal.withValues(alpha: 0.15) : null,
         onTap: () { state.setMode(mode); Navigator.pop(context); },
       ),
     );
@@ -576,10 +582,10 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             icon: Icon(primaryIcon, size: 28),
             label: Text(primaryLabel.toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor.withOpacity(0.2), 
+              backgroundColor: primaryColor.withValues(alpha: 0.2), 
               foregroundColor: primaryColor, 
               elevation: 0, 
-              side: BorderSide(color: primaryColor.withOpacity(0.5), width: 1.5), 
+              side: BorderSide(color: primaryColor.withValues(alpha: 0.5), width: 1.5), 
               shape: const StadiumBorder()
             ),
           ),
@@ -754,7 +760,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 // WIDGETS INDEPENDIENTES 
 // -------------------------------------------------------------------------------------
 
-// --- NUEVO: EXPLORADOR DE CARPETAS PARA EL SELECTOR ---
 class _TemplateSelectorSheet extends StatefulWidget {
   final TimeLogController state;
   const _TemplateSelectorSheet({required this.state});
@@ -768,16 +773,36 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
   TemplateFolder? _currentFolder;
   List<TemplateFolder> _folders = [];
   List<OperationTemplate> _templates = [];
+  List<OperationTemplate> _allTemplates = []; 
   bool _isLoading = true;
+
+  final TextEditingController _searchController = TextEditingController();
+  // CORRECCIÓN 1: Un FocusNode explícito permite invocar el teclado inmediatamente al tocar.
+  final FocusNode _searchFocusNode = FocusNode(); 
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.trim().toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    _allTemplates = await _storage.getAllTemplates(); 
+    
     if (_currentFolder == null) {
       _folders = await _storage.getFolders();
       _templates = await _storage.getTemplates(folderId: null);
@@ -807,52 +832,108 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
         children: [
           Row(
             children: [
-              if (_currentFolder != null)
+              if (_currentFolder != null && _searchQuery.isEmpty)
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: _navigateBack,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
-              if (_currentFolder != null) const SizedBox(width: 12),
+              if (_currentFolder != null && _searchQuery.isEmpty) const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _currentFolder == null ? 'Seleccionar Ruta Estándar' : _currentFolder!.name,
+                  _searchQuery.isNotEmpty 
+                      ? 'Resultados de Búsqueda' 
+                      : (_currentFolder == null ? 'Seleccionar Ruta Estándar' : _currentFolder!.name),
                   style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                  textAlign: _currentFolder == null ? TextAlign.center : TextAlign.left,
+                  textAlign: _currentFolder == null && _searchQuery.isEmpty ? TextAlign.center : TextAlign.left,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _searchController,
+            focusNode: _searchFocusNode,
+            onTap: () {
+              // Obliga al sistema a mostrar el teclado al primer toque en la pantalla
+              if (!_searchFocusNode.hasFocus) {
+                FocusScope.of(context).requestFocus(_searchFocusNode);
+              }
+            },
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Buscar por nombre o número...',
+              hintStyle: const TextStyle(color: Colors.white38),
+              prefixIcon: const Icon(Icons.search, color: Colors.tealAccent),
+              suffixIcon: _searchQuery.isNotEmpty 
+                  ? IconButton(icon: const Icon(Icons.clear, color: Colors.white54), onPressed: () => _searchController.clear())
+                  : null,
+              filled: true,
+              fillColor: const Color(0xFF1E1E1E),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(vertical: 0),
+            ),
+          ),
           const SizedBox(height: 20),
           Flexible(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.tealAccent))
-                : (_folders.isEmpty && _templates.isEmpty)
-                    ? const Center(child: Padding(padding: EdgeInsets.all(20.0), child: Text('Carpeta vacía', style: TextStyle(color: Colors.white54))))
-                    : ListView(
-                        shrinkWrap: true,
-                        children: [
-                          ..._folders.map((folder) => ListTile(
-                            leading: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.folder, color: Colors.white, size: 20)),
-                            title: Text(folder.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            trailing: const Icon(Icons.chevron_right, color: Colors.white54),
-                            onTap: () => _navigateIntoFolder(folder),
-                          )),
-                          ..._templates.map((template) => ListTile(
-                            leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.route, color: Colors.white, size: 20)),
-                            title: Text(template.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            subtitle: Text('${template.steps.length} pasos programados', style: const TextStyle(color: Colors.white54)),
-                            onTap: () {
-                              widget.state.loadTemplate(template);
-                              Navigator.pop(context);
-                            },
-                          )),
-                        ],
-                      ),
+            child: _buildContent(),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Colors.tealAccent));
+    }
+
+    if (_searchQuery.isNotEmpty) {
+      final filtered = _allTemplates.where((t) => t.name.toLowerCase().contains(_searchQuery)).toList();
+      if (filtered.isEmpty) {
+        return const Center(child: Padding(padding: EdgeInsets.all(20.0), child: Text('No se encontraron coincidencias', style: TextStyle(color: Colors.white54))));
+      }
+      return ListView(
+        shrinkWrap: true,
+        children: filtered.map((template) => ListTile(
+          leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.route, color: Colors.white, size: 20)),
+          title: Text(template.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          subtitle: Text('${template.steps.length} pasos programados', style: const TextStyle(color: Colors.white54)),
+          onTap: () {
+            widget.state.loadTemplate(template);
+            Navigator.pop(context);
+          },
+        )).toList(),
+      );
+    }
+
+    if (_folders.isEmpty && _templates.isEmpty) {
+      return const Center(child: Padding(padding: EdgeInsets.all(20.0), child: Text('Carpeta vacía', style: TextStyle(color: Colors.white54))));
+    }
+
+    return ListView(
+      shrinkWrap: true,
+      children: [
+        ..._folders.map((folder) => ListTile(
+          leading: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.folder, color: Colors.white, size: 20)),
+          title: Text(folder.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+          onTap: () => _navigateIntoFolder(folder),
+        )),
+        ..._templates.map((template) => ListTile(
+          leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.route, color: Colors.white, size: 20)),
+          title: Text(template.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          subtitle: Text('${template.steps.length} pasos programados', style: const TextStyle(color: Colors.white54)),
+          onTap: () {
+            widget.state.loadTemplate(template);
+            Navigator.pop(context);
+          },
+        )),
+      ],
     );
   }
 }
@@ -890,9 +971,9 @@ class AnalysisViewWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16), 
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1), 
+        color: color.withValues(alpha: 0.1), 
         borderRadius: BorderRadius.circular(16), 
-        border: Border.all(color: color.withOpacity(0.3))
+        border: Border.all(color: color.withValues(alpha: 0.3))
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, 
@@ -937,15 +1018,15 @@ class ContinuousTableWidget extends StatelessWidget {
               return DataRow(
                 onLongPress: isPending ? null : () => onMergeRequest(e.key), 
                 color: WidgetStateProperty.resolveWith((states) {
-                  if (isActiveStep) return Colors.tealAccent.withOpacity(0.15); 
-                  if (isOutlier) return Colors.redAccent.withOpacity(0.05);
+                  if (isActiveStep) return Colors.tealAccent.withValues(alpha: 0.15); 
+                  if (isOutlier) return Colors.redAccent.withValues(alpha: 0.05);
                   return null;
                 }),
                 cells: [
                   DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), 
                   DataCell(ElementNameWidget(timeData: e.value, index: e.key, state: state)), 
                   DataCell(Text(isPending ? '--:--.--' : state.formatTime((e.value['cumulative_time'] ?? 0).toDouble()), style: TextStyle(color: isOutlier ? Colors.white54 : (isPending ? Colors.white38 : Colors.white70)))), 
-                  DataCell(Text(isPending ? '--:--.--' : state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withOpacity(0.7) : (isPending ? Colors.white38 : Colors.white)))), 
+                  DataCell(Text(isPending ? '--:--.--' : state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Colors.white)))), 
                   DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => state.deleteItem(e.key)))
                 ]
               );
@@ -983,7 +1064,7 @@ class SimpleRecordsListWidget extends StatelessWidget {
             columns: const [
               DataColumn(label: Text('#')),
               DataColumn(label: Text('ELEMENTO')),
-              DataColumn(label: Text('TIEMPO (TO)')), // Regreso a cero solo maneja TO
+              DataColumn(label: Text('TIEMPO (TO)')), 
               DataColumn(label: Text('')),
             ],
             rows: state.recordedTimesRegresoACero.asMap().entries.map((e) {
@@ -994,14 +1075,14 @@ class SimpleRecordsListWidget extends StatelessWidget {
               return DataRow(
                 onLongPress: isPending ? null : () => onMergeRequest(e.key),
                 color: WidgetStateProperty.resolveWith((states) {
-                  if (isActiveStep) return Colors.tealAccent.withOpacity(0.15);
-                  if (isOutlier) return Colors.redAccent.withOpacity(0.05);
+                  if (isActiveStep) return Colors.tealAccent.withValues(alpha: 0.15);
+                  if (isOutlier) return Colors.redAccent.withValues(alpha: 0.05);
                   return null;
                 }),
                 cells: [
                   DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))),
                   DataCell(ElementNameWidget(timeData: e.value, index: e.key, state: state)),
-                  DataCell(Text(isPending ? '--:--.--' : state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withOpacity(0.7) : (isPending ? Colors.white38 : Colors.white)))),
+                  DataCell(Text(isPending ? '--:--.--' : state.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Colors.white)))),
                   DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => state.deleteItem(e.key)))
                 ],
               );
@@ -1039,9 +1120,9 @@ class ElementNameWidget extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isOutlier ? Colors.redAccent.withOpacity(0.15) : Colors.tealAccent.withOpacity(0.1),
+                  color: isOutlier ? Colors.redAccent.withValues(alpha: 0.15) : Colors.tealAccent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: isOutlier ? Colors.redAccent.withOpacity(0.5) : Colors.tealAccent.withOpacity(0.3)),
+                  border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.5) : Colors.tealAccent.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   isOutlier ? 'ATÍPICO' : 'NORMAL',
