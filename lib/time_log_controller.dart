@@ -115,8 +115,6 @@ class TimeLogController extends ChangeNotifier {
     }
   }
 
-  // NUEVA LÓGICA MATEMÁTICA: Recalcula inteligentemente la memoria de tiempos 
-  // si borras, deshaces, importas o cierras un ciclo.
   void _recalculateLastRecordedTime() {
     if (currentMode != StopwatchMode.continuo) {
       _lastRecordedTimeMs = 0;
@@ -129,7 +127,6 @@ class TimeLogController extends ChangeNotifier {
       return;
     }
     
-    // Si terminamos exactamente un ciclo, el cronómetro arranca en 0 para el nuevo
     if (activeTemplate != null && doneItems.length % activeTemplate!.steps.length == 0) {
       _lastRecordedTimeMs = 0;
     } else {
@@ -163,6 +160,34 @@ class TimeLogController extends ChangeNotifier {
         'status': 'pending',
         'step_index': i 
       });
+    }
+  }
+
+  // --- CORRECCIÓN LÓGICA: Calcula e inserta solo los pendientes faltantes ---
+  void _restorePlaceholdersForList(List<Map<String, dynamic>> list, OperationTemplate template) {
+    int remainder = list.length % template.steps.length;
+    if (remainder != 0) {
+      for (int i = remainder; i < template.steps.length; i++) {
+        list.add({
+          'name': template.steps[i],
+          'time': 0,
+          'cumulative_time': 0,
+          'type': 'normal',
+          'status': 'pending',
+          'step_index': i 
+        });
+      }
+    } else {
+      for (int i = 0; i < template.steps.length; i++) {
+        list.add({
+          'name': template.steps[i],
+          'time': 0,
+          'cumulative_time': 0,
+          'type': 'normal',
+          'status': 'pending',
+          'step_index': i 
+        });
+      }
     }
   }
 
@@ -210,7 +235,6 @@ class TimeLogController extends ChangeNotifier {
     _activeStudyIdRAC = prefs.getInt('activeStudyIdRAC') ?? prefs.getInt('activeStudyId'); 
     _activeStudyIdCont = prefs.getInt('activeStudyIdCont') ?? prefs.getInt('activeStudyId'); 
 
-    // RESTAURAR PLANTILLAS Y RECONSTRUIR PLANTILLAS VIRTUALES DEL HISTORIAL
     int templateIdRAC = prefs.getInt('activeTemplateIdRAC') ?? prefs.getInt('activeTemplateId') ?? -1;
     int templateIdCont = prefs.getInt('activeTemplateIdCont') ?? prefs.getInt('activeTemplateId') ?? -1;
     final templates = await _storage.getAllTemplates(); 
@@ -226,8 +250,8 @@ class TimeLogController extends ChangeNotifier {
     }
 
     if (_activeTemplateRAC != null) {
-      _currentTemplateStepIndexRAC = recordedTimesRegresoACero.length % _activeTemplateRAC!.steps.length;
-      if (currentMode == StopwatchMode.regresoACero) _appendTemplatePlaceholders();
+      _currentTemplateStepIndexRAC = recordedTimesRegresoACero.length; // Puntero absoluto
+      if (currentMode == StopwatchMode.regresoACero) _restorePlaceholdersForList(recordedTimesRegresoACero, _activeTemplateRAC!);
     }
 
     if (templateIdCont != -1) {
@@ -241,15 +265,14 @@ class TimeLogController extends ChangeNotifier {
     }
 
     if (_activeTemplateCont != null) {
-      _currentTemplateStepIndexCont = recordedTimesContinuo.length % _activeTemplateCont!.steps.length;
-      if (currentMode == StopwatchMode.continuo) _appendTemplatePlaceholders();
+      _currentTemplateStepIndexCont = recordedTimesContinuo.length; // Puntero absoluto
+      if (currentMode == StopwatchMode.continuo) _restorePlaceholdersForList(recordedTimesContinuo, _activeTemplateCont!);
     }
 
-    // Calcula de forma inteligente dónde nos quedamos antes de cerrar la app
     _recalculateLastRecordedTime();
 
     if (activeTemplate != null) {
-      taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex];
+      taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex % activeTemplate!.steps.length];
     } else {
       taskNameController.text = currentMode == StopwatchMode.regresoACero ? _savedTaskNameRAC : _savedTaskNameCont;
     }
@@ -405,11 +428,10 @@ class TimeLogController extends ChangeNotifier {
       _syncStartTime();
 
       if (activeTemplate != null) {
-        int completedItemsCount = activeRecordedTimes.length; 
-        currentTemplateStepIndex = completedItemsCount % activeTemplate!.steps.length;
-        _appendTemplatePlaceholders();
+        currentTemplateStepIndex = activeRecordedTimes.length;
+        _restorePlaceholdersForList(activeRecordedTimes, activeTemplate!);
         
-        taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex];
+        taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex % activeTemplate!.steps.length];
       } else {
         taskNameController.text = currentMode == StopwatchMode.regresoACero ? _savedTaskNameRAC : _savedTaskNameCont;
       }
@@ -463,7 +485,7 @@ class TimeLogController extends ChangeNotifier {
       'time': mergedTime,
       'type': 'normal', 
       'status': 'done',
-      'step_index': prev['step_index']
+      'step_index': prev['step_index'] 
     };
 
     if (currentMode == StopwatchMode.continuo) {
@@ -536,6 +558,9 @@ class TimeLogController extends ChangeNotifier {
   void startTimerLogic() {
     if (!_stopwatch.isRunning) {
       triggerHaptic();
+      if (currentMode == StopwatchMode.continuo && _baseTimeMs == 0 && _stopwatch.elapsedMilliseconds == 0) {
+        _lastRecordedTimeMs = 0;
+      }
       _stopwatch.start();
       _syncStartTime();
       notifyListeners();
@@ -562,9 +587,7 @@ class TimeLogController extends ChangeNotifier {
 
     if (currentMode == StopwatchMode.continuo) {
       int lastTime = _lastRecordedTimeMs;
-      // Previene registros en ceros o desfasados si tocan dos veces muy rápido
       if (currentTimeMs <= lastTime && lastTime > 0) return;
-      
       individualTimeMs = currentTimeMs - lastTime;
     } else {
       individualTimeMs = currentTimeMs;
@@ -583,7 +606,6 @@ class TimeLogController extends ChangeNotifier {
         
         currentTemplateStepIndex++;
         
-        // LA MAGIA DE LA INGENIERÍA: Si el índice alcanzó el límite, el ciclo se completó
         if (currentTemplateStepIndex % activeTemplate!.steps.length == 0) {
           cycleJustFinished = true;
         }
@@ -592,7 +614,7 @@ class TimeLogController extends ChangeNotifier {
           _appendTemplatePlaceholders();
         }
         
-        taskNameController.text = currentList[currentTemplateStepIndex]['name'];
+        taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex % activeTemplate!.steps.length];
       } 
       else {
         Map<String, dynamic> timeEntry = {};
@@ -619,7 +641,6 @@ class TimeLogController extends ChangeNotifier {
         _lastRecordedTimeMs = currentTimeMs;
       }
 
-      // Si terminaste un ciclo, forzamos un snapback (Regreso a 0) general
       bool shouldReset = resetStopwatch;
       if (currentMode == StopwatchMode.continuo && cycleJustFinished) {
         shouldReset = true;
@@ -644,6 +665,7 @@ class TimeLogController extends ChangeNotifier {
     }
   }
 
+  // --- CORRECCIÓN LÓGICA: Deshacer con el índice absoluto correcto ---
   void undoLastRecord() {
     final currentList = activeRecordedTimes;
     if (currentList.isEmpty) return;
@@ -656,23 +678,12 @@ class TimeLogController extends ChangeNotifier {
         currentList[currentTemplateStepIndex]['status'] = 'pending';
         currentList[currentTemplateStepIndex]['type'] = 'normal';
         
-        taskNameController.text = currentList[currentTemplateStepIndex]['name'];
-      } else if (currentList.length > activeTemplate!.steps.length) {
-        int stepCount = activeTemplate!.steps.length;
-        currentList.removeRange(currentList.length - stepCount, currentList.length);
-        currentTemplateStepIndex = stepCount - 1;
-        currentList.last['time'] = 0;
-        if (currentMode == StopwatchMode.continuo) currentList.last['cumulative_time'] = 0;
-        currentList.last['status'] = 'pending';
-        currentList.last['type'] = 'normal';
+        taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex % activeTemplate!.steps.length];
         
-        taskNameController.text = currentList.last['name'];
-      } else {
-         currentList[0]['time'] = 0;
-         if (currentMode == StopwatchMode.continuo) currentList[0]['cumulative_time'] = 0;
-         currentList[0]['status'] = 'pending';
-         currentList[0]['type'] = 'normal';
-         taskNameController.text = currentList[0]['name'];
+        int targetLength = currentTemplateStepIndex + (activeTemplate!.steps.length - (currentTemplateStepIndex % activeTemplate!.steps.length));
+        if (currentList.length > targetLength) {
+          currentList.removeRange(targetLength, currentList.length);
+        }
       }
     } else {
       currentList.removeLast();
@@ -741,10 +752,9 @@ class TimeLogController extends ChangeNotifier {
       return;
     }
     try {
-      final fileName = await _export.exportDataToCsv(
+      final fileName = await _export.exportDataToExcel(
         data: dataToExport,
         mode: currentMode,
-        timeFormatter: (val) => formatTime(val, forExport: true),
         activeTemplate: activeTemplate,
         studyName: masterStudyName.isNotEmpty ? masterStudyName : 'Estudio_General',
       );
@@ -758,9 +768,9 @@ class TimeLogController extends ChangeNotifier {
     }
   }
 
-  Future<void> importCsv() async {
+  Future<void> importExcel() async {
     try {
-      final result = await _export.importDataFromCsv();
+      final result = await _export.importDataFromExcel();
       if (result != null) {
         final StopwatchMode importedMode = result['mode'];
         final List<Map<String, dynamic>> importedTimes = result['times'];
@@ -861,9 +871,10 @@ class TimeLogController extends ChangeNotifier {
         ..name = study.name
         ..steps = study.templateSteps;
       
-      currentTemplateStepIndex = convertedTimes.length % activeTemplate!.steps.length;
-      _appendTemplatePlaceholders();
-      taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex];
+      currentTemplateStepIndex = convertedTimes.length;
+      _restorePlaceholdersForList(activeRecordedTimes, activeTemplate!);
+      
+      taskNameController.text = activeTemplate!.steps[currentTemplateStepIndex % activeTemplate!.steps.length];
     } else {
       taskNameController.text = study.name;
     }

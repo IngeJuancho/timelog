@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_saver/file_saver.dart';
@@ -8,32 +7,26 @@ import 'models.dart';
 
 class ExportService {
   
-  Future<String?> exportDataToCsv({
+  // --- MOTOR ÚNICO DE EXPORTACIÓN EXCEL (.XLSX) ---
+  Future<String?> exportDataToExcel({
     required List<Map<String, dynamic>> data,
     required StopwatchMode mode,
-    required String Function(double) timeFormatter,
     OperationTemplate? activeTemplate,
-    required String studyName, // Recibe el Nombre Maestro interconectado
+    required String studyName, 
   }) async {
-    if (activeTemplate != null) {
-      return await _exportJabilTemplateToExcel(data, activeTemplate, studyName);
-    }
-
-    // --- EXPORTACIÓN NORMAL (.CSV Libre) ---
-    StringBuffer csv = StringBuffer();
-    csv.writeln('\uFEFFElemento,Tiempo(OT),TiempoAcumulado(TC),Tipo'); 
     
-    for (var item in data) {
-      csv.writeln("${item['name']},${timeFormatter(item['time'].toDouble())},${timeFormatter((item['cumulative_time'] ?? 0).toDouble())},${item['type']}");
+    // 1. Deducir los pasos: Si hay plantilla, los usamos. Si no, extraemos los únicos del estudio.
+    List<String> steps = [];
+    if (activeTemplate != null) {
+      steps = activeTemplate.steps;
+    } else {
+      for (var record in data) {
+        String name = record['name'] ?? 'Elemento';
+        if (!steps.contains(name)) steps.add(name);
+      }
     }
 
-    // Usa el Nombre Maestro para el archivo
-    return await _saveFile(csv.toString(), studyName.replaceAll(' ', '_'), 'csv', MimeType.csv);
-  }
-
-  // --- MOTOR DE EXPORTACIÓN EXCEL (.XLSX) - TABLA EXACTA ---
-  Future<String?> _exportJabilTemplateToExcel(List<Map<String, dynamic>> data, OperationTemplate template, String studyName) async {
-    int numSteps = template.steps.length;
+    int numSteps = steps.length;
     var excel = Excel.createExcel();
     Sheet sheet = excel['Sheet1'];
 
@@ -53,16 +46,23 @@ class ExportService {
     
     CellStyle boldStyle = CellStyle(bold: true);
 
-    // 1. Agrupar los tiempos
+    // 2. Agrupar los tiempos usando el índice o buscando su posición
     List<List<double>> stepTimes = List.generate(numSteps, (_) => []);
     for (var record in data) {
-      int sIndex = record['step_index'] ?? 0;
+      int sIndex = record['step_index'] ?? -1;
+      String name = record['name'] ?? '';
+
+      // Si no hay plantilla, buscamos el índice dinámicamente
+      if (activeTemplate == null) {
+        sIndex = steps.indexOf(name);
+      }
+
       if (sIndex >= 0 && sIndex < numSteps && record['type'] != 'outlier') {
-        stepTimes[sIndex].add(record['time'] / 1000.0);
+        stepTimes[sIndex].add((record['time'] as int) / 1000.0);
       }
     }
 
-    int maxCycles = 10;
+    int maxCycles = 1;
     for (var times in stepTimes) {
       if (times.length > maxCycles) maxCycles = times.length;
     }
@@ -71,32 +71,26 @@ class ExportService {
     // ENCABEZADOS DE LA TABLA (EMPIEZA EXACTAMENTE EN LA FILA 1)
     // =========================================================================
     
-    // Seq.
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value = TextCellValue("Seq.");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = headerStyle;
     
-    // Work Element Description
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 1));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0)).value = TextCellValue("Work Element Description");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0)).cellStyle = headerStyle;
     
-    // Type
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 1));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 0)).value = TextCellValue("Type");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 0)).cellStyle = headerStyle;
     
-    // Observed Time (OT)
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles - 1, rowIndex: 0));
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 0)).value = TextCellValue("Observed Time (OT)");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 0)).value = TextCellValue("Observed Time (OT) Secs");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 0)).cellStyle = headerStyle;
 
-    // NC
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: 1));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: 0)).value = TextCellValue("NC");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: 0)).cellStyle = headerStyle;
 
-    // Números de ciclos debajo de "OT"
     for (int i = 0; i < maxCycles; i++) {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + i, rowIndex: 1)).value = IntCellValue(i + 1);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + i, rowIndex: 1)).cellStyle = headerStyle;
@@ -105,7 +99,7 @@ class ExportService {
     // =========================================================================
     // CONSTRUCCIÓN DE LOS DATOS 
     // =========================================================================
-    int currentRow = 2; // Fila 3
+    int currentRow = 2; // Fila 3 en Excel
     int firstDataRowExcel = currentRow + 1; 
     
     for (int i = 0; i < numSteps; i++) {
@@ -117,7 +111,7 @@ class ExportService {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = IntCellValue(i + 1); 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).cellStyle = centerStyle;
 
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow)).value = TextCellValue(template.steps[i]); 
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow)).value = TextCellValue(steps[i]); 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow)).cellStyle = centerStyle;
 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("Hand"); 
@@ -135,7 +129,6 @@ class ExportService {
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).cellStyle = centerStyle;
         }
       }
-      
       currentRow += 2; 
     }
 
@@ -144,40 +137,20 @@ class ExportService {
     // =========================================================================
     int endDataRowExcel = currentRow; 
     
-    sheet.merge(
-      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), 
-      CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow + 2)
-    );
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow + 2));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = TextCellValue("Process Summary");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).cellStyle = headerStyle;
 
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("Hand");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = boldStyle;
-    for(int c = 0; c < maxCycles; c++) {
-        String col = _getColumnLetter(4 + c);
-        String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"Hand",${col}\$$firstDataRowExcel:$col\$$endDataRowExcel)';
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = FormulaCellValue(formula);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = centerStyle;
-    }
-    currentRow++;
-
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("Mach");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = boldStyle;
-    for(int c = 0; c < maxCycles; c++) {
-        String col = _getColumnLetter(4 + c);
-        String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"Mach",${col}\$$firstDataRowExcel:$col\$$endDataRowExcel)';
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = FormulaCellValue(formula);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = centerStyle;
-    }
-    currentRow++;
-
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("IMT");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = boldStyle;
-    for(int c = 0; c < maxCycles; c++) {
-        String col = _getColumnLetter(4 + c);
-        String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"IMT",${col}\$$firstDataRowExcel:$col\$$endDataRowExcel)';
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = FormulaCellValue(formula);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = centerStyle;
+    List<String> types = ["Hand", "Mach", "IMT"];
+    for(int t = 0; t < types.length; t++) {
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow + t)).value = TextCellValue(types[t]);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow + t)).cellStyle = boldStyle;
+      for(int c = 0; c < maxCycles; c++) {
+          String col = _getColumnLetter(4 + c);
+          String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"${types[t]}",${col}\$$firstDataRowExcel:$col\$$endDataRowExcel)';
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + t)).value = FormulaCellValue(formula);
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + t)).cellStyle = centerStyle;
+      }
     }
 
     // Ajustes estéticos
@@ -193,7 +166,6 @@ class ExportService {
     if (fileBytes == null) throw Exception("Error al codificar el libro de Excel");
 
     final date = DateTime.now();
-    // REQUISITO CUMPLIDO: Sin Jabil, usa el Nombre Maestro (studyName)
     final baseName = studyName.replaceAll(' ', '_');
     final name = "${baseName}_${date.year}${date.month}${date.day}_${date.hour}${date.minute}";
 
@@ -215,20 +187,12 @@ class ExportService {
     return letter;
   }
 
-  Future<String?> _saveFile(String content, String baseName, String extension, MimeType mimeType) async {
-    final bytes = Uint8List.fromList(utf8.encode(content));
-    final date = DateTime.now();
-    final name = "${baseName}_${date.year}${date.month}${date.day}_${date.hour}${date.minute}";
-
-    final result = await FileSaver.instance.saveAs(name: name, bytes: bytes, ext: extension, mimeType: mimeType);
-    return result != null ? '$name.$extension' : null;
-  }
-
-  Future<Map<String, dynamic>?> importDataFromCsv() async {
+  // --- MOTOR NATIVO DE IMPORTACIÓN DESDE EXCEL ---
+  Future<Map<String, dynamic>?> importDataFromExcel() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['csv'], 
+        allowedExtensions: ['xlsx'], 
       );
       if (result == null || result.files.isEmpty) return null;
 
@@ -238,33 +202,46 @@ class ExportService {
       }
       if (bytes == null) return null;
 
-      String csvString = utf8.decode(bytes);
-      List<String> rows = csvString.split('\n');
-      if (rows.length <= 1) return null;
-
+      var excel = Excel.decodeBytes(bytes);
+      Sheet sheet = excel.tables[excel.tables.keys.first]!;
+      
       List<Map<String, dynamic>> times = [];
-      StopwatchMode mode = StopwatchMode.regresoACero;
+      // Se importa como Regreso a Cero ya que Excel solo almacena TO (Tiempos Observados), no Acumulados.
+      StopwatchMode mode = StopwatchMode.regresoACero; 
 
-      for (int i = 1; i < rows.length; i++) {
-        if (rows[i].trim().isEmpty) continue;
-        List<String> cols = rows[i].split(',');
-        if (cols.length >= 4) {
-          double time = double.tryParse(cols[1].replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
-          double cumTime = double.tryParse(cols[2].replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
-          if (cumTime > 0) mode = StopwatchMode.continuo;
-          
-          times.add({
-            'name': cols[0],
-            'time': (time * 1000).toInt(),
-            'cumulative_time': (cumTime * 1000).toInt(),
-            'type': cols[3].trim(),
-            'status': 'done'
-          });
-        }
+      int maxCols = sheet.maxColumns;
+      
+      // Reconstruimos la lista en orden cronológico leyendo Columna por Columna (Ciclo por Ciclo)
+      for (int cycle = 0; cycle < (maxCols - 4); cycle++) {
+         for (int r = 2; r < sheet.maxRows; r += 2) {
+            var nameCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: r)).value;
+            if (nameCell == null || nameCell.toString().contains("Process Summary")) break;
+            
+            String name = nameCell.toString();
+            var timeCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + cycle, rowIndex: r)).value;
+            
+            if (timeCell != null) {
+               double timeSec = 0.0;
+               if (timeCell is DoubleCellValue) timeSec = timeCell.value;
+               else if (timeCell is IntCellValue) timeSec = timeCell.value.toDouble();
+               else timeSec = double.tryParse(timeCell.toString()) ?? 0.0;
+
+               if (timeSec > 0) {
+                  times.add({
+                    'name': name,
+                    'time': (timeSec * 1000).toInt(),
+                    'cumulative_time': 0,
+                    'type': 'normal',
+                    'status': 'done',
+                    'step_index': (r - 2) ~/ 2
+                  });
+               }
+            }
+         }
       }
       return {'mode': mode, 'times': times};
     } catch (e) {
-      throw Exception("Error al leer el archivo. Asegúrate de que el formato sea correcto.");
+      throw Exception("Error al leer el archivo. Asegúrate de que sea un Excel generado por TimeLog.");
     }
   }
 }

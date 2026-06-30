@@ -677,18 +677,18 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             const SizedBox(height: 20),
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.download, color: Colors.white)),
-              title: const Text('Importar archivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              title: const Text('Importar Excel (.xlsx)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               subtitle: const Text('Cargar un estudio previo desde tus archivos.', style: TextStyle(color: Colors.white54, fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);
-                state.importCsv();
+                state.importExcel();
               },
             ),
             const SizedBox(height: 10),
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.blueAccent, child: Icon(Icons.upload, color: Colors.white)),
-              title: const Text('Exportar archivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              subtitle: const Text('Guardar el estudio actual en tus archivos.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              title: const Text('Exportar Excel (.xlsx)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Genera la matriz del estudio actual.', style: TextStyle(color: Colors.white54, fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);
                 state.exportData();
