@@ -21,7 +21,6 @@ class TimeLogController extends ChangeNotifier {
   int _baseTimeMs = 0;
   int? _startTimeEpoch; 
   
-  // --- INDEPENDENCIA TOTAL DE MODOS ---
   int? _activeStudyIdRAC;
   int? _activeStudyIdCont;
 
@@ -31,7 +30,6 @@ class TimeLogController extends ChangeNotifier {
   OperationTemplate? _activeTemplateCont;
   int _currentTemplateStepIndexCont = 0;
 
-  // Variables para guardar el "Nombre Maestro" independiente de los pasos
   String _savedTaskNameRAC = '';
   String _savedTaskNameCont = '';
 
@@ -60,8 +58,6 @@ class TimeLogController extends ChangeNotifier {
     if (taskNameController.text.trim().isNotEmpty) return taskNameController.text.trim();
     return '';
   }
-
-  // -------------------------------------
 
   int animateStartTrigger = 0;
   int animateSecondaryTrigger = 0;
@@ -163,7 +159,6 @@ class TimeLogController extends ChangeNotifier {
     }
   }
 
-  // --- CORRECCIÓN LÓGICA: Calcula e inserta solo los pendientes faltantes ---
   void _restorePlaceholdersForList(List<Map<String, dynamic>> list, OperationTemplate template) {
     int remainder = list.length % template.steps.length;
     if (remainder != 0) {
@@ -250,7 +245,7 @@ class TimeLogController extends ChangeNotifier {
     }
 
     if (_activeTemplateRAC != null) {
-      _currentTemplateStepIndexRAC = recordedTimesRegresoACero.length; // Puntero absoluto
+      _currentTemplateStepIndexRAC = recordedTimesRegresoACero.length; 
       if (currentMode == StopwatchMode.regresoACero) _restorePlaceholdersForList(recordedTimesRegresoACero, _activeTemplateRAC!);
     }
 
@@ -265,7 +260,7 @@ class TimeLogController extends ChangeNotifier {
     }
 
     if (_activeTemplateCont != null) {
-      _currentTemplateStepIndexCont = recordedTimesContinuo.length; // Puntero absoluto
+      _currentTemplateStepIndexCont = recordedTimesContinuo.length; 
       if (currentMode == StopwatchMode.continuo) _restorePlaceholdersForList(recordedTimesContinuo, _activeTemplateCont!);
     }
 
@@ -665,7 +660,6 @@ class TimeLogController extends ChangeNotifier {
     }
   }
 
-  // --- CORRECCIÓN LÓGICA: Deshacer con el índice absoluto correcto ---
   void undoLastRecord() {
     final currentList = activeRecordedTimes;
     if (currentList.isEmpty) return;
@@ -745,6 +739,7 @@ class TimeLogController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // CORRECCIÓN: Llamada a exportDataToExcel sin el parámetro timeFormatter
   Future<void> exportData() async {
     final dataToExport = activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
     if (dataToExport.isEmpty) {
@@ -768,6 +763,7 @@ class TimeLogController extends ChangeNotifier {
     }
   }
 
+  // CORRECCIÓN: Llamada a la nueva función importDataFromExcel
   Future<void> importExcel() async {
     try {
       final result = await _export.importDataFromExcel();

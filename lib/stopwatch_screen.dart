@@ -280,11 +280,9 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       isScrollControlled: true, 
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => Padding(
-        // CORRECCIÓN 2: Este padding dinámico previene que el teclado cubra los resultados
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            // Le damos hasta el 85% de la pantalla para que tenga holgura
             maxHeight: MediaQuery.of(context).size.height * 0.85, 
           ),
           child: _TemplateSelectorSheet(state: state),
@@ -677,18 +675,18 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             const SizedBox(height: 20),
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.download, color: Colors.white)),
-              title: const Text('Importar Excel (.xlsx)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              subtitle: const Text('Cargar un estudio previo desde tus archivos.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              title: const Text('Importar archivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Cargar un estudio previo desde tus archivos Excel.', style: TextStyle(color: Colors.white54, fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);
-                state.importExcel();
+                state.importExcel(); // CORRECCIÓN: Llama a la función renombrada a importExcel
               },
             ),
             const SizedBox(height: 10),
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.blueAccent, child: Icon(Icons.upload, color: Colors.white)),
-              title: const Text('Exportar Excel (.xlsx)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              subtitle: const Text('Genera la matriz del estudio actual.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              title: const Text('Exportar a Excel', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Guardar el estudio en formato Excel (.xlsx).', style: TextStyle(color: Colors.white54, fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);
                 state.exportData();
@@ -777,7 +775,6 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
   bool _isLoading = true;
 
   final TextEditingController _searchController = TextEditingController();
-  // CORRECCIÓN 1: Un FocusNode explícito permite invocar el teclado inmediatamente al tocar.
   final FocusNode _searchFocusNode = FocusNode(); 
   String _searchQuery = '';
 
@@ -856,7 +853,6 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
             controller: _searchController,
             focusNode: _searchFocusNode,
             onTap: () {
-              // Obliga al sistema a mostrar el teclado al primer toque en la pantalla
               if (!_searchFocusNode.hasFocus) {
                 FocusScope.of(context).requestFocus(_searchFocusNode);
               }
