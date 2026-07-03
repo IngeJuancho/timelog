@@ -36,6 +36,7 @@ class ExportService {
     var excel = Excel.createExcel();
     Sheet sheet = excel['Sheet1'];
 
+    // Estilos base
     CellStyle headerStyle = CellStyle(
       bold: true,
       horizontalAlign: HorizontalAlign.Center,
@@ -49,12 +50,18 @@ class ExportService {
       textWrapping: TextWrapping.WrapText
     );
     
+    CellStyle centerBold = CellStyle(
+      bold: true,
+      horizontalAlign: HorizontalAlign.Center,
+      verticalAlign: VerticalAlign.Center,
+    );
+
     CellStyle boldStyle = CellStyle(bold: true);
 
     CellStyle percentStyle = CellStyle(
       horizontalAlign: HorizontalAlign.Center,
       verticalAlign: VerticalAlign.Center,
-      numberFormat: NumFormat.standard_9 
+      numberFormat: NumFormat.standard_9 // Da formato de % nativo en Excel
     );
 
     List<List<double>> stepTimes = List.generate(numSteps, (_) => []);
@@ -72,11 +79,25 @@ class ExportService {
       }
     }
 
-    // Encabezados
+    // ==========================================
+    // 1. ÍNDICES DE COLUMNAS DINÁMICAS
+    // ==========================================
+    int ncCol = 4 + maxCycles;
+    int avgOtCol = ncCol + 1;
+    int avgNtCol = avgOtCol + 1;
+    int freqCol = avgNtCol + 1;
+    int pfdCol = freqCol + 1;
+    int stdTimeCol = pfdCol + 1;
+    int remarksCol = stdTimeCol + 1;
+
+    // ==========================================
+    // 2. ENCABEZADOS PRINCIPALES (Conservando el orden Jabil)
+    // ==========================================
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value = TextCellValue("Seq.");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = headerStyle;
     
+    // B y C combinados para la descripción del elemento
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 1));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0)).value = TextCellValue("Work Element Description");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0)).cellStyle = headerStyle;
@@ -89,24 +110,49 @@ class ExportService {
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 0)).value = TextCellValue("Observed Time (OT)");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 0)).cellStyle = headerStyle;
 
-    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: 1));
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: 0)).value = TextCellValue("NC");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: 0)).cellStyle = headerStyle;
-
     for (int i = 0; i < maxCycles; i++) {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + i, rowIndex: 1)).value = IntCellValue(i + 1);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + i, rowIndex: 1)).cellStyle = headerStyle;
     }
 
-    // Datos
+    void addHeader(int col, String text) {
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 1));
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0)).value = TextCellValue(text);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0)).cellStyle = headerStyle;
+    }
+
+    addHeader(ncCol, "NC");
+    addHeader(avgOtCol, "Avg. OT");
+    addHeader(avgNtCol, "Avg. NT");
+    addHeader(freqCol, "NC\nFreq.");
+    addHeader(pfdCol, "App.\nPF&D");
+    addHeader(stdTimeCol, "Std. Time");
+    
+    // Remarks abarca 3 columnas por estética (U, V, W en la captura)
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: remarksCol + 2, rowIndex: 1));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: 0)).value = TextCellValue("Remarks");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: 0)).cellStyle = headerStyle;
+
+    // ==========================================
+    // 3. DATOS Y FÓRMULAS ESTRUCTURADAS
+    // ==========================================
     int currentRow = 2; 
     int firstDataRowExcel = currentRow + 1; 
     
     for (int i = 0; i < numSteps; i++) {
+      int excelRow = currentRow + 1; // Fila en el software Excel (inicia en 1)
+
       sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow + 1)); 
       sheet.merge(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow + 1)); 
       sheet.merge(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow + 1)); 
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: currentRow + 1)); 
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow + 1)); 
+      
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: currentRow + 1));
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: avgNtCol, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: avgNtCol, rowIndex: currentRow + 1));
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: freqCol, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: freqCol, rowIndex: currentRow + 1));
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow + 1));
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow + 1));
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: remarksCol + 2, rowIndex: currentRow + 1));
 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = IntCellValue(i + 1); 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).cellStyle = centerStyle;
@@ -117,9 +163,10 @@ class ExportService {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("Hand"); 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = centerStyle;
 
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: currentRow)).value = TextCellValue("N/A");
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: currentRow)).cellStyle = centerStyle;
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow)).value = TextCellValue("N/A");
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow)).cellStyle = centerStyle;
 
+      // Inyección de Tiempos y Calificación de Operario (100%)
       for (int c = 0; c < maxCycles; c++) {
         if (c < stepTimes[i].length) {
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = DoubleCellValue(stepTimes[i][c]);
@@ -129,51 +176,167 @@ class ExportService {
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).cellStyle = percentStyle;
         }
       }
+
+      // ==========================================
+      // FÓRMULAS ESTRUCTURALES DEL ESTUDIO
+      // ==========================================
+      String startCycleCol = _getColumnLetter(4);
+      String endCycleCol = _getColumnLetter(4 + maxCycles - 1);
+      
+      // Avg. OT: IFERROR(AVERAGE(Ciclos),"")
+      String avgOtFormula = 'IFERROR(AVERAGE($startCycleCol$excelRow:$endCycleCol$excelRow),"")';
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: currentRow)).value = FormulaCellValue(avgOtFormula);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: currentRow)).cellStyle = centerStyle;
+
+      // Avg. NT: IFERROR((SUMPRODUCT(Tiempos,Porcentajes)/COUNTIF(Tiempos,">0")),"")
+      String avgNtFormula = 'IFERROR((SUMPRODUCT($startCycleCol$excelRow:$endCycleCol$excelRow,$startCycleCol${excelRow+1}:$endCycleCol${excelRow+1})/COUNTIF($startCycleCol$excelRow:$endCycleCol$excelRow,">0")),"")';
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgNtCol, rowIndex: currentRow)).value = FormulaCellValue(avgNtFormula);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgNtCol, rowIndex: currentRow)).cellStyle = centerStyle;
+
+      // Frecuencia
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: freqCol, rowIndex: currentRow)).value = IntCellValue(1);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: freqCol, rowIndex: currentRow)).cellStyle = centerStyle;
+
+      // PF&D (8%)
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).value = DoubleCellValue(0.08); 
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).cellStyle = percentStyle;
+
+      // Std. Time: IFERROR((Q*(1/R)*(1+S)),"")
+      String avgNtColStr = _getColumnLetter(avgNtCol);
+      String freqColStr = _getColumnLetter(freqCol);
+      String pfdColStr = _getColumnLetter(pfdCol);
+      String stdTimeFormula = 'IFERROR(($avgNtColStr$excelRow*(1/$freqColStr$excelRow)*(1+$pfdColStr$excelRow)),"")';
+      
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).value = FormulaCellValue(stdTimeFormula);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).cellStyle = centerStyle;
+
       currentRow += 2; 
     }
 
     int endDataRowExcel = currentRow; 
     
+    // ==========================================
+    // 4. PROCESS SUMMARY (Consolidado)
+    // ==========================================
+    int summaryStartRow = currentRow;
+
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow + 2));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = TextCellValue("Process Summary");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).cellStyle = headerStyle;
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).cellStyle = centerBold; // Ajustado a centrado según la panorámica
+    
+    String stdColStr = _getColumnLetter(stdTimeCol);
+    List<String> types = ["Hand", "Mach", "IMT"];
+    
+    for (int t = 0; t < types.length; t++) {
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue(types[t]);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = centerBold;
+      
+      // Sumatorias individuales para Ciclos, Avg OT, y Avg NT
+      for (int colIndex = 4; colIndex <= avgNtCol; colIndex++) {
+        if (colIndex == ncCol) continue; // No sumar la columna NC ("N/A")
+        
+        String col = _getColumnLetter(colIndex);
+        String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"${types[t]}",$col\$$firstDataRowExcel:$col\$$endDataRowExcel)';
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex, rowIndex: currentRow)).value = FormulaCellValue(formula);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex, rowIndex: currentRow)).cellStyle = centerStyle;
+      }
 
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("Hand");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = boldStyle;
-    for(int c = 0; c < maxCycles; c++) {
-        String col = _getColumnLetter(4 + c);
-        String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"Hand",$col\$$firstDataRowExcel:$col\$$endDataRowExcel)';
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = FormulaCellValue(formula);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = centerStyle;
+      // Etiquetas visuales replicadas en columna App PF&D (Columna S en la imagen)
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).value = TextCellValue(types[t]);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).cellStyle = centerBold;
+
+      // Sumatoria de Std. Time en columna Std. Time (Columna T en la imagen)
+      String formulaStdTotal = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"${types[t]}",\$$stdColStr\$$firstDataRowExcel:\$$stdColStr\$$endDataRowExcel)';
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).value = FormulaCellValue(formulaStdTotal);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).cellStyle = centerStyle;
+
+      currentRow++;
     }
-    currentRow++;
 
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("Mach");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = boldStyle;
-    for(int c = 0; c < maxCycles; c++) {
-        String col = _getColumnLetter(4 + c);
-        String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"Mach",$col\$$firstDataRowExcel:$col\$$endDataRowExcel)';
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = FormulaCellValue(formula);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = centerStyle;
+    // ==========================================
+    // 5. CÁLCULOS FINALES ESTRUCTURADOS (VAT, SMH, UPH)
+    // ==========================================
+    int statsRow1 = summaryStartRow + 3;
+    int statsRow2 = summaryStartRow + 4;
+    int statsRow3 = summaryStartRow + 5;
+    int statsRow4 = summaryStartRow + 6;
+    
+    CellStyle rightAlignBold = CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right, verticalAlign: VerticalAlign.Center);
+    
+    // Función estructural mapeada 1:1 con la panorámica Jabil
+    void addStatRow(int rowIndex, String label1, dynamic value1, String label2, String formula2) {
+      // Izquierda: Label (P a S)
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: rowIndex), CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: rowIndex));
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: rowIndex)).value = TextCellValue(label1);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: rowIndex)).cellStyle = rightAlignBold;
+      
+      // Izquierda: Value / Input (T)
+      if (value1 is int) {
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: rowIndex)).value = IntCellValue(value1);
+      } else if (value1 is String && value1.startsWith('=')) {
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: rowIndex)).value = FormulaCellValue(value1.substring(1));
+      } else {
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: rowIndex)).value = TextCellValue(value1.toString());
+      }
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: rowIndex)).cellStyle = centerStyle;
+      
+      // Derecha: Label (U a V)
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: rowIndex), CellIndex.indexByColumnRow(columnIndex: remarksCol + 1, rowIndex: rowIndex));
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: rowIndex)).value = TextCellValue(label2);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: rowIndex)).cellStyle = centerBold;
+      
+      // Derecha: Formula Output (W)
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol + 2, rowIndex: rowIndex)).value = FormulaCellValue(formula2);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol + 2, rowIndex: rowIndex)).cellStyle = centerStyle;
     }
-    currentRow++;
+    
+    // Referencias de fila para fórmulas nativas
+    int handStdRow = summaryStartRow + 1;
+    int machStdRow = summaryStartRow + 2;
+    int imtStdRow = summaryStartRow + 3;
+    
+    int row2Excel = statsRow2 + 1;
+    int row3Excel = statsRow3 + 1;
+    int row4Excel = statsRow4 + 1;
+    String rightValueColStr = _getColumnLetter(remarksCol + 2); // Columna W
 
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("IMT");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = boldStyle;
-    for(int c = 0; c < maxCycles; c++) {
-        String col = _getColumnLetter(4 + c);
-        String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"IMT",$col\$$firstDataRowExcel:$col\$$endDataRowExcel)';
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = FormulaCellValue(formula);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = centerStyle;
-    }
+    // 1: # of Mach/Stations | =HC * MachPerHC | VAT | Hand + Mach
+    addStatRow(statsRow1, "# of Mach/Stations", '=$stdColStr$row2Excel*$stdColStr$row3Excel', 
+               "VAT", 'IFERROR($stdColStr$handStdRow+$stdColStr$machStdRow,"")');
+    
+    // 2: Headcount HC | 1 | SMH | ((Hand + IMT) / 3600) / Units
+    addStatRow(statsRow2, "Headcount HC", 1, 
+               "SMH", 'IFERROR((($stdColStr$handStdRow+$stdColStr$imtStdRow)/3600)/$stdColStr$row4Excel,"")');
+    
+    // 3: # of Mach/Stations per HC | 1 | Standard Time for 1 Unit | SUM(Hand,Mach) / Units
+    addStatRow(statsRow3, "# of Mach/Stations per HC", 1, 
+               "Standard Time for 1 Unit", 'IFERROR(SUM($stdColStr$handStdRow,$stdColStr$machStdRow)/$stdColStr$row4Excel,"")');
+               
+    // 4: Units Produced per Mach | 1 | UPH | 3600 / StdTime for 1 Unit
+    addStatRow(statsRow4, "Units Produced per Mach", 1, 
+               "UPH", 'IFERROR(3600/$rightValueColStr$row3Excel,"")');
 
+    // ==========================================
+    // 6. AUTO-AJUSTE VISUAL (Anchos de columna mapeados)
+    // ==========================================
     sheet.setColumnWidth(0, 8.0);  
     sheet.setColumnWidth(1, 40.0); 
     sheet.setColumnWidth(2, 5.0);  
     sheet.setColumnWidth(3, 10.0); 
-    for(int i = 0; i <= maxCycles; i++){
+    for(int i = 0; i < maxCycles; i++){
       sheet.setColumnWidth(4 + i, 8.0); 
     }
+    sheet.setColumnWidth(ncCol, 6.0);
+    sheet.setColumnWidth(avgOtCol, 10.0); // Columna P
+    sheet.setColumnWidth(avgNtCol, 10.0); // Columna Q
+    sheet.setColumnWidth(freqCol, 8.0);   // Columna R
+    sheet.setColumnWidth(pfdCol, 10.0);   // Columna S
+    
+    // La zona final repartida para cuadrar con el merge
+    sheet.setColumnWidth(stdTimeCol, 12.0); // Columna T (Inputs y sumatorias std)
+    sheet.setColumnWidth(remarksCol, 12.0); // Columna U
+    sheet.setColumnWidth(remarksCol + 1, 12.0); // Columna V
+    sheet.setColumnWidth(remarksCol + 2, 12.0); // Columna W (Resultados SMH, UPH)
 
     var fileBytes = excel.encode();
     if (fileBytes == null) {
@@ -277,7 +440,6 @@ class ExportService {
               int timeMs = (timeSec * 1000).toInt();
               cumulativeMs += timeMs;
               
-              // Extraer nombre del paso de forma segura
               String stepName = 'Paso ${r + 1}';
               var nameCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value;
               
