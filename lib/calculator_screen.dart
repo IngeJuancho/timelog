@@ -16,7 +16,7 @@ class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen>
 
   @override
   Widget build(BuildContext context) {
-    // CORRECCIÓN 2: Uso de '.select' para evitar que la calculadora se redibuje 60 veces por segundo.
+    // Uso de '.select' para evitar que la calculadora se redibuje 60 veces por segundo.
     // Solo se reconstruirá si el analista registra o borra un tiempo nuevo y cambian los promedios.
     final currentMean = ref.watch(timeLogProvider.select((s) => s.averageTime));
     final currentStdDev = ref.watch(timeLogProvider.select((s) => s.stdDev));
@@ -49,20 +49,57 @@ class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen>
           const SizedBox(height: 20),
           _buildCard("Parámetros", [
             const Text("Nivel de Confianza", style: TextStyle(color: Colors.white54, fontSize: 12)),
-            DropdownButton<double>(isExpanded: true, value: _confidenceLevel, dropdownColor: const Color(0xFF333333), underline: Container(height: 1, color: Colors.white24), items: const [DropdownMenuItem(value: 0.90, child: Text("90%")), DropdownMenuItem(value: 0.95, child: Text("95% (Estándar)")), DropdownMenuItem(value: 0.99, child: Text("99%"))], onChanged: (v) => setState(() => _confidenceLevel = v!)),
+            DropdownButton<double>(
+              isExpanded: true, 
+              value: _confidenceLevel, 
+              dropdownColor: const Color(0xFF333333), 
+              underline: Container(height: 1, color: Colors.white24), 
+              items: const [
+                DropdownMenuItem(value: 0.90, child: Text("90%")), 
+                DropdownMenuItem(value: 0.95, child: Text("95% (Estándar)")), 
+                DropdownMenuItem(value: 0.99, child: Text("99%"))
+              ], 
+              onChanged: (v) {
+                if (v != null) {
+                  setState(() => _confidenceLevel = v);
+                }
+              }
+            ),
             const SizedBox(height: 10),
             const Text("Margen de Error", style: TextStyle(color: Colors.white54, fontSize: 12)),
-            DropdownButton<double>(isExpanded: true, value: _errorMargin, dropdownColor: const Color(0xFF333333), underline: Container(height: 1, color: Colors.white24), items: const [DropdownMenuItem(value: 0.01, child: Text("1%")), DropdownMenuItem(value: 0.03, child: Text("3%")), DropdownMenuItem(value: 0.05, child: Text("5% (Estándar)")), DropdownMenuItem(value: 0.10, child: Text("10%"))], onChanged: (v) => setState(() => _errorMargin = v!)),
+            DropdownButton<double>(
+              isExpanded: true, 
+              value: _errorMargin, 
+              dropdownColor: const Color(0xFF333333), 
+              underline: Container(height: 1, color: Colors.white24), 
+              items: const [
+                DropdownMenuItem(value: 0.01, child: Text("1%")), 
+                DropdownMenuItem(value: 0.03, child: Text("3%")), 
+                DropdownMenuItem(value: 0.05, child: Text("5% (Estándar)")), 
+                DropdownMenuItem(value: 0.10, child: Text("10%"))
+              ], 
+              onChanged: (v) {
+                if (v != null) {
+                  setState(() => _errorMargin = v);
+                }
+              }
+            ),
           ]),
           const SizedBox(height: 30),
           if(hasData) Container(
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.teal.shade800, Colors.teal.shade600]), borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.tealAccent.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10))]),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.teal.shade800, Colors.teal.shade600]), 
+              borderRadius: BorderRadius.circular(24), 
+              boxShadow: [
+                BoxShadow(color: Colors.tealAccent.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))
+              ]
+            ),
             child: Column(children: [
               const Text("MUESTRA TOTAL (N)", style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 2)),
               Text("$nCalculated", style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
               const Divider(color: Colors.white24, height: 30),
-              Text(nAdditional > 0 ? "FALTAN: $nAdditional" : "¡COMPLETO!", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white))
+              Text(nAdditional > 0 ? "FALTAN: $nAdditional" : "¡COMPLETO!", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white))
             ]),
           )
         ],
@@ -71,26 +108,63 @@ class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen>
   }
 
   Widget _buildCard(String title, List<Widget> children) {
-    return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFF252525), borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title.toUpperCase(), style: const TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold)), const SizedBox(height: 15), ...children]));
+    return Container(
+      padding: const EdgeInsets.all(20), 
+      decoration: BoxDecoration(color: const Color(0xFF252525), borderRadius: BorderRadius.circular(16)), 
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, 
+        children: [
+          Text(title.toUpperCase(), style: const TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold)), 
+          const SizedBox(height: 15), 
+          ...children
+        ]
+      )
+    );
   }
   
-  Widget _row(String l, String v) => Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(l, style: const TextStyle(color: Colors.white70)), Text(v, style: const TextStyle(fontWeight: FontWeight.bold))]));
+  Widget _row(String l, String v) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4), 
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+      children: [
+        Text(l, style: const TextStyle(color: Colors.white70)), 
+        Text(v, style: const TextStyle(fontWeight: FontWeight.bold))
+      ]
+    )
+  );
   
   double _getTValue(int df, double confidence) {
-    if (df < 1) return 0;
-    if (df >= 30) return confidence == 0.90 ? 1.645 : (confidence == 0.95 ? 1.960 : 2.576);
+    if (df < 1) {
+      return 0;
+    }
+    if (df >= 30) {
+      return confidence == 0.90 ? 1.645 : (confidence == 0.95 ? 1.960 : 2.576);
+    }
     
     const tTable = {
       1: [6.314, 12.706, 63.657], 5: [2.015, 2.571, 4.032], 10: [1.812, 2.228, 3.169], 20: [1.725, 2.086, 2.845]
     };
     
     List<double>? values;
-    if (tTable.containsKey(df)) values = tTable[df];
-    else for (int i = df; i >= 1; i--) if (tTable.containsKey(i)) { values = tTable[i]; break; }
-    values ??= [1.96, 1.96, 1.96]; 
+    if (tTable.containsKey(df)) {
+      values = tTable[df];
+    } else {
+      for (int i = df; i >= 1; i--) {
+        if (tTable.containsKey(i)) {
+          values = tTable[i];
+          break;
+        }
+      }
+    }
+    
+    values ??= const [1.96, 1.96, 1.96]; 
 
-    if (confidence == 0.90) return values[0];
-    if (confidence == 0.95) return values[1];
+    if (confidence == 0.90) {
+      return values[0];
+    }
+    if (confidence == 0.95) {
+      return values[1];
+    }
     return values[2];
   }
 }

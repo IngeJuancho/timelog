@@ -35,7 +35,9 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
       _templates = await _storage.getTemplates(folderId: _currentFolder!.id);
     }
     
-    setState(() => _isLoading = false);
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   void _navigateIntoFolder(TemplateFolder folder) {
@@ -122,7 +124,8 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
             onPressed: () async {
               if (folderController.text.trim().isNotEmpty) {
                 await _storage.createFolder(folderController.text.trim());
-                if (mounted) Navigator.pop(context);
+                if (!mounted) return;
+                Navigator.pop(context);
                 _loadData();
               }
             },
@@ -139,7 +142,9 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
       barrierDismissible: false,
       builder: (context) => _CreateTemplateDialog(folderId: _currentFolder?.id),
     ).then((value) {
-      if (value == true) _loadData();
+      if (value == true) {
+        _loadData();
+      }
     });
   }
 
@@ -183,7 +188,8 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
               final newName = nameController.text.trim();
               if (newName.isNotEmpty && newName != template.name) {
                 await _storage.updateTemplateName(template.id, newName);
-                if (mounted) Navigator.pop(context);
+                if (!mounted) return;
+                Navigator.pop(context);
                 _loadData(); 
               }
             },
@@ -200,18 +206,27 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
       barrierDismissible: false,
       builder: (context) => _EditStepsDialog(template: template),
     ).then((value) {
-      if (value == true) _loadData();
+      if (value == true) {
+        _loadData();
+      }
     });
   }
 
   Future<void> _exportTemplate(OperationTemplate template) async {
     String? fileName = await _storage.exportTemplate(template);
-    if (fileName != null) _showSnackBar('Exportado a $fileName', Colors.blueAccent);
-    else _showSnackBar('Error al exportar', Colors.redAccent);
+    if (!mounted) return;
+    
+    if (fileName != null) {
+      _showSnackBar('Exportado a $fileName', Colors.blueAccent);
+    } else {
+      _showSnackBar('Error al exportar', Colors.redAccent);
+    }
   }
 
   Future<void> _importTemplate() async {
     bool success = await _storage.importTemplate(currentFolderId: _currentFolder?.id);
+    if (!mounted) return;
+    
     if (success) {
       _showSnackBar('Plantilla importada con éxito', Colors.tealAccent.shade700);
       _loadData();
@@ -220,12 +235,10 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
     }
   }
 
-  // --- NUEVA LÓGICA DE IMPORTACIÓN MASIVA ---
   Future<void> _importMultiple() async {
     int? targetFolderId = _currentFolder?.id;
     String? newFolderName;
     
-    // Si estamos en la raíz, le pedimos un nombre de carpeta ANTES de abrir los archivos
     if (targetFolderId == null) {
       final folderController = TextEditingController();
       bool? create = await showDialog<bool>(
@@ -253,12 +266,13 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
       newFolderName = folderController.text.trim();
     }
     
-    // Abrimos el explorador con permiso múltiple
     _showSnackBar('Selecciona los archivos (puedes seleccionar varios)...', Colors.white54);
     bool success = await _storage.importMultipleTemplates(
       targetFolderId: targetFolderId,
       newFolderName: newFolderName
     );
+    
+    if (!mounted) return;
     
     if (success) {
       _showSnackBar(targetFolderId == null ? 'Carpeta y rutas importadas con éxito' : 'Rutas importadas con éxito', Colors.amber);
@@ -271,8 +285,15 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
   // ==================== UI PRINCIPAL ====================
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: _navigateBack,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) async {
+        if (didPop) return;
+        final bool shouldPop = await _navigateBack();
+        if (shouldPop && mounted) {
+          Navigator.of(context).pop(result);
+        }
+      },
       child: Scaffold(
         appBar: AppBar(
           leading: _currentFolder != null 
@@ -539,7 +560,8 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
           onPressed: () async {
             if (_nameController.text.trim().isNotEmpty && _steps.isNotEmpty) {
               await StorageService().saveTemplate(_nameController.text.trim(), _steps, folderId: widget.folderId);
-              if (mounted) Navigator.pop(context, true);
+              if (!mounted) return;
+              Navigator.pop(context, true);
             }
           },
           child: const Text('GUARDAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
@@ -568,7 +590,12 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
 
   void _addStep() {
     final text = _stepController.text.trim();
-    if (text.isNotEmpty) { setState(() { _steps.add(text); _stepController.clear(); }); }
+    if (text.isNotEmpty) {
+      setState(() { 
+        _steps.add(text); 
+        _stepController.clear(); 
+      }); 
+    }
   }
 
   void _editStepText(int index) {
@@ -583,7 +610,9 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
           TextButton(
             onPressed: () {
-              if (editController.text.trim().isNotEmpty) { setState(() => _steps[index] = editController.text.trim()); }
+              if (editController.text.trim().isNotEmpty) {
+                setState(() => _steps[index] = editController.text.trim()); 
+              }
               Navigator.pop(context);
             },
             child: const Text('OK', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
@@ -641,7 +670,8 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
           onPressed: () async {
             if (_steps.isNotEmpty) {
               await StorageService().updateTemplateSteps(widget.template.id, _steps);
-              if (mounted) Navigator.pop(context, true);
+              if (!mounted) return;
+              Navigator.pop(context, true);
             }
           },
           child: const Text('GUARDAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),

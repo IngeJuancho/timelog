@@ -56,8 +56,6 @@ class ExportService {
       verticalAlign: VerticalAlign.Center,
     );
 
-    CellStyle boldStyle = CellStyle(bold: true);
-
     CellStyle percentStyle = CellStyle(
       horizontalAlign: HorizontalAlign.Center,
       verticalAlign: VerticalAlign.Center,
@@ -91,13 +89,12 @@ class ExportService {
     int remarksCol = stdTimeCol + 1;
 
     // ==========================================
-    // 2. ENCABEZADOS PRINCIPALES (Conservando el orden Jabil)
+    // 2. ENCABEZADOS PRINCIPALES
     // ==========================================
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value = TextCellValue("Seq.");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = headerStyle;
     
-    // B y C combinados para la descripción del elemento
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 1));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0)).value = TextCellValue("Work Element Description");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0)).cellStyle = headerStyle;
@@ -128,7 +125,6 @@ class ExportService {
     addHeader(pfdCol, "App.\nPF&D");
     addHeader(stdTimeCol, "Std. Time");
     
-    // Remarks abarca 3 columnas por estética (U, V, W en la captura)
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: remarksCol + 2, rowIndex: 1));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: 0)).value = TextCellValue("Remarks");
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: 0)).cellStyle = headerStyle;
@@ -163,7 +159,7 @@ class ExportService {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue("Hand"); 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = centerStyle;
 
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow)).value = TextCellValue("N/A");
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow)).value = TextCellValue("N/A"); 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow)).cellStyle = centerStyle;
 
       // Inyección de Tiempos y Calificación de Operario (100%)
@@ -172,7 +168,7 @@ class ExportService {
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = DoubleCellValue(stepTimes[i][c]);
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = centerStyle;
           
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).value = DoubleCellValue(1.0);
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).value = DoubleCellValue(1.0); 
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).cellStyle = percentStyle;
         }
       }
@@ -183,7 +179,6 @@ class ExportService {
       String startCycleCol = _getColumnLetter(4);
       String endCycleCol = _getColumnLetter(4 + maxCycles - 1);
       
-      // Fórmulas base (No llevan '$' en la fila, así que son totalmente dinámicas al copiar/pegar)
       String avgOtFormula = 'IFERROR(AVERAGE($startCycleCol$excelRow:$endCycleCol$excelRow),"")';
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: currentRow)).value = FormulaCellValue(avgOtFormula);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: currentRow)).cellStyle = centerStyle;
@@ -193,7 +188,7 @@ class ExportService {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgNtCol, rowIndex: currentRow)).cellStyle = centerStyle;
 
       // Frecuencia
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: freqCol, rowIndex: currentRow)).value = IntCellValue(1);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: freqCol, rowIndex: currentRow)).value = IntCellValue(1); 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: freqCol, rowIndex: currentRow)).cellStyle = centerStyle;
 
       // PF&D (8%)
@@ -211,15 +206,13 @@ class ExportService {
       currentRow += 2; 
     }
 
-    int endDataRowExcel = currentRow; 
-    
     // ==========================================
     // 4. PROCESS SUMMARY (Consolidado Inteligente)
     // ==========================================
     int summaryStartRow = currentRow;
 
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow + 2));
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = TextCellValue("Process Summary");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = TextCellValue("Process Summary"); 
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).cellStyle = centerBold; 
     
     String stdColStr = _getColumnLetter(stdTimeCol);
@@ -230,8 +223,6 @@ class ExportService {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = centerBold;
       
       // LÓGICA DE RANGO DINÁMICO E INDESTRUCTIBLE
-      // Usamos INDEX(..., ROW()-1) para decirle a Excel que sume "Todo lo de arriba"
-      // Se quitó el símbolo $ de la fila inicial ($firstDataRowExcel) para que fluya si copian/pegan el bloque
       for (int colIndex = 4; colIndex <= avgNtCol; colIndex++) {
         if (colIndex == ncCol) continue; 
         
@@ -241,11 +232,10 @@ class ExportService {
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex, rowIndex: currentRow)).cellStyle = centerStyle;
       }
 
-      // Etiquetas visuales replicadas en columna App PF&D
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).value = TextCellValue(types[t]);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).cellStyle = centerBold;
 
-      // Sumatoria de Std. Time (Con el mismo rango dinámico INDEX)
+      // Sumatoria de Std. Time
       String formulaStdTotal = 'SUMIF(\$D$firstDataRowExcel:INDEX(\$D:\$D,ROW()-1),"${types[t]}",\$$stdColStr$firstDataRowExcel:INDEX(\$$stdColStr:\$$stdColStr,ROW()-1))';
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).value = FormulaCellValue(formulaStdTotal);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).cellStyle = centerStyle;
@@ -285,7 +275,7 @@ class ExportService {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol + 2, rowIndex: rowIndex)).cellStyle = centerStyle;
     }
     
-    // Referencias relativas de Excel (Al copiar el bloque, se mantienen coherentes)
+    // Referencias relativas
     int handStdRow = summaryStartRow + 1;
     int machStdRow = summaryStartRow + 2;
     int imtStdRow = summaryStartRow + 3;
@@ -293,26 +283,19 @@ class ExportService {
     int row2Excel = statsRow2 + 1;
     int row3Excel = statsRow3 + 1;
     int row4Excel = statsRow4 + 1;
-    String rightValueColStr = _getColumnLetter(remarksCol + 2); // Columna W
+    String rightValueColStr = _getColumnLetter(remarksCol + 2);
 
-    // 1: # of Mach/Stations | =HC * MachPerHC | VAT | Hand + Mach
     addStatRow(statsRow1, "# of Mach/Stations", '=$stdColStr$row2Excel*$stdColStr$row3Excel', 
                "VAT", 'IFERROR($stdColStr$handStdRow+$stdColStr$machStdRow,"")');
-    
-    // 2: Headcount HC | 1 | SMH | ((Hand + IMT) / 3600) / Units
     addStatRow(statsRow2, "Headcount HC", 1, 
                "SMH", 'IFERROR((($stdColStr$handStdRow+$stdColStr$imtStdRow)/3600)/$stdColStr$row4Excel,"")');
-    
-    // 3: # of Mach/Stations per HC | 1 | Standard Time for 1 Unit | SUM(Hand,Mach) / Units
     addStatRow(statsRow3, "# of Mach/Stations per HC", 1, 
                "Standard Time for 1 Unit", 'IFERROR(SUM($stdColStr$handStdRow,$stdColStr$machStdRow)/$stdColStr$row4Excel,"")');
-               
-    // 4: Units Produced per Mach | 1 | UPH | 3600 / StdTime for 1 Unit
     addStatRow(statsRow4, "Units Produced per Mach", 1, 
                "UPH", 'IFERROR(3600/$rightValueColStr$row3Excel,"")');
 
     // ==========================================
-    // 6. AUTO-AJUSTE VISUAL (Anchos de columna mapeados)
+    // 6. AUTO-AJUSTE VISUAL
     // ==========================================
     sheet.setColumnWidth(0, 8.0);  
     sheet.setColumnWidth(1, 40.0); 
@@ -322,16 +305,15 @@ class ExportService {
       sheet.setColumnWidth(4 + i, 8.0); 
     }
     sheet.setColumnWidth(ncCol, 6.0);
-    sheet.setColumnWidth(avgOtCol, 10.0); // Columna P
-    sheet.setColumnWidth(avgNtCol, 10.0); // Columna Q
-    sheet.setColumnWidth(freqCol, 8.0);   // Columna R
-    sheet.setColumnWidth(pfdCol, 10.0);   // Columna S
+    sheet.setColumnWidth(avgOtCol, 10.0); 
+    sheet.setColumnWidth(avgNtCol, 10.0); 
+    sheet.setColumnWidth(freqCol, 8.0);   
+    sheet.setColumnWidth(pfdCol, 10.0);   
     
-    // La zona final repartida para cuadrar con el merge
-    sheet.setColumnWidth(stdTimeCol, 12.0); // Columna T (Inputs y sumatorias std)
-    sheet.setColumnWidth(remarksCol, 12.0); // Columna U
-    sheet.setColumnWidth(remarksCol + 1, 12.0); // Columna V
-    sheet.setColumnWidth(remarksCol + 2, 12.0); // Columna W (Resultados SMH, UPH)
+    sheet.setColumnWidth(stdTimeCol, 12.0); 
+    sheet.setColumnWidth(remarksCol, 12.0); 
+    sheet.setColumnWidth(remarksCol + 1, 12.0); 
+    sheet.setColumnWidth(remarksCol + 2, 12.0); 
 
     var fileBytes = excel.encode();
     if (fileBytes == null) {
@@ -388,7 +370,6 @@ class ExportService {
         return null;
       }
 
-      // 1. Calcular cuántos ciclos tiene el archivo
       int maxCycles = 0;
       while (true) {
         var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: 1));
@@ -398,7 +379,6 @@ class ExportService {
         maxCycles++;
       }
 
-      // 2. Calcular cuántos pasos (filas) tiene el archivo
       int numSteps = 0;
       while (true) {
         int row = 2 + (numSteps * 2);
@@ -412,7 +392,6 @@ class ExportService {
       List<Map<String, dynamic>> times = [];
       double cumulativeMs = 0;
       
-      // 3. Reconstrucción Cronológica
       for (int c = 0; c < maxCycles; c++) {
         for (int r = 0; r < numSteps; r++) {
           int row = 2 + (r * 2);

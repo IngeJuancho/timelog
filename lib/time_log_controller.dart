@@ -35,20 +35,29 @@ class TimeLogController extends ChangeNotifier {
 
   int? get activeStudyId => currentMode == StopwatchMode.regresoACero ? _activeStudyIdRAC : _activeStudyIdCont;
   set activeStudyId(int? id) {
-    if (currentMode == StopwatchMode.regresoACero) _activeStudyIdRAC = id;
-    else _activeStudyIdCont = id;
+    if (currentMode == StopwatchMode.regresoACero) {
+      _activeStudyIdRAC = id;
+    } else {
+      _activeStudyIdCont = id;
+    }
   }
 
   OperationTemplate? get activeTemplate => currentMode == StopwatchMode.regresoACero ? _activeTemplateRAC : _activeTemplateCont;
   set activeTemplate(OperationTemplate? template) {
-    if (currentMode == StopwatchMode.regresoACero) _activeTemplateRAC = template;
-    else _activeTemplateCont = template;
+    if (currentMode == StopwatchMode.regresoACero) {
+      _activeTemplateRAC = template;
+    } else {
+      _activeTemplateCont = template;
+    }
   }
 
   int get currentTemplateStepIndex => currentMode == StopwatchMode.regresoACero ? _currentTemplateStepIndexRAC : _currentTemplateStepIndexCont;
   set currentTemplateStepIndex(int index) {
-    if (currentMode == StopwatchMode.regresoACero) _currentTemplateStepIndexRAC = index;
-    else _currentTemplateStepIndexCont = index;
+    if (currentMode == StopwatchMode.regresoACero) {
+      _currentTemplateStepIndexRAC = index;
+    } else {
+      _currentTemplateStepIndexCont = index;
+    }
   }
 
   String get masterStudyName {
@@ -319,11 +328,17 @@ class TimeLogController extends ChangeNotifier {
     await prefs.setString('taskNameRAC', _savedTaskNameRAC);
     await prefs.setString('taskNameCont', _savedTaskNameCont);
     
-    if (_activeStudyIdRAC != null) await prefs.setInt('activeStudyIdRAC', _activeStudyIdRAC!);
-    else await prefs.remove('activeStudyIdRAC');
+    if (_activeStudyIdRAC != null) {
+      await prefs.setInt('activeStudyIdRAC', _activeStudyIdRAC!);
+    } else {
+      await prefs.remove('activeStudyIdRAC');
+    }
 
-    if (_activeStudyIdCont != null) await prefs.setInt('activeStudyIdCont', _activeStudyIdCont!);
-    else await prefs.remove('activeStudyIdCont');
+    if (_activeStudyIdCont != null) {
+      await prefs.setInt('activeStudyIdCont', _activeStudyIdCont!);
+    } else {
+      await prefs.remove('activeStudyIdCont');
+    }
     
     if (_activeTemplateRAC != null) {
       await prefs.setInt('activeTemplateIdRAC', _activeTemplateRAC!.id);
@@ -388,8 +403,11 @@ class TimeLogController extends ChangeNotifier {
   void _initNativeButtonListener() {
     platform.setMethodCallHandler((call) async {
       if (!usePhysicalButtons) return;
-      if (call.method == 'volumeUp') _handleNativeButtonPress(isVolumeUp: true);
-      else if (call.method == 'volumeDown') _handleNativeButtonPress(isVolumeUp: false);
+      if (call.method == 'volumeUp') {
+        _handleNativeButtonPress(isVolumeUp: true);
+      } else if (call.method == 'volumeDown') {
+        _handleNativeButtonPress(isVolumeUp: false);
+      }
     });
   }
 
@@ -508,7 +526,9 @@ class TimeLogController extends ChangeNotifier {
     PhysicalButtonAction action = currentMode == StopwatchMode.regresoACero 
         ? (isVolumeUp ? volUpActionRAC : volDownActionRAC)
         : (isVolumeUp ? volUpActionCont : volDownActionCont);
-    if (action != PhysicalButtonAction.none) executePhysicalAction(action);
+    if (action != PhysicalButtonAction.none) {
+      executePhysicalAction(action);
+    }
   }
 
   void executePhysicalAction(PhysicalButtonAction action) {
@@ -516,7 +536,9 @@ class TimeLogController extends ChangeNotifier {
       case PhysicalButtonAction.startStop:
         if (_stopwatch.isRunning) {
           stopTimerLogic();
-          if (recordOnPause) recordTime(resetStopwatch: currentMode == StopwatchMode.regresoACero, keepRunning: false);
+          if (recordOnPause) {
+            recordTime(resetStopwatch: currentMode == StopwatchMode.regresoACero, keepRunning: false);
+          }
         } else {
           startTimerLogic();
         }
@@ -668,7 +690,9 @@ class TimeLogController extends ChangeNotifier {
       if (currentTemplateStepIndex > 0) {
         currentTemplateStepIndex--;
         currentList[currentTemplateStepIndex]['time'] = 0;
-        if (currentMode == StopwatchMode.continuo) currentList[currentTemplateStepIndex]['cumulative_time'] = 0;
+        if (currentMode == StopwatchMode.continuo) {
+          currentList[currentTemplateStepIndex]['cumulative_time'] = 0;
+        }
         currentList[currentTemplateStepIndex]['status'] = 'pending';
         currentList[currentTemplateStepIndex]['type'] = 'normal';
         
@@ -695,14 +719,20 @@ class TimeLogController extends ChangeNotifier {
 
   void calculateStatistics() {
     final currentList = activeRecordedTimes;
-    if (currentList.isEmpty) { averageTime = minTime = maxTime = stdDev = 0.0; return; }
+    if (currentList.isEmpty) {
+      averageTime = minTime = maxTime = stdDev = 0.0;
+      return;
+    }
     
     final validTimes = currentList
         .where((e) => (e['type'] ?? 'normal') != 'outlier' && (e['time'] as int) > 0 && e['status'] != 'pending')
         .map((e) => e['time'] as int)
         .toList();
         
-    if (validTimes.isEmpty) { averageTime = minTime = maxTime = stdDev = 0.0; return; }
+    if (validTimes.isEmpty) {
+      averageTime = minTime = maxTime = stdDev = 0.0;
+      return;
+    }
     
     averageTime = validTimes.reduce((a, b) => a + b) / validTimes.length;
     minTime = validTimes.reduce(min).toDouble();
@@ -711,7 +741,9 @@ class TimeLogController extends ChangeNotifier {
     if (validTimes.length > 1) {
       final variance = validTimes.map((t) => pow(t - averageTime, 2)).reduce((a, b) => a + b) / (validTimes.length - 1);
       stdDev = sqrt(variance);
-    } else { stdDev = 0.0; }
+    } else {
+      stdDev = 0.0;
+    }
   }
 
   void resetAll() {
@@ -739,7 +771,6 @@ class TimeLogController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // CORRECCIÓN: Llamada a exportDataToExcel sin el parámetro timeFormatter
   Future<void> exportData() async {
     final dataToExport = activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
     if (dataToExport.isEmpty) {
@@ -763,7 +794,6 @@ class TimeLogController extends ChangeNotifier {
     }
   }
 
-  // CORRECCIÓN: Llamada a la nueva función importDataFromExcel
   Future<void> importExcel() async {
     try {
       final result = await _export.importDataFromExcel();
