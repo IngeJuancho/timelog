@@ -12,6 +12,7 @@ class ExportService {
     required StopwatchMode mode,
     OperationTemplate? activeTemplate,
     required String studyName, 
+    int globalRating = 100,
   }) async {
     
     OperationTemplate templateToUse;
@@ -28,10 +29,10 @@ class ExportService {
       }
     }
 
-    return await _exportJabilTemplateToExcel(data, templateToUse, studyName);
+    return await _exportJabilTemplateToExcel(data, templateToUse, studyName, globalRating);
   }
 
-  Future<String?> _exportJabilTemplateToExcel(List<Map<String, dynamic>> data, OperationTemplate template, String studyName) async {
+  Future<String?> _exportJabilTemplateToExcel(List<Map<String, dynamic>> data, OperationTemplate template, String studyName, int globalRating) async {
     int numSteps = template.steps.length;
     var excel = Excel.createExcel();
     Sheet sheet = excel['Sheet1'];
@@ -168,7 +169,7 @@ class ExportService {
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = DoubleCellValue(stepTimes[i][c]);
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = centerStyle;
           
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).value = const DoubleCellValue(1.0); 
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).value = DoubleCellValue(globalRating / 100.0); 
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).cellStyle = percentStyle;
         }
       }

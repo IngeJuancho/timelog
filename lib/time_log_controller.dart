@@ -19,6 +19,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   
   final Stopwatch _stopwatch = Stopwatch();
   final TextEditingController taskNameController = TextEditingController();
+  final TextEditingController ratingController = TextEditingController(text: "100");
 
   static const platform = MethodChannel('com.timelog/volume_buttons');
 
@@ -381,6 +382,12 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     } else {
       await prefs.setString('taskNameCont', value);
     }
+  }
+
+  void updateGlobalRating(String value) {
+    int parsed = int.tryParse(value) ?? 100;
+    if (parsed < 1) parsed = 1;
+    state = state.copyWith(globalRating: parsed, hasExported: false);
   }
 
   void syncActiveStudyName(String newName) {
@@ -859,6 +866,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         mode: state.currentMode,
         activeTemplate: state.activeTemplate,
         studyName: state.masterStudyName.isNotEmpty ? state.masterStudyName : 'Estudio_General',
+        globalRating: state.globalRating,
       );
       
       if (fileName != null) {

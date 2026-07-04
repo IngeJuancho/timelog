@@ -32,14 +32,14 @@ class ControlButtons extends ConsumerWidget {
     
     return Column(
       children: [
-        _buildPrimaryButton(state),
+        _buildPrimaryButton(context, ref, state),
         const SizedBox(height: 16),
         _buildSecondaryButtons(state),
       ],
     );
   }
 
-  Widget _buildPrimaryButton(dynamic state) {
+  Widget _buildPrimaryButton(BuildContext context, WidgetRef ref, dynamic state) {
     String primaryLabel; 
     IconData primaryIcon; 
     Color primaryColor;
@@ -58,26 +58,71 @@ class ControlButtons extends ConsumerWidget {
       }
     }
     
-    return AnimatedBuilder(
-      animation: startButtonAnimation,
-      builder: (context, child) => Transform.scale(
-        scale: startButtonAnimation.value,
-        child: SizedBox(
-          width: double.infinity, height: 65,
-          child: ElevatedButton.icon(
-            onPressed: onStartPressed,
-            icon: Icon(primaryIcon, size: 28),
-            label: Text(primaryLabel.toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor.withValues(alpha: 0.15), 
-              foregroundColor: primaryColor, 
-              elevation: 0, 
-              side: BorderSide(color: primaryColor.withValues(alpha: 0.5), width: 1.5), 
-              shape: const StadiumBorder()
+    final notifier = ref.read(timeLogProvider.notifier);
+    
+    return Row(
+      children: [
+        Container(
+          width: 95,
+          height: 65,
+          padding: const EdgeInsets.only(top: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: primaryColor.withOpacity(0.3), width: 1.5),
+            boxShadow: [
+              BoxShadow(color: primaryColor.withOpacity(0.05), blurRadius: 10, spreadRadius: 1)
+            ]
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('CALIFICACIÓN', style: TextStyle(color: Colors.white54, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+              SizedBox(
+                height: 32,
+                child: TextField(
+                  controller: notifier.ratingController,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: primaryColor, fontSize: 18, fontWeight: FontWeight.bold),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                    suffixText: '%',
+                    suffixStyle: TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  onChanged: (val) => notifier.updateGlobalRating(val),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: AnimatedBuilder(
+            animation: startButtonAnimation,
+            builder: (context, child) => Transform.scale(
+              scale: startButtonAnimation.value,
+              child: SizedBox(
+                height: 65,
+                child: ElevatedButton.icon(
+                  onPressed: onStartPressed,
+                  icon: Icon(primaryIcon, size: 28),
+                  label: Text(primaryLabel.toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor.withValues(alpha: 0.15), 
+                    foregroundColor: primaryColor, 
+                    elevation: 0, 
+                    side: BorderSide(color: primaryColor.withValues(alpha: 0.5), width: 1.5), 
+                    shape: const StadiumBorder()
+                  ),
+                ),
+              ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 

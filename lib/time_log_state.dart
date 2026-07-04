@@ -123,6 +123,7 @@ class TimeLogState {
     StopwatchMode? currentMode,
     int? lastRecordedTimeMs,
     bool? hasExported,
+    int? globalRating,
     bool? isRunning,
     bool? usePhysicalButtons,
     bool? useHapticFeedback,
