@@ -23,7 +23,7 @@ class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen>
     final currentCount = ref.watch(timeLogProvider.select((s) => s.activeRecordedTimes.length));
     
     // Necesitamos el provider solo para llamar al método formatTime visualmente
-    final controller = ref.read(timeLogProvider);
+    final controller = ref.read(timeLogProvider.notifier);
 
     bool hasData = currentCount >= 2;
     int nCalculated = 0; 

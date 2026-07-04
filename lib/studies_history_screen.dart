@@ -32,7 +32,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
 
   Future<void> _deleteStudy(int id) async { 
     if (ref.read(timeLogProvider).activeStudyId == id) {
-      ref.read(timeLogProvider).clearActiveStudyId();
+      ref.read(timeLogProvider.notifier).clearActiveStudyId();
     }
     
     await _storage.deleteStudyFromHistory(id);
@@ -87,7 +87,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                 
                 // NUEVO: Sincronización en tiempo real si el estudio está abierto en el cronómetro
                 if (ref.read(timeLogProvider).activeStudyId == study.id) {
-                  ref.read(timeLogProvider).syncActiveStudyName(newName);
+                  ref.read(timeLogProvider.notifier).syncActiveStudyName(newName);
                 }
                 
                 _loadHistory(); 
@@ -101,7 +101,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
   }
 
   void _loadStudyToActive(StudyModel study) {
-    ref.read(timeLogProvider).loadStudyFromHistory(study);
+    ref.read(timeLogProvider.notifier).loadStudyFromHistory(study);
     Navigator.pop(context);
   }
 

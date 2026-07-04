@@ -44,7 +44,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
     final vUpCont = ref.watch(timeLogProvider.select((s) => s.volUpActionCont));
     final vDownCont = ref.watch(timeLogProvider.select((s) => s.volDownActionCont));
 
-    final controller = ref.read(timeLogProvider);
+    final controller = ref.read(timeLogProvider.notifier);
 
     bool hasStartStop = vUpRAC == PhysicalButtonAction.startStop ||
                         vDownRAC == PhysicalButtonAction.startStop ||
@@ -72,8 +72,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
               ],
               onChanged: (v) {
                 if (v != null) {
-                  controller.timeFormat = v;
-                  controller.saveSettings();
+                  controller.updateSetting(timeFormat: v);
                 }
               },
             ),
@@ -81,17 +80,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
           
           const SizedBox(height: 20),
           _buildSectionHeader("Feedback"),
-          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('Vibración Háptica', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Confirmación táctil al registrar.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: useHaptic, onChanged: (v) { controller.useHapticFeedback = v; controller.saveSettings(); }),
-          if (useHaptic) Padding(padding: const EdgeInsets.only(left: 10, bottom: 20), child: Row(children: [const Text("Intensidad:", style: TextStyle(color: Colors.white54)), const SizedBox(width: 15), DropdownButton<HapticLevel>(value: hapticLvl, dropdownColor: const Color(0xFF2C2C2C), underline: Container(), items: HapticLevel.values.map((e) => DropdownMenuItem(value: e, child: Text(e.name.toUpperCase(), style: const TextStyle(fontSize: 12)))).toList(), onChanged: (v) { controller.hapticLevel = v!; controller.saveSettings(); })])),
+          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('Vibración Háptica', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Confirmación táctil al registrar.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: useHaptic, onChanged: (v) { controller.updateSetting(useHapticFeedback: v); }),
+          if (useHaptic) Padding(padding: const EdgeInsets.only(left: 10, bottom: 20), child: Row(children: [const Text("Intensidad:", style: TextStyle(color: Colors.white54)), const SizedBox(width: 15), DropdownButton<HapticLevel>(value: hapticLvl, dropdownColor: const Color(0xFF2C2C2C), underline: Container(), items: HapticLevel.values.map((e) => DropdownMenuItem(value: e, child: Text(e.name.toUpperCase(), style: const TextStyle(fontSize: 12)))).toList(), onChanged: (v) { controller.updateSetting(hapticLevel: v!); })])),
           
           const SizedBox(height: 20),
           _buildSectionHeader("Hardware"),
-          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('Botones de Volumen', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Usar botones físicos para controlar.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: usePhysical, onChanged: (v) { controller.usePhysicalButtons = v; controller.saveSettings(); }),
+          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('Botones de Volumen', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Usar botones físicos para controlar.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: usePhysical, onChanged: (v) { controller.updateSetting(usePhysicalButtons: v); }),
           
-          if (usePhysical && hasStartStop)
-            SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('¿Registrar al pausar?', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Registra el tiempo automáticamente al pausar con el botón físico.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: recOnPause, onChanged: (v) { controller.recordOnPause = v; controller.saveSettings(); }),
-
           if (usePhysical) ...[
+            SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('¿Registrar al pausar?', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Registra el tiempo automáticamente al pausar con el botón físico.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: recOnPause, onChanged: (v) { controller.updateSetting(recordOnPause: v); }),
             const SizedBox(height: 20),
             // SOLUCIÓN BUG: Eliminada la altura fija de 350. 
             // Ahora usamos AnimatedSize y mostramos condicionalmente las páginas.
@@ -111,8 +108,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOutCubic,
                     child: _tabController.index == 0
-                        ? _buildButtonConfigPage("Botón Subir", vUpRAC, (v) { controller.volUpActionRAC = v!; controller.saveSettings(); }, "Botón Bajar", vDownRAC, (v) { controller.volDownActionRAC = v!; controller.saveSettings(); })
-                        : _buildButtonConfigPage("Botón Subir", vUpCont, (v) { controller.volUpActionCont = v!; controller.saveSettings(); }, "Botón Bajar", vDownCont, (v) { controller.volDownActionCont = v!; controller.saveSettings(); }),
+                        ? _buildButtonConfigPage("Botón Subir", vUpRAC, (v) { controller.updateSetting(volUpActionRAC: v!); }, "Botón Bajar", vDownRAC, (v) { controller.updateSetting(volDownActionRAC: v!); })
+                        : _buildButtonConfigPage("Botón Subir", vUpCont, (v) { controller.updateSetting(volUpActionCont: v!); }, "Botón Bajar", vDownCont, (v) { controller.updateSetting(volDownActionCont: v!); }),
                   )
                 ]
               ),

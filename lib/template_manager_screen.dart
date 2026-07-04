@@ -124,7 +124,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
             onPressed: () async {
               if (folderController.text.trim().isNotEmpty) {
                 await _storage.createFolder(folderController.text.trim());
-                if (!mounted) return;
+                if (!context.mounted) return;
                 Navigator.pop(context);
                 _loadData();
               }
@@ -188,7 +188,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
               final newName = nameController.text.trim();
               if (newName.isNotEmpty && newName != template.name) {
                 await _storage.updateTemplateName(template.id, newName);
-                if (!mounted) return;
+                if (!context.mounted) return;
                 Navigator.pop(context);
                 _loadData(); 
               }
@@ -290,7 +290,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
       onPopInvokedWithResult: (bool didPop, Object? result) async {
         if (didPop) return;
         final bool shouldPop = await _navigateBack();
-        if (shouldPop && mounted) {
+        if (shouldPop && context.mounted) {
           Navigator.of(context).pop(result);
         }
       },
@@ -560,7 +560,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
           onPressed: () async {
             if (_nameController.text.trim().isNotEmpty && _steps.isNotEmpty) {
               await StorageService().saveTemplate(_nameController.text.trim(), _steps, folderId: widget.folderId);
-              if (!mounted) return;
+              if (!context.mounted) return;
               Navigator.pop(context, true);
             }
           },
@@ -670,7 +670,7 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
           onPressed: () async {
             if (_steps.isNotEmpty) {
               await StorageService().updateTemplateSteps(widget.template.id, _steps);
-              if (!mounted) return;
+              if (!context.mounted) return;
               Navigator.pop(context, true);
             }
           },
