@@ -183,12 +183,11 @@ class ExportService {
       String startCycleCol = _getColumnLetter(4);
       String endCycleCol = _getColumnLetter(4 + maxCycles - 1);
       
-      // Avg. OT: IFERROR(AVERAGE(Ciclos),"")
+      // Fórmulas base (No llevan '$' en la fila, así que son totalmente dinámicas al copiar/pegar)
       String avgOtFormula = 'IFERROR(AVERAGE($startCycleCol$excelRow:$endCycleCol$excelRow),"")';
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: currentRow)).value = FormulaCellValue(avgOtFormula);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: currentRow)).cellStyle = centerStyle;
 
-      // Avg. NT: IFERROR((SUMPRODUCT(Tiempos,Porcentajes)/COUNTIF(Tiempos,">0")),"")
       String avgNtFormula = 'IFERROR((SUMPRODUCT($startCycleCol$excelRow:$endCycleCol$excelRow,$startCycleCol${excelRow+1}:$endCycleCol${excelRow+1})/COUNTIF($startCycleCol$excelRow:$endCycleCol$excelRow,">0")),"")';
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgNtCol, rowIndex: currentRow)).value = FormulaCellValue(avgNtFormula);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgNtCol, rowIndex: currentRow)).cellStyle = centerStyle;
@@ -201,7 +200,6 @@ class ExportService {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).value = DoubleCellValue(0.08); 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).cellStyle = percentStyle;
 
-      // Std. Time: IFERROR((Q*(1/R)*(1+S)),"")
       String avgNtColStr = _getColumnLetter(avgNtCol);
       String freqColStr = _getColumnLetter(freqCol);
       String pfdColStr = _getColumnLetter(pfdCol);
@@ -216,13 +214,13 @@ class ExportService {
     int endDataRowExcel = currentRow; 
     
     // ==========================================
-    // 4. PROCESS SUMMARY (Consolidado)
+    // 4. PROCESS SUMMARY (Consolidado Inteligente)
     // ==========================================
     int summaryStartRow = currentRow;
 
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow + 2));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = TextCellValue("Process Summary");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).cellStyle = centerBold; // Ajustado a centrado según la panorámica
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).cellStyle = centerBold; 
     
     String stdColStr = _getColumnLetter(stdTimeCol);
     List<String> types = ["Hand", "Mach", "IMT"];
@@ -231,22 +229,24 @@ class ExportService {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).value = TextCellValue(types[t]);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: currentRow)).cellStyle = centerBold;
       
-      // Sumatorias individuales para Ciclos, Avg OT, y Avg NT
+      // LÓGICA DE RANGO DINÁMICO E INDESTRUCTIBLE
+      // Usamos INDEX(..., ROW()-1) para decirle a Excel que sume "Todo lo de arriba"
+      // Se quitó el símbolo $ de la fila inicial ($firstDataRowExcel) para que fluya si copian/pegan el bloque
       for (int colIndex = 4; colIndex <= avgNtCol; colIndex++) {
-        if (colIndex == ncCol) continue; // No sumar la columna NC ("N/A")
+        if (colIndex == ncCol) continue; 
         
         String col = _getColumnLetter(colIndex);
-        String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"${types[t]}",$col\$$firstDataRowExcel:$col\$$endDataRowExcel)';
+        String formula = 'SUMIF(\$D$firstDataRowExcel:INDEX(\$D:\$D,ROW()-1),"${types[t]}",\$$col$firstDataRowExcel:INDEX(\$$col:\$$col,ROW()-1))';
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex, rowIndex: currentRow)).value = FormulaCellValue(formula);
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex, rowIndex: currentRow)).cellStyle = centerStyle;
       }
 
-      // Etiquetas visuales replicadas en columna App PF&D (Columna S en la imagen)
+      // Etiquetas visuales replicadas en columna App PF&D
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).value = TextCellValue(types[t]);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).cellStyle = centerBold;
 
-      // Sumatoria de Std. Time en columna Std. Time (Columna T en la imagen)
-      String formulaStdTotal = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$endDataRowExcel,"${types[t]}",\$$stdColStr\$$firstDataRowExcel:\$$stdColStr\$$endDataRowExcel)';
+      // Sumatoria de Std. Time (Con el mismo rango dinámico INDEX)
+      String formulaStdTotal = 'SUMIF(\$D$firstDataRowExcel:INDEX(\$D:\$D,ROW()-1),"${types[t]}",\$$stdColStr$firstDataRowExcel:INDEX(\$$stdColStr:\$$stdColStr,ROW()-1))';
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).value = FormulaCellValue(formulaStdTotal);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).cellStyle = centerStyle;
 
@@ -263,14 +263,11 @@ class ExportService {
     
     CellStyle rightAlignBold = CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right, verticalAlign: VerticalAlign.Center);
     
-    // Función estructural mapeada 1:1 con la panorámica Jabil
     void addStatRow(int rowIndex, String label1, dynamic value1, String label2, String formula2) {
-      // Izquierda: Label (P a S)
       sheet.merge(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: rowIndex), CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: rowIndex));
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: rowIndex)).value = TextCellValue(label1);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: avgOtCol, rowIndex: rowIndex)).cellStyle = rightAlignBold;
       
-      // Izquierda: Value / Input (T)
       if (value1 is int) {
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: rowIndex)).value = IntCellValue(value1);
       } else if (value1 is String && value1.startsWith('=')) {
@@ -280,17 +277,15 @@ class ExportService {
       }
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: rowIndex)).cellStyle = centerStyle;
       
-      // Derecha: Label (U a V)
       sheet.merge(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: rowIndex), CellIndex.indexByColumnRow(columnIndex: remarksCol + 1, rowIndex: rowIndex));
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: rowIndex)).value = TextCellValue(label2);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: rowIndex)).cellStyle = centerBold;
       
-      // Derecha: Formula Output (W)
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol + 2, rowIndex: rowIndex)).value = FormulaCellValue(formula2);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol + 2, rowIndex: rowIndex)).cellStyle = centerStyle;
     }
     
-    // Referencias de fila para fórmulas nativas
+    // Referencias relativas de Excel (Al copiar el bloque, se mantienen coherentes)
     int handStdRow = summaryStartRow + 1;
     int machStdRow = summaryStartRow + 2;
     int imtStdRow = summaryStartRow + 3;
@@ -427,7 +422,6 @@ class ExportService {
             double? timeSec;
             var cv = timeCell.value;
             
-            // Extracción segura del valor numérico
             if (cv is DoubleCellValue) {
               timeSec = cv.value;
             } else if (cv is IntCellValue) {
