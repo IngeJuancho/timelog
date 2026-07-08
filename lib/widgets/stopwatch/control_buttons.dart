@@ -64,14 +64,14 @@ class ControlButtons extends ConsumerWidget {
       children: [
         Container(
           width: 95,
-          height: 65,
-          padding: const EdgeInsets.only(top: 6),
+          height: 80,
+          padding: const EdgeInsets.only(top: 6, bottom: 4),
           decoration: BoxDecoration(
             color: const Color(0xFF1E1E1E),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: primaryColor.withOpacity(0.3), width: 1.5),
+            border: Border.all(color: primaryColor.withValues(alpha: 0.3), width: 1.5),
             boxShadow: [
-              BoxShadow(color: primaryColor.withOpacity(0.05), blurRadius: 10, spreadRadius: 1)
+              BoxShadow(color: primaryColor.withValues(alpha: 0.05), blurRadius: 10, spreadRadius: 1)
             ]
           ),
           child: Column(
@@ -79,7 +79,7 @@ class ControlButtons extends ConsumerWidget {
             children: [
               const Text('CALIFICACIÓN', style: TextStyle(color: Colors.white54, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
               SizedBox(
-                height: 32,
+                height: 28,
                 child: TextField(
                   controller: notifier.ratingController,
                   keyboardType: TextInputType.number,
@@ -95,6 +95,18 @@ class ControlButtons extends ConsumerWidget {
                   onChanged: (val) => notifier.updateGlobalRating(val),
                 ),
               ),
+              const Spacer(),
+              InkWell(
+                onTap: () => notifier.applyRatingToCurrentCycle(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text('A CICLO', style: TextStyle(color: primaryColor, fontSize: 8, fontWeight: FontWeight.bold)),
+                ),
+              )
             ],
           ),
         ),
@@ -105,7 +117,7 @@ class ControlButtons extends ConsumerWidget {
             builder: (context, child) => Transform.scale(
               scale: startButtonAnimation.value,
               child: SizedBox(
-                height: 65,
+                height: 80,
                 child: ElevatedButton.icon(
                   onPressed: onStartPressed,
                   icon: Icon(primaryIcon, size: 28),

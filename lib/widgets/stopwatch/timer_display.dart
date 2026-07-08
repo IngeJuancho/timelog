@@ -24,7 +24,7 @@ class TimerDisplay extends ConsumerWidget {
           child: Column(
             children: [
               Text(
-                state.currentMode == StopwatchMode.regresoACero ? "REGRESO A CERO" : "CONTINUO", 
+                state.currentMode == StopwatchMode.regresoACero ? "POR CICLO" : "POR ELEMENTO", 
                 style: const TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38, fontWeight: FontWeight.bold)
               ),
               const SizedBox(height: 4),

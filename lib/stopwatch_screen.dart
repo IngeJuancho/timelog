@@ -166,7 +166,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 
   Future<void> _promptSaveStudy(BuildContext context) async {
     final state = ref.read(timeLogProvider);
-    final notifier = ref.read(timeLogProvider.notifier);
     final realData = state.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
     if (realData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -501,8 +500,8 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             ),
           ),
           const Padding(padding: EdgeInsets.fromLTRB(24, 24, 24, 10), child: Text("MODO", style: TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
-          _buildDrawerOption('Regreso a Cero', 'Clásico. Reinicia al registrar.', Icons.replay, StopwatchMode.regresoACero, state, notifier),
-          _buildDrawerOption('Continuo', 'Acumulativo. Calcula TO.', Icons.timeline, StopwatchMode.continuo, state, notifier),
+          _buildDrawerOption('Por Ciclo', 'Clásico. Reinicia al registrar.', Icons.replay, StopwatchMode.regresoACero, state, notifier),
+          _buildDrawerOption('Por Elemento', 'Acumulativo. Calcula TO.', Icons.timeline, StopwatchMode.continuo, state, notifier),
           
           const Divider(color: Colors.white10, indent: 24, endIndent: 24, height: 40),
           const Padding(padding: EdgeInsets.fromLTRB(24, 0, 24, 10), child: Text("DATOS", style: TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),

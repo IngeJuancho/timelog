@@ -46,11 +46,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
 
     final controller = ref.read(timeLogProvider.notifier);
 
-    bool hasStartStop = vUpRAC == PhysicalButtonAction.startStop ||
-                        vDownRAC == PhysicalButtonAction.startStop ||
-                        vUpCont == PhysicalButtonAction.startStop ||
-                        vDownCont == PhysicalButtonAction.startStop;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Configuración'), backgroundColor: Colors.transparent, centerTitle: true),
       body: ListView(
@@ -102,7 +97,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
                     indicatorColor: Colors.tealAccent, 
                     labelColor: Colors.tealAccent, 
                     unselectedLabelColor: Colors.white38, 
-                    tabs: const [Tab(text: "Regreso a Cero"), Tab(text: "Continuo")]
+                    tabs: const [Tab(text: "Por Ciclo"), Tab(text: "Por Elemento")]
                   ),
                   AnimatedSize(
                     duration: const Duration(milliseconds: 300),

@@ -32,6 +32,8 @@ class TimeLogState {
   final int lastRecordedTimeMs;
   final bool hasExported;
   final int globalRating;
+  final Map<int, int> cycleRatingsRAC;
+  final Map<int, int> cycleRatingsCont;
   final bool isRunning;
 
   // Settings
@@ -69,8 +71,10 @@ class TimeLogState {
     this.stdDev = 0.0,
     this.currentMode = StopwatchMode.regresoACero,
     this.lastRecordedTimeMs = 0,
-    this.hasExported = true,
+    this.hasExported = false,
     this.globalRating = 100,
+    this.cycleRatingsRAC = const {},
+    this.cycleRatingsCont = const {},
     this.isRunning = false,
     this.usePhysicalButtons = false,
     this.useHapticFeedback = false,
@@ -124,6 +128,8 @@ class TimeLogState {
     int? lastRecordedTimeMs,
     bool? hasExported,
     int? globalRating,
+    Map<int, int>? cycleRatingsRAC,
+    Map<int, int>? cycleRatingsCont,
     bool? isRunning,
     bool? usePhysicalButtons,
     bool? useHapticFeedback,
@@ -162,6 +168,8 @@ class TimeLogState {
       lastRecordedTimeMs: lastRecordedTimeMs ?? this.lastRecordedTimeMs,
       hasExported: hasExported ?? this.hasExported,
       globalRating: globalRating ?? this.globalRating,
+      cycleRatingsRAC: cycleRatingsRAC ?? this.cycleRatingsRAC,
+      cycleRatingsCont: cycleRatingsCont ?? this.cycleRatingsCont,
       isRunning: isRunning ?? this.isRunning,
       usePhysicalButtons: usePhysicalButtons ?? this.usePhysicalButtons,
       useHapticFeedback: useHapticFeedback ?? this.useHapticFeedback,

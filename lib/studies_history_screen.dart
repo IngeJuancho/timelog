@@ -135,7 +135,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                   itemBuilder: (context, index) {
                     final study = _studies[index];
                     final dateStr = '${study.date.day}/${study.date.month}/${study.date.year}';
-                    final modeStr = study.mode == StopwatchMode.continuo ? 'Continuo' : 'Regreso a Cero';
+                    final modeStr = study.mode == StopwatchMode.continuo ? 'Por Elemento' : 'Por Ciclo';
                     
                     final isActive = study.id == activeStudyId;
                     

@@ -181,6 +181,19 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
 
     String savedTaskNameRAC = prefs.getString('taskNameRAC') ?? prefs.getString('taskName') ?? '';
     String savedTaskNameCont = prefs.getString('taskNameCont') ?? prefs.getString('taskName') ?? '';
+    
+    Map<int, int> loadMap(String key) {
+      String? jsonStr = prefs.getString(key);
+      if (jsonStr == null) return {};
+      try {
+        Map<String, dynamic> rawMap = jsonDecode(jsonStr);
+        return rawMap.map((k, v) => MapEntry(int.parse(k), v as int));
+      } catch (e) {
+        return {};
+      }
+    }
+    Map<int, int> cycleRatingsRAC = loadMap('cycleRatingsRAC');
+    Map<int, int> cycleRatingsCont = loadMap('cycleRatingsCont');
 
     StopwatchMode currentMode = StopwatchMode.values[prefs.getInt('currentMode') ?? StopwatchMode.regresoACero.index];
     
@@ -246,6 +259,8 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       currentTemplateStepIndexRAC: currentTemplateStepIndexRAC,
       activeTemplateCont: () => activeTemplateCont,
       currentTemplateStepIndexCont: currentTemplateStepIndexCont,
+      cycleRatingsRAC: cycleRatingsRAC,
+      cycleRatingsCont: cycleRatingsCont,
     );
 
     _recalculateLastRecordedTime();
@@ -329,6 +344,9 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     await prefs.setString('taskNameRAC', state.savedTaskNameRAC);
     await prefs.setString('taskNameCont', state.savedTaskNameCont);
     
+    await prefs.setString('cycleRatingsRAC', jsonEncode(state.cycleRatingsRAC.map((k, v) => MapEntry(k.toString(), v))));
+    await prefs.setString('cycleRatingsCont', jsonEncode(state.cycleRatingsCont.map((k, v) => MapEntry(k.toString(), v))));
+    
     if (state.activeStudyIdRAC != null) {
       await prefs.setInt('activeStudyIdRAC', state.activeStudyIdRAC!);
     } else {
@@ -388,6 +406,28 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     int parsed = int.tryParse(value) ?? 100;
     if (parsed < 1) parsed = 1;
     state = state.copyWith(globalRating: parsed, hasExported: false);
+  }
+
+  void applyRatingToCurrentCycle() {
+    int parsed = int.tryParse(ratingController.text) ?? 100;
+    if (parsed < 1) parsed = 1;
+    
+    int stepCount = state.activeTemplate?.steps.length ?? 1;
+    if (stepCount == 0) stepCount = 1;
+    
+    if (state.currentMode == StopwatchMode.regresoACero) {
+      int currentCycle = state.currentTemplateStepIndexRAC ~/ stepCount;
+      Map<int, int> newRatings = Map.from(state.cycleRatingsRAC);
+      newRatings[currentCycle] = parsed;
+      state = state.copyWith(cycleRatingsRAC: newRatings, hasExported: false);
+    } else {
+      int currentCycle = state.currentTemplateStepIndexCont ~/ stepCount;
+      Map<int, int> newRatings = Map.from(state.cycleRatingsCont);
+      newRatings[currentCycle] = parsed;
+      state = state.copyWith(cycleRatingsCont: newRatings, hasExported: false);
+    }
+    saveTimerState();
+    _showSnackBarWithUndo('Calificación de $parsed% aplicada al ciclo ${state.activeTemplate != null ? (state.currentMode == StopwatchMode.regresoACero ? (state.currentTemplateStepIndexRAC ~/ stepCount) + 1 : (state.currentTemplateStepIndexCont ~/ stepCount) + 1) : "actual"}', Icons.check_circle, Colors.tealAccent);
   }
 
   void syncActiveStudyName(String newName) {
@@ -469,7 +509,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       }
 
       calculateStatistics();
-      _showSnackBar('Modo: ${mode == StopwatchMode.regresoACero ? "Regreso a Cero" : "Continuo"}', Icons.settings, Colors.tealAccent);
+      _showSnackBar('Modo: ${mode == StopwatchMode.regresoACero ? "Por Ciclo" : "Por Elemento"}', Icons.settings, Colors.tealAccent);
     }
   }
 
@@ -867,6 +907,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         activeTemplate: state.activeTemplate,
         studyName: state.masterStudyName.isNotEmpty ? state.masterStudyName : 'Estudio_General',
         globalRating: state.globalRating,
+        cycleRatings: state.currentMode == StopwatchMode.regresoACero ? state.cycleRatingsRAC : state.cycleRatingsCont,
       );
       
       if (fileName != null) {

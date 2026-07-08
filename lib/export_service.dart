@@ -13,12 +13,43 @@ class ExportService {
     OperationTemplate? activeTemplate,
     required String studyName, 
     int globalRating = 100,
+    Map<int, int> cycleRatings = const {},
   }) async {
     
+    // Precalculamos el rating de cada record
+    int getOriginalCycleIndex(int recordIndex, OperationTemplate? template) {
+      if (template != null && template.steps.isNotEmpty) {
+        return recordIndex ~/ template.steps.length;
+      }
+      return recordIndex;
+    }
+
+    for (int i = 0; i < data.length; i++) {
+       int cIndex = getOriginalCycleIndex(i, activeTemplate);
+       data[i]['applied_rating'] = cycleRatings[cIndex] ?? globalRating;
+    }
+
     OperationTemplate templateToUse;
     
-    if (activeTemplate != null) {
-      templateToUse = activeTemplate;
+    if (mode == StopwatchMode.regresoACero) {
+      if (activeTemplate != null) {
+        templateToUse = activeTemplate;
+      } else {
+        List<String> uniqueSteps = [];
+        for (var record in data) {
+          String name = record['name'].toString();
+          if (!uniqueSteps.contains(name)) {
+            uniqueSteps.add(name);
+          }
+        }
+        templateToUse = OperationTemplate()
+          ..name = studyName
+          ..steps = uniqueSteps;
+          
+        for (var record in data) {
+          record['step_index'] = uniqueSteps.indexOf(record['name'].toString());
+        }
+      }
     } else {
       templateToUse = OperationTemplate()
         ..name = studyName
@@ -29,10 +60,10 @@ class ExportService {
       }
     }
 
-    return await _exportJabilTemplateToExcel(data, templateToUse, studyName, globalRating);
+    return await _exportJabilTemplateToExcel(data, templateToUse, studyName);
   }
 
-  Future<String?> _exportJabilTemplateToExcel(List<Map<String, dynamic>> data, OperationTemplate template, String studyName, int globalRating) async {
+  Future<String?> _exportJabilTemplateToExcel(List<Map<String, dynamic>> data, OperationTemplate template, String studyName) async {
     int numSteps = template.steps.length;
     var excel = Excel.createExcel();
     Sheet sheet = excel['Sheet1'];
@@ -63,16 +94,16 @@ class ExportService {
       numberFormat: NumFormat.standard_9 // Da formato de % nativo en Excel
     );
 
-    List<List<double>> stepTimes = List.generate(numSteps, (_) => []);
+    List<List<Map<String, dynamic>>> stepData = List.generate(numSteps, (_) => []);
     for (var record in data) {
       int sIndex = record['step_index'] ?? 0;
       if (sIndex >= 0 && sIndex < numSteps && record['type'] != 'outlier') {
-        stepTimes[sIndex].add(record['time'] / 1000.0);
+        stepData[sIndex].add(record);
       }
     }
 
     int maxCycles = 10;
-    for (var times in stepTimes) {
+    for (var times in stepData) {
       if (times.length > maxCycles) {
         maxCycles = times.length;
       }
@@ -163,13 +194,15 @@ class ExportService {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow)).value = TextCellValue("N/A"); 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow)).cellStyle = centerStyle;
 
-      // Inyección de Tiempos y Calificación de Operario (100%)
+      // Inyección de Tiempos y Calificación de Operario
       for (int c = 0; c < maxCycles; c++) {
-        if (c < stepTimes[i].length) {
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = DoubleCellValue(stepTimes[i][c]);
+        if (c < stepData[i].length) {
+          var record = stepData[i][c];
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = DoubleCellValue((record['time'] as num) / 1000.0);
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = centerStyle;
           
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).value = DoubleCellValue(globalRating / 100.0); 
+          int currentRating = record['applied_rating'] as int? ?? 100;
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).value = DoubleCellValue(currentRating / 100.0); 
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).cellStyle = percentStyle;
         }
       }
