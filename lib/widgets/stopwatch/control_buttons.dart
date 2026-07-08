@@ -63,43 +63,45 @@ class ControlButtons extends ConsumerWidget {
     return Row(
       children: [
         Container(
-          width: 90,
+          width: 88,
           height: 80,
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF1A1A2E),
-                const Color(0xFF16213E),
-              ],
-            ),
+            color: const Color(0xFF252525),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: primaryColor.withValues(alpha: 0.25),
+              color: Colors.white12,
               width: 1,
             ),
           ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const SizedBox(height: 2),
+              Text(
+                'Calificación',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   SizedBox(
-                    width: 40,
-                    height: 30,
+                    width: 36,
+                    height: 24,
                     child: TextField(
                       controller: notifier.ratingController,
                       keyboardType: TextInputType.number,
                       textAlign: TextAlign.right,
                       style: TextStyle(
                         color: primaryColor,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                         height: 1.0,
                       ),
                       decoration: const InputDecoration(
@@ -110,46 +112,36 @@ class ControlButtons extends ConsumerWidget {
                       onChanged: (val) => notifier.updateGlobalRating(val),
                     ),
                   ),
+                  const SizedBox(width: 1),
                   Text(
                     '%',
                     style: TextStyle(
-                      color: primaryColor.withValues(alpha: 0.5),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
+                      color: Colors.white30,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
               GestureDetector(
                 onTap: () => notifier.applyRatingToCurrentCycle(),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        primaryColor.withValues(alpha: 0.25),
-                        primaryColor.withValues(alpha: 0.10),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: primaryColor.withValues(alpha: 0.3),
-                      width: 0.5,
-                    ),
+                    color: primaryColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     'A CICLO',
                     style: TextStyle(
                       color: primaryColor,
                       fontSize: 8,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 2),
             ],
           ),
         ),
