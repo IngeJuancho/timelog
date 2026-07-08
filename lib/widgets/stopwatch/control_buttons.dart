@@ -63,50 +63,93 @@ class ControlButtons extends ConsumerWidget {
     return Row(
       children: [
         Container(
-          width: 95,
+          width: 90,
           height: 80,
-          padding: const EdgeInsets.only(top: 6, bottom: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF1A1A2E),
+                const Color(0xFF16213E),
+              ],
+            ),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: primaryColor.withValues(alpha: 0.3), width: 1.5),
-            boxShadow: [
-              BoxShadow(color: primaryColor.withValues(alpha: 0.05), blurRadius: 10, spreadRadius: 1)
-            ]
+            border: Border.all(
+              color: primaryColor.withValues(alpha: 0.25),
+              width: 1,
+            ),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('CALIFICACIÓN', style: TextStyle(color: Colors.white54, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-              SizedBox(
-                height: 28,
-                child: TextField(
-                  controller: notifier.ratingController,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: primaryColor, fontSize: 18, fontWeight: FontWeight.bold),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                    isDense: true,
-                    suffixText: '%',
-                    suffixStyle: TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  SizedBox(
+                    width: 40,
+                    height: 30,
+                    child: TextField(
+                      controller: notifier.ratingController,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        height: 1.0,
+                      ),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        isDense: true,
+                      ),
+                      onChanged: (val) => notifier.updateGlobalRating(val),
+                    ),
                   ),
-                  onChanged: (val) => notifier.updateGlobalRating(val),
-                ),
+                  Text(
+                    '%',
+                    style: TextStyle(
+                      color: primaryColor.withValues(alpha: 0.5),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              InkWell(
+              const SizedBox(height: 4),
+              GestureDetector(
                 onTap: () => notifier.applyRatingToCurrentCycle(),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: primaryColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
+                    gradient: LinearGradient(
+                      colors: [
+                        primaryColor.withValues(alpha: 0.25),
+                        primaryColor.withValues(alpha: 0.10),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: primaryColor.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
                   ),
-                  child: Text('A CICLO', style: TextStyle(color: primaryColor, fontSize: 8, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'A CICLO',
+                    style: TextStyle(
+                      color: primaryColor,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
                 ),
-              )
+              ),
+              const SizedBox(height: 2),
             ],
           ),
         ),

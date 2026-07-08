@@ -20,6 +20,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   final Stopwatch _stopwatch = Stopwatch();
   final TextEditingController taskNameController = TextEditingController();
   final TextEditingController ratingController = TextEditingController(text: "100");
+  Timer? _snackBarTimer;
 
   static const platform = MethodChannel('com.timelog/volume_buttons');
 
@@ -1082,6 +1083,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
 
   void _showSnackBar(String message, IconData icon, Color iconColor) {
     scaffoldMessengerKey.currentState?.clearSnackBars();
+    _snackBarTimer?.cancel();
     double bottomMargin = 16.0;
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
     if (view != null) {
@@ -1098,14 +1100,18 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
         elevation: 6,
-        duration: const Duration(milliseconds: 2000), 
+        duration: const Duration(seconds: 2), 
         dismissDirection: DismissDirection.up, 
       ),
     );
+    _snackBarTimer = Timer(const Duration(seconds: 2), () {
+      scaffoldMessengerKey.currentState?.clearSnackBars();
+    });
   }
 
   void _showSnackBarWithUndo(String message, IconData icon, Color iconColor) {
     scaffoldMessengerKey.currentState?.clearSnackBars(); 
+    _snackBarTimer?.cancel();
     double bottomMargin = 16.0;
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
     if (view != null) {
@@ -1123,8 +1129,12 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
         elevation: 6,
         duration: const Duration(seconds: 4),
+        dismissDirection: DismissDirection.up,
         action: SnackBarAction(label: 'DESHACER', textColor: Colors.orangeAccent, onPressed: undoLastRecord),
       ),
     );
+    _snackBarTimer = Timer(const Duration(seconds: 4), () {
+      scaffoldMessengerKey.currentState?.clearSnackBars();
+    });
   }
 }
