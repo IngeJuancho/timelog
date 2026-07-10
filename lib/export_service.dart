@@ -15,6 +15,36 @@ class ExportService {
     int globalRating = 100,
     Map<int, int> cycleRatings = const {},
   }) async {
+    final fileBytes = await generateExcelBytes(
+      data: data,
+      mode: mode,
+      activeTemplate: activeTemplate,
+      studyName: studyName,
+      globalRating: globalRating,
+      cycleRatings: cycleRatings,
+    );
+
+    final date = DateTime.now();
+    final baseName = studyName.replaceAll(' ', '_');
+    final name = "${baseName}_${date.year}${date.month}${date.day}_${date.hour}${date.minute}";
+
+    final result = await FileSaver.instance.saveAs(
+      name: name, 
+      bytes: Uint8List.fromList(fileBytes), 
+      ext: 'xlsx', 
+      mimeType: MimeType.microsoftExcel
+    );
+    return result != null ? '$name.xlsx' : null;
+  }
+
+  Future<List<int>> generateExcelBytes({
+    required List<Map<String, dynamic>> data,
+    required StopwatchMode mode,
+    OperationTemplate? activeTemplate,
+    required String studyName, 
+    int globalRating = 100,
+    Map<int, int> cycleRatings = const {},
+  }) async {
     
     // Precalculamos el rating de cada record
     int getOriginalCycleIndex(int recordIndex, OperationTemplate? template) {
@@ -63,7 +93,7 @@ class ExportService {
     return await _exportJabilTemplateToExcel(data, templateToUse, studyName);
   }
 
-  Future<String?> _exportJabilTemplateToExcel(List<Map<String, dynamic>> data, OperationTemplate template, String studyName) async {
+  Future<List<int>> _exportJabilTemplateToExcel(List<Map<String, dynamic>> data, OperationTemplate template, String studyName) async {
     int numSteps = template.steps.length;
     var excel = Excel.createExcel();
     Sheet sheet = excel['Sheet1'];
@@ -354,17 +384,7 @@ class ExportService {
       throw Exception("Error al codificar el libro de Excel");
     }
 
-    final date = DateTime.now();
-    final baseName = studyName.replaceAll(' ', '_');
-    final name = "${baseName}_${date.year}${date.month}${date.day}_${date.hour}${date.minute}";
-
-    final result = await FileSaver.instance.saveAs(
-      name: name, 
-      bytes: Uint8List.fromList(fileBytes), 
-      ext: 'xlsx', 
-      mimeType: MimeType.microsoftExcel
-    );
-    return result != null ? '$name.xlsx' : null;
+    return fileBytes;
   }
 
   String _getColumnLetter(int colIndex) {

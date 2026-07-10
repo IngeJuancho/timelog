@@ -77,7 +77,7 @@ class ControlButtons extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 'Calificación',
                 style: TextStyle(
                   color: Colors.white38,
@@ -113,7 +113,7 @@ class ControlButtons extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 1),
-                  Text(
+                  const Text(
                     '%',
                     style: TextStyle(
                       color: Colors.white30,

@@ -7,10 +7,18 @@ plugins {
 
 android {
     namespace = "com.example.timelog"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35
     ndkVersion = flutter.ndkVersion
     // Mantenemos tu versión específica de NDK si la necesitas
     ndkVersion = "27.0.12077973"
+
+    configurations.all {
+        resolutionStrategy {
+            force("androidx.browser:browser:1.8.0")
+            force("androidx.core:core-ktx:1.15.0")
+            force("androidx.core:core:1.15.0")
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'time_log_controller.dart';
 import 'models.dart';
@@ -10,6 +11,7 @@ import 'calculator_screen.dart';
 import 'studies_history_screen.dart';
 import 'template_manager_screen.dart';
 import 'storage_service.dart';
+import 'update_service.dart';
 
 // Import new extracted widgets
 import 'widgets/stopwatch/timer_display.dart';
@@ -479,6 +481,8 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   }
 
   Widget _buildDrawer(TimeLogState state, TimeLogNotifier notifier) {
+    final updateInfo = ref.watch(updateProvider).value;
+
     return Drawer(
       backgroundColor: const Color(0xFF1E1E1E),
       surfaceTintColor: Colors.transparent,
@@ -489,13 +493,41 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             height: 160,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.teal.shade900, const Color(0xFF1E1E1E)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.timer, color: Colors.white)),
-                SizedBox(height: 12),
-                Text('TimeLog', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.timer, color: Colors.white)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Text('TimeLog', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                    if (updateInfo != null && updateInfo.isUpdateAvailable) ...[
+                      const Spacer(), // Empuja el botón hasta la derecha
+                      GestureDetector(
+                        onTap: () {
+                          launchUrl(Uri.parse(updateInfo.releaseUrl), mode: LaunchMode.externalApplication);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orangeAccent.withValues(alpha: 0.2),
+                            border: Border.all(color: Colors.orangeAccent, width: 1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.system_update_alt, color: Colors.orangeAccent, size: 12),
+                              const SizedBox(width: 4),
+                              Text('¡Actualización ${updateInfo.latestVersion}!', style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ]
+                  ],
+                ),
               ],
             ),
           ),

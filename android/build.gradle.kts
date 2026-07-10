@@ -20,14 +20,14 @@ subprojects {
             val androidExt = extensions.findByName("android")
             if (androidExt != null) {
                 
-                // 1. PARCHE PARA ERROR "lStar" (Forzar la compilación a la API 34)
+                // 1. PARCHE PARA ERROR "lStar" y nuevas libs (Forzar la compilación a la API 35)
                 try {
                     val compileSdkMethod = androidExt.javaClass.getMethod("compileSdkVersion", Int::class.javaPrimitiveType)
-                    compileSdkMethod.invoke(androidExt, 34)
+                    compileSdkMethod.invoke(androidExt, 35)
                 } catch (e: Exception) {
                     try {
                         val setCompileSdkMethod = androidExt.javaClass.getMethod("setCompileSdk", Int::class.javaObjectType)
-                        setCompileSdkMethod.invoke(androidExt, 34)
+                        setCompileSdkMethod.invoke(androidExt, 35)
                     } catch (e2: Exception) {
                         // Ignorar silenciosamente
                     }
