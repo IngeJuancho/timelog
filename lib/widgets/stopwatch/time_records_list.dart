@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../time_log_controller.dart';
 
-class ContinuousTableWidget extends ConsumerWidget {
+class ContinuousTableWidget extends ConsumerStatefulWidget {
   final ScrollController scrollController;
   final void Function(int) onMergeRequest;
 
@@ -13,15 +13,59 @@ class ContinuousTableWidget extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ContinuousTableWidget> createState() => _ContinuousTableWidgetState();
+}
+
+class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
+  final ScrollController _horizontalController = ScrollController();
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(timeLogProvider);
     final notifier = ref.read(timeLogProvider.notifier);
-    
-    if (state.recordedTimesContinuo.isEmpty) return const EmptyStateWidget();
+
+    // Auto-scroll logic
+    ref.listen(timeLogProvider.select((s) => s.recordedTimesContinuo.length), (previous, next) {
+      if (previous != null && next > previous) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_horizontalController.hasClients) {
+            _horizontalController.animateTo(
+              _horizontalController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+          if (widget.scrollController.hasClients) {
+            widget.scrollController.animateTo(
+              widget.scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
+
+    if (state.activeTemplate != null) {
+      return _buildMatrixTable(context, state, notifier);
+    } else {
+      if (state.recordedTimesContinuo.isEmpty) return const EmptyStateWidget();
+      return _buildLinearTable(context, state, notifier);
+    }
+  }
+
+  Widget _buildLinearTable(BuildContext context, dynamic state, dynamic notifier) {
     return SingleChildScrollView(
-      controller: scrollController,
+      controller: widget.scrollController,
       scrollDirection: Axis.vertical,
       child: SingleChildScrollView(
+        controller: _horizontalController,
         scrollDirection: Axis.horizontal,
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.white10),
@@ -37,13 +81,13 @@ class ContinuousTableWidget extends ConsumerWidget {
               DataColumn(label: Text('TO (Indiv)')), 
               DataColumn(label: Text(''))
             ],
-            rows: state.recordedTimesContinuo.asMap().entries.map((e) {
+            rows: state.recordedTimesContinuo.asMap().entries.map<DataRow>((e) {
               bool isOutlier = e.value['type'] == 'outlier';
               bool isPending = e.value['status'] == 'pending';
               bool isActiveStep = state.activeTemplate != null && e.key == state.currentTemplateStepIndex;
 
               return DataRow(
-                onLongPress: isPending ? null : () => onMergeRequest(e.key), 
+                onLongPress: isPending ? null : () => widget.onMergeRequest(e.key), 
                 color: WidgetStateProperty.resolveWith((states) {
                   if (isActiveStep) return Colors.tealAccent.withValues(alpha: 0.15); 
                   if (isOutlier) return Colors.redAccent.withValues(alpha: 0.05);
@@ -58,6 +102,144 @@ class ContinuousTableWidget extends ConsumerWidget {
                 ]
               );
             }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMatrixTable(BuildContext context, dynamic state, dynamic notifier) {
+    final elements = state.activeTemplate!.steps;
+    final int numElements = elements.length;
+    final List<Map<String, dynamic>> recordedTimes = state.recordedTimesContinuo;
+    
+    int numCycles = (recordedTimes.length / numElements).ceil();
+    if (numCycles == 0) numCycles = 1; // Mostrar al menos la columna C1 vacía
+    
+    final columns = <DataColumn>[
+      const DataColumn(label: Text('ELEMENTO')),
+    ];
+    for (int i = 0; i < numCycles; i++) {
+      columns.add(DataColumn(label: Text('C${i + 1}')));
+    }
+    
+    final rows = <DataRow>[];
+    
+    for (int elIndex = 0; elIndex < numElements; elIndex++) {
+      final cells = <DataCell>[
+        DataCell(Text(elements[elIndex], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+      ];
+      
+      for (int cycle = 0; cycle < numCycles; cycle++) {
+        final recordIndex = cycle * numElements + elIndex;
+        if (recordIndex < recordedTimes.length) {
+          final record = recordedTimes[recordIndex];
+          bool isOutlier = record['type'] == 'outlier';
+          bool isPending = record['status'] == 'pending';
+          
+          cells.add(DataCell(
+            GestureDetector(
+              onLongPress: isPending ? null : () => widget.onMergeRequest(recordIndex),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   Text(
+                    isPending ? '--:--.--' : notifier.formatTime(record['time'].toDouble()), 
+                    style: TextStyle(
+                      color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Colors.white),
+                      decoration: isOutlier ? TextDecoration.lineThrough : null,
+                    )
+                  ),
+                  if (!isPending) ...[
+                     const SizedBox(height: 2),
+                     GestureDetector(
+                        onTap: () => notifier.toggleElementType(recordIndex),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: isOutlier ? Colors.redAccent.withValues(alpha: 0.15) : Colors.tealAccent.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.5) : Colors.tealAccent.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            isOutlier ? 'ATÍPICO' : 'NORMAL',
+                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isOutlier ? Colors.redAccent : Colors.tealAccent, decoration: TextDecoration.none),
+                          ),
+                        ),
+                      ),
+                  ]
+                ]
+              )
+            )
+          ));
+        } else {
+          cells.add(const DataCell(Text('')));
+        }
+      }
+      rows.add(DataRow(cells: cells));
+    }
+    
+    // Add "Total Ciclo" row
+    final totalCells = <DataCell>[
+      const DataCell(Text('TOTAL CICLO', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent))),
+    ];
+    
+    for (int cycle = 0; cycle < numCycles; cycle++) {
+      double cycleTotal = 0;
+      bool hasPending = false;
+      bool hasValues = false;
+
+      for (int elIndex = 0; elIndex < numElements; elIndex++) {
+        final recordIndex = cycle * numElements + elIndex;
+        if (recordIndex < recordedTimes.length) {
+          final record = recordedTimes[recordIndex];
+          bool isPending = record['status'] == 'pending';
+          // bool isOutlier = record['type'] == 'outlier'; // Opcional: ignorar atípicos en la suma total? Normalmente sí se suman al ciclo real transcurrido.
+          
+          if (isPending) {
+            hasPending = true;
+          } else {
+            hasValues = true;
+            cycleTotal += record['time'].toDouble();
+          }
+        }
+      }
+      
+      if (!hasValues && !hasPending) {
+         totalCells.add(const DataCell(Text('')));
+      } else {
+         totalCells.add(DataCell(
+           Text(
+             hasPending ? '--:--.--' : notifier.formatTime(cycleTotal),
+             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent)
+           )
+         ));
+      }
+    }
+    
+    rows.add(DataRow(
+       color: WidgetStateProperty.all(const Color(0xFF252525)),
+       cells: totalCells
+    ));
+
+    return SingleChildScrollView(
+      controller: widget.scrollController,
+      scrollDirection: Axis.vertical,
+      child: SingleChildScrollView(
+        controller: _horizontalController,
+        scrollDirection: Axis.horizontal,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.white10),
+          child: DataTable(
+            columnSpacing: 20, 
+            dataRowMaxHeight: 60,
+            dataRowMinHeight: 45,
+            headingRowColor: WidgetStateProperty.all(const Color(0xFF1E1E1E)), 
+            headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent, fontSize: 12), 
+            dataTextStyle: const TextStyle(fontSize: 13, color: Colors.white70),
+            columns: columns,
+            rows: rows,
           ),
         ),
       ),
