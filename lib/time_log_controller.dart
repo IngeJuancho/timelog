@@ -160,6 +160,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     bool usePhysicalButtons = prefs.getBool('usePhysicalButtons') ?? false;
     bool useHapticFeedback = prefs.getBool('useHapticFeedback') ?? false;
     bool recordOnPause = prefs.getBool('recordOnPause') ?? false;
+    bool isAmoledMode = prefs.getBool('isAmoledMode') ?? true;
     
     int hapticIndex = prefs.getInt('hapticLevel') ?? HapticLevel.medium.index;
     HapticLevel hapticLevel = HapticLevel.values[hapticIndex];
@@ -249,6 +250,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       volDownActionRAC: volDownActionRAC,
       volUpActionCont: volUpActionCont,
       volDownActionCont: volDownActionCont,
+      isAmoledMode: isAmoledMode,
       recordedTimesRegresoACero: racTimes,
       recordedTimesContinuo: contTimes,
       savedTaskNameRAC: savedTaskNameRAC,
@@ -299,6 +301,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     await prefs.setInt('volDownActionRAC', newState.volDownActionRAC.index);
     await prefs.setInt('volUpActionCont', newState.volUpActionCont.index);
     await prefs.setInt('volDownActionCont', newState.volDownActionCont.index);
+    await prefs.setBool('isAmoledMode', newState.isAmoledMode);
   }
 
   void updateSetting({
@@ -311,6 +314,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     PhysicalButtonAction? volDownActionRAC,
     PhysicalButtonAction? volUpActionCont,
     PhysicalButtonAction? volDownActionCont,
+    bool? isAmoledMode,
   }) {
     final newState = state.copyWith(
       timeFormat: timeFormat,
@@ -322,6 +326,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       volDownActionRAC: volDownActionRAC,
       volUpActionCont: volUpActionCont,
       volDownActionCont: volDownActionCont,
+      isAmoledMode: isAmoledMode,
     );
     state = newState;
     saveSettings(newState);
@@ -417,18 +422,57 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     if (stepCount == 0) stepCount = 1;
     
     if (state.currentMode == StopwatchMode.regresoACero) {
-      int currentCycle = state.currentTemplateStepIndexRAC ~/ stepCount;
+      int rawCycle = state.currentTemplateStepIndexRAC ~/ stepCount;
+      // Si el índice está justo en la frontera de ciclo (ciclo recién terminado),
+      // apuntamos al ciclo anterior (el que tiene datos) no al siguiente (vacío).
+      int targetCycle = (state.currentTemplateStepIndexRAC > 0 &&
+              state.currentTemplateStepIndexRAC % stepCount == 0)
+          ? rawCycle - 1
+          : rawCycle;
       Map<int, int> newRatings = Map.from(state.cycleRatingsRAC);
-      newRatings[currentCycle] = parsed;
+      newRatings[targetCycle] = parsed;
+      state = state.copyWith(cycleRatingsRAC: newRatings, hasExported: false);
+      saveTimerState();
+      _showSnackBarWithUndo(
+          'Calificación de $parsed% aplicada al ciclo ${targetCycle + 1}',
+          Icons.check_circle,
+          Colors.tealAccent);
+    } else {
+      int rawCycle = state.currentTemplateStepIndexCont ~/ stepCount;
+      // Si el índice está justo en la frontera de ciclo (ciclo recién terminado),
+      // apuntamos al ciclo anterior (el que tiene datos) no al siguiente (vacío).
+      int targetCycle = (state.currentTemplateStepIndexCont > 0 &&
+              state.currentTemplateStepIndexCont % stepCount == 0)
+          ? rawCycle - 1
+          : rawCycle;
+      Map<int, int> newRatings = Map.from(state.cycleRatingsCont);
+      newRatings[targetCycle] = parsed;
+      state = state.copyWith(cycleRatingsCont: newRatings, hasExported: false);
+      saveTimerState();
+      _showSnackBarWithUndo(
+          'Calificación de $parsed% aplicada al ciclo ${targetCycle + 1}',
+          Icons.check_circle,
+          Colors.tealAccent);
+    }
+  }
+
+  /// Aplica una calificación directamente a un ciclo específico por su índice.
+  /// Usado por el diálogo que aparece al tocar el encabezado de ciclo en la tabla.
+  void applyRatingToCycle(int cycleIndex, int rating) {
+    if (state.currentMode == StopwatchMode.regresoACero) {
+      final newRatings = Map<int, int>.from(state.cycleRatingsRAC);
+      newRatings[cycleIndex] = rating;
       state = state.copyWith(cycleRatingsRAC: newRatings, hasExported: false);
     } else {
-      int currentCycle = state.currentTemplateStepIndexCont ~/ stepCount;
-      Map<int, int> newRatings = Map.from(state.cycleRatingsCont);
-      newRatings[currentCycle] = parsed;
+      final newRatings = Map<int, int>.from(state.cycleRatingsCont);
+      newRatings[cycleIndex] = rating;
       state = state.copyWith(cycleRatingsCont: newRatings, hasExported: false);
     }
     saveTimerState();
-    _showSnackBarWithUndo('Calificación de $parsed% aplicada al ciclo ${state.activeTemplate != null ? (state.currentMode == StopwatchMode.regresoACero ? (state.currentTemplateStepIndexRAC ~/ stepCount) + 1 : (state.currentTemplateStepIndexCont ~/ stepCount) + 1) : "actual"}', Icons.check_circle, Colors.tealAccent);
+    _showSnackBarWithUndo(
+        'Calificación de $rating% aplicada al ciclo ${cycleIndex + 1}',
+        Icons.star_rate_rounded,
+        Colors.tealAccent);
   }
 
   void syncActiveStudyName(String newName) {

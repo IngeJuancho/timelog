@@ -43,6 +43,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
     final vDownRAC = ref.watch(timeLogProvider.select((s) => s.volDownActionRAC));
     final vUpCont = ref.watch(timeLogProvider.select((s) => s.volUpActionCont));
     final vDownCont = ref.watch(timeLogProvider.select((s) => s.volDownActionCont));
+    final isAmoled = ref.watch(timeLogProvider.select((s) => s.isAmoledMode));
 
     final controller = ref.read(timeLogProvider.notifier);
 
@@ -51,14 +52,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _buildSectionHeader("Visualización"),
+
+          _buildSectionHeader("Personalización", Theme.of(context).colorScheme.primary),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            activeTrackColor: Theme.of(context).colorScheme.primary,
+            title: const Text('Modo Oscuro AMOLED', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Optimizado para pantallas OLED.', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey, fontSize: 12)),
+            value: isAmoled,
+            onChanged: (v) {
+              controller.updateSetting(isAmoledMode: v);
+            }
+          ),
+          const SizedBox(height: 20),
+          _buildSectionHeader("Visualización", Theme.of(context).colorScheme.primary),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Unidad de Medida', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('Formato en el que se muestran y exportan los tiempos.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+            subtitle: Text('Formato en el que se muestran y exportan los tiempos.', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)),
             trailing: DropdownButton<TimeFormat>(
               value: tFormat,
-              dropdownColor: const Color(0xFF2C2C2C),
+              
               underline: Container(),
               items: const [
                 DropdownMenuItem(value: TimeFormat.standard, child: Text('Estándar (mm:ss.cc)', style: TextStyle(fontSize: 13))),
@@ -74,28 +88,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
           ),
           
           const SizedBox(height: 20),
-          _buildSectionHeader("Feedback"),
-          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('Vibración Háptica', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Confirmación táctil al registrar.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: useHaptic, onChanged: (v) { controller.updateSetting(useHapticFeedback: v); }),
-          if (useHaptic) Padding(padding: const EdgeInsets.only(left: 10, bottom: 20), child: Row(children: [const Text("Intensidad:", style: TextStyle(color: Colors.white54)), const SizedBox(width: 15), DropdownButton<HapticLevel>(value: hapticLvl, dropdownColor: const Color(0xFF2C2C2C), underline: Container(), items: HapticLevel.values.map((e) => DropdownMenuItem(value: e, child: Text(e.name.toUpperCase(), style: const TextStyle(fontSize: 12)))).toList(), onChanged: (v) { controller.updateSetting(hapticLevel: v!); })])),
+          _buildSectionHeader("Feedback", Theme.of(context).colorScheme.primary),
+          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Theme.of(context).colorScheme.primary, title: const Text('Vibración Háptica', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: Text('Confirmación táctil al registrar.', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)), value: useHaptic, onChanged: (v) { controller.updateSetting(useHapticFeedback: v); }),
+          if (useHaptic) Padding(padding: const EdgeInsets.only(left: 10, bottom: 20), child: Row(children: [Text("Intensidad:", style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54))), const SizedBox(width: 15), DropdownButton<HapticLevel>(value: hapticLvl,  underline: Container(), items: HapticLevel.values.map((e) => DropdownMenuItem(value: e, child: Text(e.name.toUpperCase(), style: const TextStyle(fontSize: 12)))).toList(), onChanged: (v) { controller.updateSetting(hapticLevel: v!); })])),
           
           const SizedBox(height: 20),
-          _buildSectionHeader("Hardware"),
-          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('Botones de Volumen', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Usar botones físicos para controlar.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: usePhysical, onChanged: (v) { controller.updateSetting(usePhysicalButtons: v); }),
+          _buildSectionHeader("Hardware", Theme.of(context).colorScheme.primary),
+          SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Theme.of(context).colorScheme.primary, title: const Text('Botones de Volumen', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: Text('Usar botones físicos para controlar.', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)), value: usePhysical, onChanged: (v) { controller.updateSetting(usePhysicalButtons: v); }),
           
           if (usePhysical) ...[
-            SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Colors.tealAccent, title: const Text('¿Registrar al pausar?', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Registra el tiempo automáticamente al pausar con el botón físico.', style: TextStyle(color: Colors.white54, fontSize: 12)), value: recOnPause, onChanged: (v) { controller.updateSetting(recordOnPause: v); }),
+            SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Theme.of(context).colorScheme.primary, title: const Text('¿Registrar al pausar?', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: Text('Registra el tiempo automáticamente al pausar con el botón físico.', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)), value: recOnPause, onChanged: (v) { controller.updateSetting(recordOnPause: v); }),
             const SizedBox(height: 20),
             // SOLUCIÓN BUG: Eliminada la altura fija de 350. 
             // Ahora usamos AnimatedSize y mostramos condicionalmente las páginas.
             Container(
-              decoration: BoxDecoration(color: const Color(0xFF252525), borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(16)),
               child: Column(
                 mainAxisSize: MainAxisSize.min, // El contenedor tomará solo el alto necesario
                 children: [
                   TabBar(
                     controller: _tabController, 
-                    indicatorColor: Colors.tealAccent, 
-                    labelColor: Colors.tealAccent, 
+                    indicatorColor: Theme.of(context).colorScheme.primary, 
+                    labelColor: Theme.of(context).colorScheme.primary, 
                     unselectedLabelColor: Colors.white38, 
                     tabs: const [Tab(text: "Por Ciclo"), Tab(text: "Por Elemento")]
                   ),
@@ -115,17 +129,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(title.toUpperCase(), style: const TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)));
+  Widget _buildSectionHeader(String title, Color color) {
+    return Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(title.toUpperCase(), style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)));
   }
 
   Widget _buildButtonConfigPage(String l1, PhysicalButtonAction v1, ValueChanged<PhysicalButtonAction?> c1, String l2, PhysicalButtonAction v2, ValueChanged<PhysicalButtonAction?> c2) {
     return Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(l1, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-      DropdownButton<PhysicalButtonAction>(isExpanded: true, value: v1, dropdownColor: const Color(0xFF333333), underline: Container(height: 1, color: Colors.white10), items: _getActionItems(), onChanged: c1),
+      Text(l1, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)),
+      DropdownButton<PhysicalButtonAction>(isExpanded: true, value: v1,  underline: Container(height: 1, color: Theme.of(context).dividerColor), items: _getActionItems(), onChanged: c1),
       const SizedBox(height: 20),
-      Text(l2, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-      DropdownButton<PhysicalButtonAction>(isExpanded: true, value: v2, dropdownColor: const Color(0xFF333333), underline: Container(height: 1, color: Colors.white10), items: _getActionItems(), onChanged: c2),
+      Text(l2, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)),
+      DropdownButton<PhysicalButtonAction>(isExpanded: true, value: v2,  underline: Container(height: 1, color: Theme.of(context).dividerColor), items: _getActionItems(), onChanged: c2),
     ]));
   }
 
@@ -139,7 +153,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
         case PhysicalButtonAction.stopAndRecord: text = 'Parar y Registrar'; break;
         case PhysicalButtonAction.reset: text = 'Reiniciar Todo'; break;
       }
-      return DropdownMenuItem(value: e, child: Text(text, style: const TextStyle(color: Colors.white)));
+      return DropdownMenuItem(value: e, child: Text(text, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)));
     }).toList();
   }
 }

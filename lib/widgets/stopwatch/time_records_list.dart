@@ -68,12 +68,12 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
         controller: _horizontalController,
         scrollDirection: Axis.horizontal,
         child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.white10),
+          data: Theme.of(context).copyWith(dividerColor: Theme.of(context).dividerColor),
           child: DataTable(
             columnSpacing: 20, 
-            headingRowColor: WidgetStateProperty.all(const Color(0xFF252525)), 
-            headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent, fontSize: 12), 
-            dataTextStyle: const TextStyle(fontSize: 13, color: Colors.white70),
+            headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
+            headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
+            dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
             columns: const [
               DataColumn(label: Text('#')), 
               DataColumn(label: Text('ELEMENTO')), 
@@ -97,7 +97,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
                   DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), 
                   DataCell(ElementNameWidget(timeData: e.value, index: e.key)), 
                   DataCell(Text(isPending ? '--:--.--' : notifier.formatTime((e.value['cumulative_time'] ?? 0).toDouble()), style: TextStyle(color: isOutlier ? Colors.white54 : (isPending ? Colors.white38 : Colors.white70)))), 
-                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Colors.white)))), 
+                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Theme.of(context).textTheme.bodyMedium?.color)))), 
                   DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => notifier.deleteItem(e.key)))
                 ]
               );
@@ -112,6 +112,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
     final elements = state.activeTemplate!.steps;
     final int numElements = elements.length;
     final List<Map<String, dynamic>> recordedTimes = state.recordedTimesContinuo;
+    final Map<int, int> cycleRatings = state.cycleRatingsCont as Map<int, int>;
     
     int numCycles = (recordedTimes.length / numElements).ceil();
     if (numCycles == 0) numCycles = 1; // Mostrar al menos la columna C1 vacía
@@ -120,14 +121,41 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
       const DataColumn(label: Text('ELEMENTO')),
     ];
     for (int i = 0; i < numCycles; i++) {
-      columns.add(DataColumn(label: Text('C${i + 1}')));
+      final int cycleIndex = i;
+      final int? assignedRating = cycleRatings[cycleIndex];
+      columns.add(DataColumn(
+        label: GestureDetector(
+          onTap: () => _showCycleRatingDialog(context, notifier, cycleIndex, assignedRating),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('C${i + 1}', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+              if (assignedRating != null)
+                Container(
+                  margin: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.tealAccent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '$assignedRating%',
+                    style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.tealAccent),
+                  ),
+                )
+              else
+                const Text('•', style: TextStyle(fontSize: 8, color: Colors.tealAccent)),
+            ],
+          ),
+        ),
+      ));
     }
     
     final rows = <DataRow>[];
     
     for (int elIndex = 0; elIndex < numElements; elIndex++) {
       final cells = <DataCell>[
-        DataCell(Text(elements[elIndex], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white))),
+        DataCell(Text(elements[elIndex], style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyMedium?.color))),
       ];
       
       for (int cycle = 0; cycle < numCycles; cycle++) {
@@ -147,7 +175,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
                    Text(
                     isPending ? '--:--.--' : notifier.formatTime(record['time'].toDouble()), 
                     style: TextStyle(
-                      color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Colors.white),
+                      color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Theme.of(context).textTheme.bodyMedium?.color),
                       decoration: isOutlier ? TextDecoration.lineThrough : null,
                     )
                   ),
@@ -219,7 +247,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
     }
     
     rows.add(DataRow(
-       color: WidgetStateProperty.all(const Color(0xFF252525)),
+       color: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest),
        cells: totalCells
     ));
 
@@ -230,18 +258,81 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
         controller: _horizontalController,
         scrollDirection: Axis.horizontal,
         child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.white10),
+          data: Theme.of(context).copyWith(dividerColor: Theme.of(context).dividerColor),
           child: DataTable(
             columnSpacing: 20, 
             dataRowMaxHeight: 60,
             dataRowMinHeight: 45,
-            headingRowColor: WidgetStateProperty.all(const Color(0xFF1E1E1E)), 
-            headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent, fontSize: 12), 
-            dataTextStyle: const TextStyle(fontSize: 13, color: Colors.white70),
+            headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
+            headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
+            dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
             columns: columns,
             rows: rows,
           ),
         ),
+      ),
+    );
+  }
+
+  void _showCycleRatingDialog(BuildContext context, dynamic notifier, int cycleIndex, int? currentRating) {
+    final TextEditingController ctrl = TextEditingController(text: '${currentRating ?? 100}');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.star_rate_rounded, color: Colors.tealAccent, size: 22),
+            const SizedBox(width: 8),
+            Text('Calificación — Ciclo ${cycleIndex + 1}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Ingresa el porcentaje de calificación del operario para este ciclo:',
+                style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.tealAccent),
+              decoration: InputDecoration(
+                suffixText: '%',
+                suffixStyle: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.tealAccent, width: 2)),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CANCELAR'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.tealAccent.withValues(alpha: 0.15),
+              foregroundColor: Colors.tealAccent,
+              elevation: 0,
+              side: const BorderSide(color: Colors.tealAccent, width: 1),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              int parsed = int.tryParse(ctrl.text) ?? 100;
+              if (parsed < 1) parsed = 1;
+              if (parsed > 200) parsed = 200;
+              notifier.applyRatingToCycle(cycleIndex, parsed);
+            },
+            child: const Text('APLICAR', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
@@ -270,12 +361,12 @@ class SimpleRecordsListWidget extends ConsumerWidget {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.white10),
+          data: Theme.of(context).copyWith(dividerColor: Theme.of(context).dividerColor),
           child: DataTable(
             columnSpacing: 20,
-            headingRowColor: WidgetStateProperty.all(const Color(0xFF252525)),
-            headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent, fontSize: 12),
-            dataTextStyle: const TextStyle(fontSize: 13, color: Colors.white70),
+            headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest),
+            headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12),
+            dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
             columns: const [
               DataColumn(label: Text('#')),
               DataColumn(label: Text('ELEMENTO')),
@@ -297,7 +388,7 @@ class SimpleRecordsListWidget extends ConsumerWidget {
                 cells: [
                   DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))),
                   DataCell(ElementNameWidget(timeData: e.value, index: e.key)),
-                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Colors.white)))),
+                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Theme.of(context).textTheme.bodyMedium?.color)))),
                   DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => notifier.deleteItem(e.key)))
                 ],
               );
@@ -331,7 +422,7 @@ class ElementNameWidget extends ConsumerWidget {
               timeData['name'], 
               style: TextStyle(
                 fontWeight: FontWeight.w500, 
-                color: isOutlier ? Colors.white54 : (isPending ? Colors.white60 : Colors.white), 
+                color: isOutlier ? Colors.white54 : (isPending ? Colors.white60 : Theme.of(context).textTheme.bodyMedium?.color), 
                 decoration: isOutlier ? TextDecoration.lineThrough : null
               )
             ),
@@ -363,13 +454,13 @@ class EmptyStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center, 
         children: [
-          Icon(Icons.hourglass_empty, size: 48, color: Colors.white10), 
-          SizedBox(height: 16), 
-          Text('Sin datos registrados', style: TextStyle(color: Colors.white24))
+          Icon(Icons.hourglass_empty, size: 48, color: Theme.of(context).dividerColor), 
+          const SizedBox(height: 16), 
+          Text('Sin datos registrados', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5)))
         ]
       )
     );

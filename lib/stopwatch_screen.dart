@@ -149,11 +149,10 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF252525),
-        title: const Row(children: [Icon(Icons.call_merge, color: Colors.tealAccent), SizedBox(width: 10), Text('Fusionar Registros', style: TextStyle(color: Colors.white, fontSize: 18))]),
-        content: const Text('¿Deseas combinar este registro con el anterior?\n\nLos tiempos se sumarán y la línea temporal del estudio se mantendrá intacta.', style: TextStyle(color: Colors.white70)),
+        title: const Row(children: [Icon(Icons.call_merge, color: Colors.tealAccent), SizedBox(width: 10), Text('Fusionar Registros', style: TextStyle(fontSize: 18))]),
+        content: const Text('¿Deseas combinar este registro con el anterior?\n\nLos tiempos se sumarán y la línea temporal del estudio se mantendrá intacta.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR')),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -180,13 +179,12 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       bool? chooseUpdate = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF252525),
-          title: const Text('Actualizar Estudio', style: TextStyle(color: Colors.white)),
-          content: const Text('Este estudio ya está guardado en tu historial. ¿Deseas actualizar los datos del registro existente o guardarlo como un estudio completamente nuevo?', style: TextStyle(color: Colors.white70)),
+          title: const Text('Actualizar Estudio'),
+          content: const Text('Este estudio ya está guardado en tu historial. ¿Deseas actualizar los datos del registro existente o guardarlo como un estudio completamente nuevo?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false), 
-              child: const Text('NUEVO', style: TextStyle(color: Colors.white54)),
+              child: const Text('NUEVO'),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true), 
@@ -218,11 +216,9 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF252525),
-        title: const Text('Guardar Estudio Nuevo', style: TextStyle(color: Colors.white)),
+        title: const Text('Guardar Estudio Nuevo'),
         content: TextField(
           controller: nameController,
-          style: const TextStyle(color: Colors.white),
           decoration: const InputDecoration(
             labelText: 'Nombre del estudio',
             focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent)),
@@ -230,7 +226,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR')),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -258,24 +254,22 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         final realData = state.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
         if (!state.hasExported && realData.isNotEmpty) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF252525),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(children: [Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent), SizedBox(width: 10), Text('Datos no exportados', style: TextStyle(color: Colors.white, fontSize: 18))]),
-            content: const Text('¿Desea borrar los datos registrados sin haberlos exportado?', style: TextStyle(color: Colors.white70)),
+            title: const Row(children: [Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent), SizedBox(width: 10), Text('Datos no exportados', style: TextStyle(fontSize: 18))]),
+            content: const Text('¿Desea borrar los datos registrados sin haberlos exportado?'),
             actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
+              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('CANCELAR')),
               TextButton(onPressed: () { Navigator.of(context).pop(false); notifier.exportData(); }, child: const Text('EXPORTAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold))),
               TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('BORRAR', style: TextStyle(color: Colors.redAccent))),
             ],
           );
         } else {
           return AlertDialog(
-            backgroundColor: const Color(0xFF252525),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(children: [Icon(Icons.refresh, color: Colors.white), SizedBox(width: 10), Text('Reiniciar Todo', style: TextStyle(color: Colors.white, fontSize: 18))]),
-            content: const Text('¿Estás seguro de reiniciar los datos y el cronómetro?', style: TextStyle(color: Colors.white70)),
+            title: const Row(children: [Icon(Icons.refresh), SizedBox(width: 10), Text('Reiniciar Todo', style: TextStyle(fontSize: 18))]),
+            content: const Text('¿Estás seguro de reiniciar los datos y el cronómetro?'),
             actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
+              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('CANCELAR')),
               TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('REINICIAR', style: TextStyle(color: Colors.redAccent))),
             ],
           );
@@ -290,7 +284,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   Future<void> _showTemplateSelector(TimeLogNotifier state) async {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF252525),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       isScrollControlled: true, 
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => Padding(
@@ -308,19 +302,19 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   void _showExportImportOptions(BuildContext context, TimeLogNotifier state) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF252525),
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Manejo de Datos', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Manejo de Datos', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.download, color: Colors.white)),
-              title: const Text('Importar archivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              subtitle: const Text('Cargar un estudio previo desde tus archivos Excel.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              title: Text('Importar archivo', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold)),
+              subtitle: Text('Cargar un estudio previo desde tus archivos Excel.', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);
                 state.importExcel(); 
@@ -329,8 +323,8 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             const SizedBox(height: 10),
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.blueAccent, child: Icon(Icons.upload, color: Colors.white)),
-              title: const Text('Exportar a Excel', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              subtitle: const Text('Guardar el estudio en formato Excel (.xlsx).', style: TextStyle(color: Colors.white54, fontSize: 12)),
+              title: Text('Exportar a Excel', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold)),
+              subtitle: Text('Guardar el estudio en formato Excel (.xlsx).', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);
                 state.exportData();
@@ -484,7 +478,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     final updateInfo = ref.watch(updateProvider).value;
 
     return Drawer(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: Theme.of(context).drawerTheme.backgroundColor ?? Theme.of(context).colorScheme.surface,
       surfaceTintColor: Colors.transparent,
       child: ListView(
         padding: EdgeInsets.zero,
@@ -492,7 +486,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           Container(
             height: 160,
             padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.teal.shade900, const Color(0xFF1E1E1E)], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+            decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.teal.shade800, Theme.of(context).colorScheme.surface], begin: Alignment.topLeft, end: Alignment.bottomRight)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.end,
@@ -531,20 +525,20 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
               ],
             ),
           ),
-          const Padding(padding: EdgeInsets.fromLTRB(24, 24, 24, 10), child: Text("MODO", style: TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
+          Padding(padding: const EdgeInsets.fromLTRB(24, 24, 24, 10), child: Text("MODO", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
           _buildDrawerOption('Por Ciclo', 'Clásico. Reinicia al registrar.', Icons.replay, StopwatchMode.regresoACero, state, notifier),
           _buildDrawerOption('Por Elemento', 'Acumulativo. Calcula TO.', Icons.timeline, StopwatchMode.continuo, state, notifier),
           
-          const Divider(color: Colors.white10, indent: 24, endIndent: 24, height: 40),
-          const Padding(padding: EdgeInsets.fromLTRB(24, 0, 24, 10), child: Text("DATOS", style: TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
-          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.save_outlined, color: Colors.white70), title: const Text('Guardar Estudio', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _promptSaveStudy(context); }),
-          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.history, color: Colors.white70), title: const Text('Historial', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const StudiesHistoryScreen())); }),
+          Divider(color: Theme.of(context).dividerColor, indent: 24, endIndent: 24, height: 40),
+          Padding(padding: const EdgeInsets.fromLTRB(24, 0, 24, 10), child: Text("DATOS", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
+          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: Icon(Icons.save_outlined, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)), title: Text('Guardar Estudio', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)), onTap: () { Navigator.pop(context); _promptSaveStudy(context); }),
+          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: Icon(Icons.history, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)), title: Text('Historial', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const StudiesHistoryScreen())); }),
 
-          const Divider(color: Colors.white10, indent: 24, endIndent: 24, height: 40),
-          const Padding(padding: EdgeInsets.fromLTRB(24, 0, 24, 10), child: Text("UTILIDADES", style: TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
-          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.route, color: Colors.white70), title: const Text('Rutas Estándar', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const TemplateManagerScreen())); }),
-          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.calculate_outlined, color: Colors.white70), title: const Text('Calculadora Muestra', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const SampleCalculatorScreen())); }),
-          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: const Icon(Icons.settings_outlined, color: Colors.white70), title: const Text('Configuración', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())); }),
+          Divider(color: Theme.of(context).dividerColor, indent: 24, endIndent: 24, height: 40),
+          Padding(padding: const EdgeInsets.fromLTRB(24, 0, 24, 10), child: Text("UTILIDADES", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5))),
+          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: Icon(Icons.route, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)), title: Text('Rutas Estándar', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const TemplateManagerScreen())); }),
+          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: Icon(Icons.calculate_outlined, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)), title: Text('Calculadora Muestra', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const SampleCalculatorScreen())); }),
+          ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: 24), leading: Icon(Icons.settings_outlined, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)), title: Text('Configuración', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())); }),
         ],
       ),
     );
@@ -556,9 +550,9 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: ListTile(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        leading: Icon(icon, color: isSelected ? Colors.tealAccent : Colors.white70),
-        title: Text(title, style: TextStyle(color: isSelected ? Colors.tealAccent : Colors.white, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-        subtitle: Text(subtitle, style: TextStyle(color: isSelected ? Colors.teal.withValues(alpha: 0.7) : Colors.white38, fontSize: 12)),
+        leading: Icon(icon, color: isSelected ? Colors.tealAccent : Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)),
+        title: Text(title, style: TextStyle(color: isSelected ? Colors.tealAccent : Theme.of(context).textTheme.bodyMedium?.color, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+        subtitle: Text(subtitle, style: TextStyle(color: isSelected ? Colors.teal.withValues(alpha: 0.7) : Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
         tileColor: isSelected ? Colors.teal.withValues(alpha: 0.15) : null,
         onTap: () { notifier.setMode(mode); Navigator.pop(context); },
       ),
@@ -585,7 +579,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         },
         onSubmitted: (_) => _taskNameFocusNode.unfocus(),
         style: TextStyle(
-          color: isTemplateActive ? Colors.tealAccent : Colors.white, 
+          color: isTemplateActive ? Colors.tealAccent : Theme.of(context).textTheme.bodyMedium?.color, 
           fontWeight: isTemplateActive ? FontWeight.bold : FontWeight.normal
         ),
         decoration: InputDecoration(
@@ -611,7 +605,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
                 ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 20),
           filled: true,
-          fillColor: const Color(0xFF252525),
+          fillColor: Theme.of(context).inputDecorationTheme.fillColor ?? Theme.of(context).colorScheme.surfaceContainerHighest,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(30), 
             borderSide: isTemplateActive ? const BorderSide(color: Colors.tealAccent, width: 1) : BorderSide.none
@@ -625,7 +619,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     return AnimatedBuilder(
       animation: _viewChangeAnimation,
       builder: (_, __) => Card(
-        color: const Color(0xFF252525), 
+        color: Theme.of(context).cardColor, 
         elevation: 4, 
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), 
         clipBehavior: Clip.antiAlias, 
@@ -634,19 +628,19 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
-              color: const Color(0xFF2A2A2A),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(children: [Icon(_showingAnalysis ? Icons.pie_chart_outline : Icons.list_alt, color: Colors.tealAccent, size: 20), const SizedBox(width: 10), Text(_showingAnalysis ? 'ESTADÍSTICAS' : 'REGISTROS', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.white70))]),
-                  SizedBox(height: 32, width: 32, child: IconButton(padding: EdgeInsets.zero, onPressed: _toggleView, icon: Icon(_showingAnalysis ? Icons.list : Icons.analytics, size: 20), style: IconButton.styleFrom(backgroundColor: Colors.white10, foregroundColor: Colors.white))),
+                  Row(children: [Icon(_showingAnalysis ? Icons.pie_chart_outline : Icons.list_alt, color: Colors.tealAccent, size: 20), const SizedBox(width: 10), Text(_showingAnalysis ? 'ESTADÍSTICAS' : 'REGISTROS', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Theme.of(context).textTheme.bodyMedium?.color))]),
+                  SizedBox(height: 32, width: 32, child: IconButton(padding: EdgeInsets.zero, onPressed: _toggleView, icon: Icon(_showingAnalysis ? Icons.list : Icons.analytics, size: 20), style: IconButton.styleFrom(backgroundColor: Theme.of(context).dividerColor, foregroundColor: Theme.of(context).textTheme.bodyMedium?.color))),
                 ],
               ),
             ),
-            const Divider(height: 1, color: Colors.white10),
+            Divider(height: 1, color: Theme.of(context).dividerColor),
             Expanded(
               child: Container(
-                color: const Color(0xFF1E1E1E),
+                color: Theme.of(context).colorScheme.surface,
                 child: _showingAnalysis 
                     ? const AnalysisViewWidget() 
                     : (state.currentMode == StopwatchMode.continuo 
@@ -745,7 +739,7 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
                   _searchQuery.isNotEmpty 
                       ? 'Resultados de Búsqueda' 
                       : (_currentFolder == null ? 'Seleccionar Ruta Estándar' : _currentFolder!.name),
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 18, fontWeight: FontWeight.bold),
                   textAlign: _currentFolder == null && _searchQuery.isEmpty ? TextAlign.center : TextAlign.left,
                 ),
               ),
@@ -769,7 +763,7 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
                   ? IconButton(icon: const Icon(Icons.clear, color: Colors.white54), onPressed: () => _searchController.clear())
                   : null,
               filled: true,
-              fillColor: const Color(0xFF1E1E1E),
+              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,

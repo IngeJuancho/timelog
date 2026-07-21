@@ -12,13 +12,13 @@ class AnalysisViewWidget extends ConsumerWidget {
 
     final realData = state.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
     if (realData.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center, 
           children: [
-            Icon(Icons.hourglass_empty, size: 48, color: Colors.white10), 
-            SizedBox(height: 16), 
-            Text('Sin datos registrados', style: TextStyle(color: Colors.white24))
+            Icon(Icons.hourglass_empty, size: 48, color: Theme.of(context).dividerColor), 
+            const SizedBox(height: 16), 
+            Text('Sin datos registrados', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.24)))
           ]
         )
       );
@@ -39,9 +39,7 @@ class AnalysisViewWidget extends ConsumerWidget {
             const SizedBox(width: 12), 
             Expanded(child: _buildStatBox('Máximo', state.maxTime, Colors.redAccent, notifier))
           ]),
-        ],
-      ),
-    );
+        ]));
   }
 
   Widget _buildStatBox(String label, double value, Color color, TimeLogNotifier notifier) {
@@ -57,9 +55,8 @@ class AnalysisViewWidget extends ConsumerWidget {
         children: [
           Text(label.toUpperCase(), style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)), 
           const SizedBox(height: 8), 
-          Text(notifier.formatTime(value), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))
+          Text(notifier.formatTime(value), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))
         ]
-      ),
-    );
+      ));
   }
 }

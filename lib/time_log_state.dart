@@ -36,7 +36,6 @@ class TimeLogState {
   final Map<int, int> cycleRatingsCont;
   final bool isRunning;
 
-  // Settings
   final bool usePhysicalButtons;
   final bool useHapticFeedback;
   final HapticLevel hapticLevel;
@@ -46,6 +45,7 @@ class TimeLogState {
   final PhysicalButtonAction volDownActionRAC;
   final PhysicalButtonAction volUpActionCont;
   final PhysicalButtonAction volDownActionCont;
+  final bool isAmoledMode;
 
   const TimeLogState({
     this.baseTimeMs = 0,
@@ -83,8 +83,9 @@ class TimeLogState {
     this.timeFormat = TimeFormat.standard,
     this.volUpActionRAC = PhysicalButtonAction.lapSnapback,
     this.volDownActionRAC = PhysicalButtonAction.stopAndRecord,
-    this.volUpActionCont = PhysicalButtonAction.lapSnapback,
+    this.volUpActionCont = PhysicalButtonAction.startStop,
     this.volDownActionCont = PhysicalButtonAction.stopAndRecord,
+    this.isAmoledMode = true,
   });
 
   // Getters auxiliares basados en el modo actual
@@ -140,6 +141,7 @@ class TimeLogState {
     PhysicalButtonAction? volDownActionRAC,
     PhysicalButtonAction? volUpActionCont,
     PhysicalButtonAction? volDownActionCont,
+    bool? isAmoledMode,
   }) {
     return TimeLogState(
       baseTimeMs: baseTimeMs ?? this.baseTimeMs,
@@ -180,6 +182,7 @@ class TimeLogState {
       volDownActionRAC: volDownActionRAC ?? this.volDownActionRAC,
       volUpActionCont: volUpActionCont ?? this.volUpActionCont,
       volDownActionCont: volDownActionCont ?? this.volDownActionCont,
+      isAmoledMode: isAmoledMode ?? this.isAmoledMode,
     );
   }
 }

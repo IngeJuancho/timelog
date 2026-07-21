@@ -81,12 +81,37 @@ class ExportService {
         }
       }
     } else {
+      // Modo Por Elemento (continuo): detectar cuántos pasos tiene un ciclo
+      // analizando los nombres en orden hasta que se repita el primero.
+      int detectedStepCount = data.length;
+      if (data.isNotEmpty) {
+        String firstName = data[0]['name'].toString();
+        for (int i = 1; i < data.length; i++) {
+          if (data[i]['name'].toString() == firstName) {
+            detectedStepCount = i;
+            break;
+          }
+        }
+      }
+
+      // Si hay plantilla activa, su longitud es la fuente de verdad
+      if (activeTemplate != null && activeTemplate.steps.isNotEmpty) {
+        detectedStepCount = activeTemplate.steps.length;
+      }
+
+      // Construir la plantilla con los nombres del PRIMER ciclo
+      List<String> stepNames = [];
+      for (int i = 0; i < detectedStepCount && i < data.length; i++) {
+        stepNames.add(data[i]['name'].toString());
+      }
+
       templateToUse = OperationTemplate()
         ..name = studyName
-        ..steps = data.map((e) => e['name'].toString()).toList();
-        
+        ..steps = stepNames;
+
+      // Asignar step_index como posición dentro del ciclo
       for (int i = 0; i < data.length; i++) {
-        data[i]['step_index'] = i;
+        data[i]['step_index'] = i % detectedStepCount;
       }
     }
 

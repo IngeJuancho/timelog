@@ -34,9 +34,8 @@ class ControlButtons extends ConsumerWidget {
       children: [
         _buildPrimaryButton(context, ref, state),
         const SizedBox(height: 16),
-        _buildSecondaryButtons(state),
-      ],
-    );
+        _buildSecondaryButtons(context, state),
+      ]);
   }
 
   Widget _buildPrimaryButton(BuildContext context, WidgetRef ref, dynamic state) {
@@ -58,122 +57,27 @@ class ControlButtons extends ConsumerWidget {
       }
     }
     
-    final notifier = ref.read(timeLogProvider.notifier);
-    
-    return Row(
-      children: [
-        Container(
-          width: 88,
+    return AnimatedBuilder(
+      animation: startButtonAnimation,
+      builder: (context, child) => Transform.scale(
+        scale: startButtonAnimation.value,
+        child: SizedBox(
+          width: double.infinity,
           height: 80,
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFF252525),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white12,
-              width: 1,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Calificación',
-                style: TextStyle(
-                  color: Colors.white38,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  SizedBox(
-                    width: 36,
-                    height: 24,
-                    child: TextField(
-                      controller: notifier.ratingController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        color: primaryColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        height: 1.0,
-                      ),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                        isDense: true,
-                      ),
-                      onChanged: (val) => notifier.updateGlobalRating(val),
-                    ),
-                  ),
-                  const SizedBox(width: 1),
-                  const Text(
-                    '%',
-                    style: TextStyle(
-                      color: Colors.white30,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              GestureDetector(
-                onTap: () => notifier.applyRatingToCurrentCycle(),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: primaryColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'A CICLO',
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: AnimatedBuilder(
-            animation: startButtonAnimation,
-            builder: (context, child) => Transform.scale(
-              scale: startButtonAnimation.value,
-              child: SizedBox(
-                height: 80,
-                child: ElevatedButton.icon(
-                  onPressed: onStartPressed,
-                  icon: Icon(primaryIcon, size: 28),
-                  label: Text(primaryLabel.toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor.withValues(alpha: 0.15), 
-                    foregroundColor: primaryColor, 
-                    elevation: 0, 
-                    side: BorderSide(color: primaryColor.withValues(alpha: 0.5), width: 1.5), 
-                    shape: const StadiumBorder()
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+          child: ElevatedButton.icon(
+            onPressed: onStartPressed,
+            icon: Icon(primaryIcon, size: 28),
+            label: Text(primaryLabel.toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor.withValues(alpha: 0.15), 
+              foregroundColor: primaryColor, 
+              elevation: 0, 
+              side: BorderSide(color: primaryColor.withValues(alpha: 0.5), width: 1.5), 
+              shape: const StadiumBorder()
+            )))));
   }
 
-  Widget _buildSecondaryButtons(dynamic state) {
+  Widget _buildSecondaryButtons(BuildContext context, dynamic state) {
     String secondaryLabel = state.currentMode == StopwatchMode.regresoACero ? 'Vuelta' : 'Finalizar';
     IconData secondaryIcon = state.currentMode == StopwatchMode.regresoACero ? Icons.replay : Icons.stop_circle_outlined;
     bool isEnabled = state.isRunning;
@@ -186,13 +90,13 @@ class ControlButtons extends ConsumerWidget {
             builder: (_, __) => Transform.scale(
               scale: secondaryButtonAnimation.value, 
               child: _buildIconButton(
+                context: context,
                 icon: secondaryIcon, 
                 label: secondaryLabel, 
                 onPressed: isEnabled ? onSecondaryPressed : null, 
                 color: Colors.orangeAccent
               )
-            ),
-          )
+            ))
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -201,13 +105,13 @@ class ControlButtons extends ConsumerWidget {
             builder: (_, __) => Transform.scale(
               scale: resetButtonAnimation.value, 
               child: _buildIconButton(
+                context: context,
                 icon: Icons.refresh, 
                 label: 'Reset', 
                 onPressed: onResetPressed, 
-                color: Colors.white70
+                color: Theme.of(context).textTheme.bodySmall?.color
               )
-            ),
-          )
+            ))
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -216,23 +120,22 @@ class ControlButtons extends ConsumerWidget {
             builder: (_, __) => Transform.scale(
               scale: exportButtonAnimation.value, 
               child: _buildIconButton(
+                context: context,
                 icon: Icons.import_export, 
                 label: 'Archivos',         
                 onPressed: onExportPressed, 
                 color: Colors.blueAccent
               )
-            ),
-          )
+            ))
         ),
-      ],
-    );
+      ]);
   }
 
-  Widget _buildIconButton({required IconData icon, required String label, required VoidCallback? onPressed, required Color color}) {
+  Widget _buildIconButton({required BuildContext context, required IconData icon, required String label, required VoidCallback? onPressed, required Color? color}) {
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF252525), 
+        backgroundColor: Theme.of(context).cardColor, 
         foregroundColor: color, 
         elevation: 0, 
         padding: const EdgeInsets.symmetric(vertical: 16), 
@@ -245,7 +148,6 @@ class ControlButtons extends ConsumerWidget {
           const SizedBox(height: 6), 
           Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))
         ]
-      ),
-    );
+      ));
   }
 }

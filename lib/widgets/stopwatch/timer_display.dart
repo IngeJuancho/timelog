@@ -25,7 +25,7 @@ class TimerDisplay extends ConsumerWidget {
             children: [
               Text(
                 state.currentMode == StopwatchMode.regresoACero ? "POR CICLO" : "POR ELEMENTO", 
-                style: const TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.white38, fontWeight: FontWeight.bold)
+                style: TextStyle(fontSize: 10, letterSpacing: 2, color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.38), fontWeight: FontWeight.bold)
               ),
               const SizedBox(height: 4),
               FittedBox(
@@ -35,16 +35,11 @@ class TimerDisplay extends ConsumerWidget {
                   style: const TextStyle(
                     fontSize: 80, 
                     fontWeight: FontWeight.w300, 
-                    color: Colors.white, 
                     fontFeatures: [FontFeature.tabularFigures()], 
                     letterSpacing: -2.0
                   )
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+                )),
+            ]));
+      });
   }
 }
