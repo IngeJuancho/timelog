@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'storage_service.dart';
 import 'models.dart';
+import 'theme.dart';
 
 class TemplateManagerScreen extends ConsumerStatefulWidget {
   const TemplateManagerScreen({super.key});
@@ -430,7 +431,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('${e.key + 1}.', style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+                      Text('${e.key + 1}.', style: TextStyle(color: AppTheme.getTealAccent(context), fontWeight: FontWeight.bold)),
                       const SizedBox(width: 12),
                       Expanded(child: Text(e.value, style: const TextStyle(color: Colors.white70))),
                     ],
@@ -507,9 +508,10 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final tealColor = AppTheme.getTealAccent(context);
     return AlertDialog(
-      backgroundColor: const Color(0xFF252525),
-      title: const Text('Nueva Ruta Estándar', style: TextStyle(color: Colors.white)),
+      backgroundColor: Theme.of(context).cardColor,
+      title: Text('Nueva Ruta Estándar', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -517,8 +519,8 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
           children: [
             TextField(
               controller: _nameController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: 'Nombre del Proceso', focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent))),
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+              decoration: InputDecoration(labelText: 'Nombre del Proceso', focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: tealColor))),
             ),
             const SizedBox(height: 16),
             Row(
@@ -526,12 +528,12 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                 Expanded(
                   child: TextField(
                     controller: _stepController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(hintText: 'Descripción del paso...', focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent))),
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+                    decoration: InputDecoration(hintText: 'Descripción del paso...', focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: tealColor))),
                     onSubmitted: (_) => _addStep(),
                   ),
                 ),
-                IconButton(icon: const Icon(Icons.add_circle, color: Colors.tealAccent), onPressed: _addStep)
+                IconButton(icon: Icon(Icons.add_circle, color: tealColor), onPressed: _addStep)
               ],
             ),
             const SizedBox(height: 16),
@@ -544,8 +546,8 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
                   return ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(radius: 12, backgroundColor: Colors.white10, child: Text('${index + 1}', style: const TextStyle(fontSize: 12, color: Colors.tealAccent))),
-                    title: Text(_steps[index], style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                    leading: CircleAvatar(radius: 12, backgroundColor: Theme.of(context).dividerColor, child: Text('${index + 1}', style: TextStyle(fontSize: 12, color: tealColor))),
+                    title: Text(_steps[index], style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13)),
                     trailing: IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => setState(() => _steps.removeAt(index))),
                   );
                 },
@@ -555,7 +557,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color))),
         TextButton(
           onPressed: () async {
             if (_nameController.text.trim().isNotEmpty && _steps.isNotEmpty) {
@@ -564,7 +566,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
               Navigator.pop(context, true);
             }
           },
-          child: const Text('GUARDAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+          child: Text('GUARDAR', style: TextStyle(color: tealColor, fontWeight: FontWeight.bold)),
         ),
       ],
     );
@@ -600,14 +602,15 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
 
   void _editStepText(int index) {
     final editController = TextEditingController(text: _steps[index]);
+    final tealColor = AppTheme.getTealAccent(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2C2C2C),
-        title: const Text('Editar Paso', style: TextStyle(color: Colors.white, fontSize: 16)),
-        content: TextField(controller: editController, style: const TextStyle(color: Colors.white), autofocus: true, decoration: const InputDecoration(focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent)))),
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text('Editar Paso', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16)),
+        content: TextField(controller: editController, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color), autofocus: true, decoration: InputDecoration(focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: tealColor)))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color))),
           TextButton(
             onPressed: () {
               if (editController.text.trim().isNotEmpty) {
@@ -615,7 +618,7 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
               }
               Navigator.pop(context);
             },
-            child: const Text('OK', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+            child: Text('OK', style: TextStyle(color: tealColor, fontWeight: FontWeight.bold)),
           ),
         ],
       )
@@ -624,9 +627,10 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final tealColor = AppTheme.getTealAccent(context);
     return AlertDialog(
-      backgroundColor: const Color(0xFF252525),
-      title: const Text('Editar Pasos', style: TextStyle(color: Colors.white)),
+      backgroundColor: Theme.of(context).cardColor,
+      title: Text('Editar Pasos', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(
@@ -634,8 +638,8 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
           children: [
             Row(
               children: [
-                Expanded(child: TextField(controller: _stepController, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(hintText: 'Añadir nuevo paso...', focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent))), onSubmitted: (_) => _addStep())),
-                IconButton(icon: const Icon(Icons.add_circle, color: Colors.tealAccent), onPressed: _addStep)
+                Expanded(child: TextField(controller: _stepController, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color), decoration: InputDecoration(hintText: 'Añadir nuevo paso...', focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: tealColor))), onSubmitted: (_) => _addStep())),
+                IconButton(icon: Icon(Icons.add_circle, color: tealColor), onPressed: _addStep)
               ],
             ),
             const SizedBox(height: 16),
@@ -648,8 +652,8 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
                   return ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(radius: 12, backgroundColor: Colors.white10, child: Text('${index + 1}', style: const TextStyle(fontSize: 12, color: Colors.tealAccent))),
-                    title: Text(_steps[index], style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                    leading: CircleAvatar(radius: 12, backgroundColor: Theme.of(context).dividerColor, child: Text('${index + 1}', style: TextStyle(fontSize: 12, color: tealColor))),
+                    title: Text(_steps[index], style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13)),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -665,7 +669,7 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color))),
         TextButton(
           onPressed: () async {
             if (_steps.isNotEmpty) {
@@ -674,7 +678,7 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
               Navigator.pop(context, true);
             }
           },
-          child: const Text('GUARDAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+          child: Text('GUARDAR', style: TextStyle(color: tealColor, fontWeight: FontWeight.bold)),
         ),
       ],
     );

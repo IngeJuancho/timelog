@@ -13,7 +13,7 @@ import 'template_manager_screen.dart';
 import 'storage_service.dart';
 import 'update_service.dart';
 
-// Import new extracted widgets
+import 'theme.dart';
 import 'widgets/stopwatch/timer_display.dart';
 import 'widgets/stopwatch/control_buttons.dart';
 import 'widgets/stopwatch/time_records_list.dart';
@@ -146,10 +146,12 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       return;
     }
     
+    final tealColor = AppTheme.getTealAccent(context);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(children: [Icon(Icons.call_merge, color: Colors.tealAccent), SizedBox(width: 10), Text('Fusionar Registros', style: TextStyle(fontSize: 18))]),
+        title: Row(children: [Icon(Icons.call_merge, color: tealColor), const SizedBox(width: 10), const Text('Fusionar Registros', style: TextStyle(fontSize: 18))]),
         content: const Text('¿Deseas combinar este registro con el anterior?\n\nLos tiempos se sumarán y la línea temporal del estudio se mantendrá intacta.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR')),
@@ -158,7 +160,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
               Navigator.pop(context);
               state.mergeWithPrevious(index);
             },
-            child: const Text('FUSIONAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+            child: Text('FUSIONAR', style: TextStyle(color: tealColor, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -167,6 +169,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 
   Future<void> _promptSaveStudy(BuildContext context) async {
     final state = ref.read(timeLogProvider);
+    final tealColor = AppTheme.getTealAccent(context);
     final realData = state.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
     if (realData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -188,7 +191,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true), 
-              child: const Text('ACTUALIZAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+              child: Text('ACTUALIZAR', style: TextStyle(color: tealColor, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -198,8 +201,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       if (chooseUpdate == null) return; 
 
       if (chooseUpdate == true) {
-        // Assume controller.updateCurrentStudy() exists or implement logic here.
-        // As per original code, we call updateCurrentStudy (which seems to be missing in controller? We'll leave it as it was)
         return;
       }
     }
@@ -219,9 +220,9 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         title: const Text('Guardar Estudio Nuevo'),
         content: TextField(
           controller: nameController,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Nombre del estudio',
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent)),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: tealColor)),
           ),
           autofocus: true,
         ),
@@ -230,9 +231,8 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              // Assume controller.saveCurrentStudyToHistory() exists.
             },
-            child: const Text('GUARDAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+            child: Text('GUARDAR', style: TextStyle(color: tealColor, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -242,6 +242,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   Future<void> _confirmReset() async {
     final state = ref.read(timeLogProvider);
     final notifier = ref.read(timeLogProvider.notifier);
+    final tealColor = AppTheme.getTealAccent(context);
 
     if (state.activeRecordedTimes.isEmpty && !state.isRunning && notifier.elapsedMilliseconds == 0) {
       notifier.resetAll();
@@ -259,7 +260,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
             content: const Text('¿Desea borrar los datos registrados sin haberlos exportado?'),
             actions: [
               TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('CANCELAR')),
-              TextButton(onPressed: () { Navigator.of(context).pop(false); notifier.exportData(); }, child: const Text('EXPORTAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold))),
+              TextButton(onPressed: () { Navigator.of(context).pop(false); notifier.exportData(); }, child: Text('EXPORTAR', style: TextStyle(color: tealColor, fontWeight: FontWeight.bold))),
               TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('BORRAR', style: TextStyle(color: Colors.redAccent))),
             ],
           );
@@ -546,14 +547,17 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 
   Widget _buildDrawerOption(String title, String subtitle, IconData icon, StopwatchMode mode, TimeLogState state, TimeLogNotifier notifier) {
     bool isSelected = state.currentMode == mode;
+    final tealColor = AppTheme.getTealAccent(context);
+    final tealFill = AppTheme.getTealFill(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: ListTile(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        leading: Icon(icon, color: isSelected ? Colors.tealAccent : Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)),
-        title: Text(title, style: TextStyle(color: isSelected ? Colors.tealAccent : Theme.of(context).textTheme.bodyMedium?.color, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-        subtitle: Text(subtitle, style: TextStyle(color: isSelected ? Colors.teal.withValues(alpha: 0.7) : Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
-        tileColor: isSelected ? Colors.teal.withValues(alpha: 0.15) : null,
+        leading: Icon(icon, color: isSelected ? tealColor : Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)),
+        title: Text(title, style: TextStyle(color: isSelected ? tealColor : Theme.of(context).textTheme.bodyMedium?.color, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+        subtitle: Text(subtitle, style: TextStyle(color: isSelected ? tealColor.withValues(alpha: 0.7) : Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
+        tileColor: isSelected ? tealFill : null,
         onTap: () { notifier.setMode(mode); Navigator.pop(context); },
       ),
     );
@@ -561,6 +565,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 
   Widget _buildTaskNameField(TimeLogState state, TimeLogNotifier notifier) {
     bool isTemplateActive = state.activeTemplate != null;
+    final tealColor = AppTheme.getTealAccent(context);
 
     return SizedBox(
       height: 50,
@@ -579,14 +584,14 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         },
         onSubmitted: (_) => _taskNameFocusNode.unfocus(),
         style: TextStyle(
-          color: isTemplateActive ? Colors.tealAccent : Theme.of(context).textTheme.bodyMedium?.color, 
+          color: isTemplateActive ? tealColor : Theme.of(context).textTheme.bodyMedium?.color, 
           fontWeight: isTemplateActive ? FontWeight.bold : FontWeight.normal
         ),
         decoration: InputDecoration(
           hintText: 'Nombre de la tarea...',
-          hintStyle: const TextStyle(color: Colors.white24),
+          hintStyle: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5)),
           prefixIcon: IconButton(
-            icon: Icon(isTemplateActive ? Icons.route : Icons.alt_route, color: isTemplateActive ? Colors.orangeAccent : Colors.teal.shade200, size: 20),
+            icon: Icon(isTemplateActive ? Icons.route : Icons.alt_route, color: isTemplateActive ? Colors.orangeAccent : tealColor, size: 20),
             tooltip: 'Cargar Ruta Estándar',
             onPressed: () => _showTemplateSelector(notifier),
           ),
@@ -597,7 +602,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
                   onPressed: () => notifier.clearTemplate(),
                 )
               : IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.white54, size: 20), 
+                  icon: Icon(Icons.delete_outline, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.5), size: 20), 
                   onPressed: () {
                     notifier.taskNameController.clear();
                     notifier.updateTaskName(''); 
@@ -608,7 +613,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
           fillColor: Theme.of(context).inputDecorationTheme.fillColor ?? Theme.of(context).colorScheme.surfaceContainerHighest,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(30), 
-            borderSide: isTemplateActive ? const BorderSide(color: Colors.tealAccent, width: 1) : BorderSide.none
+            borderSide: isTemplateActive ? BorderSide(color: tealColor, width: 1.5) : BorderSide.none
           ),
         ),
       ),
@@ -616,6 +621,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
   }
 
   Widget _buildStatsCard(TimeLogState state, TimeLogNotifier notifier) {
+    final tealColor = AppTheme.getTealAccent(context);
     return AnimatedBuilder(
       animation: _viewChangeAnimation,
       builder: (_, __) => Card(
@@ -632,7 +638,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(children: [Icon(_showingAnalysis ? Icons.pie_chart_outline : Icons.list_alt, color: Colors.tealAccent, size: 20), const SizedBox(width: 10), Text(_showingAnalysis ? 'ESTADÍSTICAS' : 'REGISTROS', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Theme.of(context).textTheme.bodyMedium?.color))]),
+                  Row(children: [Icon(_showingAnalysis ? Icons.pie_chart_outline : Icons.list_alt, color: tealColor, size: 20), const SizedBox(width: 10), Text(_showingAnalysis ? 'ESTADÍSTICAS' : 'REGISTROS', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Theme.of(context).textTheme.bodyMedium?.color))]),
                   SizedBox(height: 32, width: 32, child: IconButton(padding: EdgeInsets.zero, onPressed: _toggleView, icon: Icon(_showingAnalysis ? Icons.list : Icons.analytics, size: 20), style: IconButton.styleFrom(backgroundColor: Theme.of(context).dividerColor, foregroundColor: Theme.of(context).textTheme.bodyMedium?.color))),
                 ],
               ),
@@ -754,13 +760,13 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
                 FocusScope.of(context).requestFocus(_searchFocusNode);
               }
             },
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
             decoration: InputDecoration(
               hintText: 'Buscar por nombre o número...',
-              hintStyle: const TextStyle(color: Colors.white38),
-              prefixIcon: const Icon(Icons.search, color: Colors.tealAccent),
+              hintStyle: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5)),
+              prefixIcon: Icon(Icons.search, color: AppTheme.getTealAccent(context)),
               suffixIcon: _searchQuery.isNotEmpty 
-                  ? IconButton(icon: const Icon(Icons.clear, color: Colors.white54), onPressed: () => _searchController.clear())
+                  ? IconButton(icon: Icon(Icons.clear, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.5)), onPressed: () => _searchController.clear())
                   : null,
               filled: true,
               fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -782,7 +788,7 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
 
   Widget _buildContent() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Colors.tealAccent));
+      return Center(child: CircularProgressIndicator(color: AppTheme.getTealAccent(context)));
     }
 
     if (_searchQuery.isNotEmpty) {

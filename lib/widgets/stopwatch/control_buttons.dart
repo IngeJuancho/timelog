@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../time_log_controller.dart';
 import '../../models.dart';
+import '../../theme.dart';
 
 class ControlButtons extends ConsumerWidget {
   final Animation<double> startButtonAnimation;
@@ -42,18 +43,20 @@ class ControlButtons extends ConsumerWidget {
     String primaryLabel; 
     IconData primaryIcon; 
     Color primaryColor;
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final tealColor = AppTheme.getTealAccent(context);
     
     if (state.currentMode == StopwatchMode.regresoACero) {
       if (state.isRunning) { 
         primaryLabel = 'Parar'; primaryIcon = Icons.pause_circle_filled; primaryColor = Colors.redAccent; 
       } else { 
-        primaryLabel = 'Iniciar'; primaryIcon = Icons.play_circle_fill; primaryColor = Colors.tealAccent; 
+        primaryLabel = 'Iniciar'; primaryIcon = Icons.play_circle_fill; primaryColor = tealColor; 
       }
     } else {
       if (state.isRunning) { 
-        primaryLabel = 'Lap'; primaryIcon = Icons.flag; primaryColor = Colors.indigoAccent; 
+        primaryLabel = 'Lap'; primaryIcon = Icons.flag; primaryColor = isLight ? const Color(0xFF303F9F) : Colors.indigoAccent; 
       } else { 
-        primaryLabel = 'Iniciar'; primaryIcon = Icons.play_circle_fill; primaryColor = Colors.tealAccent; 
+        primaryLabel = 'Iniciar'; primaryIcon = Icons.play_circle_fill; primaryColor = tealColor; 
       }
     }
     
@@ -69,10 +72,10 @@ class ControlButtons extends ConsumerWidget {
             icon: Icon(primaryIcon, size: 28),
             label: Text(primaryLabel.toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor.withValues(alpha: 0.15), 
+              backgroundColor: primaryColor.withValues(alpha: isLight ? 0.20 : 0.15), 
               foregroundColor: primaryColor, 
               elevation: 0, 
-              side: BorderSide(color: primaryColor.withValues(alpha: 0.5), width: 1.5), 
+              side: BorderSide(color: primaryColor.withValues(alpha: isLight ? 0.8 : 0.5), width: 1.5), 
               shape: const StadiumBorder()
             )))));
   }

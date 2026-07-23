@@ -421,6 +421,22 @@ class ExportService {
     return letter;
   }
 
+  double? _parseCellValue(CellValue? cv) {
+    if (cv == null) return null;
+    if (cv is DoubleCellValue) return cv.value;
+    if (cv is IntCellValue) return cv.value.toDouble();
+    if (cv is TextCellValue) {
+      String raw = cv.value.text?.replaceAll(',', '.').trim() ?? '';
+      return double.tryParse(raw);
+    }
+    if (cv is FormulaCellValue) {
+      String raw = cv.formula.replaceAll(',', '.').trim();
+      return double.tryParse(raw);
+    }
+    String str = cv.toString().replaceAll(',', '.').trim();
+    return double.tryParse(str);
+  }
+
   Future<Map<String, dynamic>?> importDataFromExcel() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -430,6 +446,18 @@ class ExportService {
       
       if (result == null || result.files.isEmpty) {
         return null;
+      }
+
+      String studyName = 'Estudio Importado';
+      if (result.files.first.name.isNotEmpty) {
+        String fname = result.files.first.name;
+        if (fname.toLowerCase().endsWith('.xlsx')) {
+          fname = fname.substring(0, fname.length - 5);
+        }
+        fname = fname.replaceAll('_', ' ').trim();
+        if (fname.isNotEmpty) {
+          studyName = fname;
+        }
       }
 
       Uint8List? bytes = result.files.first.bytes;
@@ -442,6 +470,8 @@ class ExportService {
       }
 
       var excel = Excel.decodeBytes(bytes);
+      if (excel.tables.isEmpty) return null;
+
       var sheetName = excel.tables.keys.first;
       var sheet = excel.tables[sheetName];
       
@@ -449,77 +479,141 @@ class ExportService {
         return null;
       }
 
+      // Detección de la cantidad exacta de ciclos de tiempo observados (OT)
       int maxCycles = 0;
       while (true) {
-        var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles, rowIndex: 1));
-        if (cell.value == null || cell.value.toString().isEmpty) {
+        int col = 4 + maxCycles;
+        var headerRow0 = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0)).value?.toString().trim().toLowerCase() ?? '';
+        var headerRow1 = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 1)).value?.toString().trim().toLowerCase() ?? '';
+
+        // Detenerse inmediatamente al llegar a las columnas de resumen de la plantilla Jabil
+        if (headerRow0.startsWith("nc") || headerRow0.contains("avg") || headerRow0.contains("freq") || 
+            headerRow0.contains("pf&d") || headerRow0.contains("std") || headerRow0.contains("remark") ||
+            headerRow1.startsWith("nc") || headerRow1.contains("avg") || headerRow1.contains("freq") || 
+            headerRow1.contains("pf&d") || headerRow1.contains("std") || headerRow1.contains("remark")) {
           break;
         }
+
+        // Comprobar si el encabezado de fila 1 es un número de ciclo (1, 2, 3...)
+        var cycleNumVal = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 1)).value;
+        int? cycleNum;
+        if (cycleNumVal is IntCellValue) {
+          cycleNum = cycleNumVal.value;
+        } else if (cycleNumVal != null) {
+          cycleNum = int.tryParse(cycleNumVal.toString().trim());
+        }
+
+        if (cycleNum != null && cycleNum == maxCycles + 1) {
+          maxCycles++;
+          continue;
+        }
+
+        // Si no hay encabezado numérico, verificar si la celda de tiempo tiene un valor válido
+        var dataCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 2)).value;
+        if (dataCell == null || dataCell.toString().trim().isEmpty) {
+          break;
+        }
+
         maxCycles++;
+        if (maxCycles > 100) break;
       }
 
+      // Detección robusta de numSteps
       int numSteps = 0;
+      List<String> stepNames = [];
+
       while (true) {
         int row = 2 + (numSteps * 2);
-        var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row));
-        if (cell.value == null || cell.value.toString().contains("Process")) {
+        var seqCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row));
+        var nameCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row));
+        
+        String seqStr = seqCell.value?.toString().toLowerCase() ?? '';
+        String descStr = nameCell.value?.toString().toLowerCase() ?? '';
+
+        if (seqStr.contains("process") || descStr.contains("process") || 
+            seqStr.contains("summary") || descStr.contains("summary")) {
           break;
         }
+        if (seqCell.value == null && nameCell.value == null) {
+          break;
+        }
+
+        String stepName = 'Paso ${numSteps + 1}';
+        var nv = nameCell.value;
+        if (nv is TextCellValue) {
+          stepName = nv.value.text?.trim() ?? stepName;
+        } else if (nv != null) {
+          stepName = nv.toString().trim();
+        }
+        stepNames.add(stepName);
+
         numSteps++;
+        if (numSteps > 200) break;
       }
 
       List<Map<String, dynamic>> times = [];
+      Map<int, int> cycleRatings = {};
       double cumulativeMs = 0;
       
       for (int c = 0; c < maxCycles; c++) {
+        // Extraer calificación asignada al ciclo si existe en la fila inferior
+        int? detectedRating;
+
         for (int r = 0; r < numSteps; r++) {
           int row = 2 + (r * 2);
+          int ratingRow = row + 1;
+
+          // Extraer tiempo del elemento
           var timeCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: row));
-          
-          if (timeCell.value != null) {
-            double? timeSec;
-            var cv = timeCell.value;
+          double? timeSec = _parseCellValue(timeCell.value);
+
+          if (timeSec != null && timeSec > 0) {
+            int timeMs = (timeSec * 1000).round();
+            cumulativeMs += timeMs;
             
-            if (cv is DoubleCellValue) {
-              timeSec = cv.value;
-            } else if (cv is IntCellValue) {
-              timeSec = cv.value.toDouble();
-            } else if (cv is TextCellValue) {
-              timeSec = double.tryParse(cv.value.text ?? '');
-            }
+            String stepName = stepNames.length > r ? stepNames[r] : 'Paso ${r + 1}';
 
-            if (timeSec != null && timeSec > 0) {
-              int timeMs = (timeSec * 1000).toInt();
-              cumulativeMs += timeMs;
-              
-              String stepName = 'Paso ${r + 1}';
-              var nameCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value;
-              
-              if (nameCell is TextCellValue) {
-                stepName = nameCell.value.text ?? '';
-              } else if (nameCell != null) {
-                stepName = nameCell.toString();
+            times.add({
+              'name': stepName,
+              'time': timeMs,
+              'cumulative_time': cumulativeMs.round(),
+              'type': 'normal',
+              'status': 'done',
+              'step_index': r
+            });
+          }
+
+          // Intentar extraer rating si aún no se ha detectado para este ciclo
+          if (detectedRating == null) {
+            var ratingCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: ratingRow));
+            double? rVal = _parseCellValue(ratingCell.value);
+            if (rVal != null && rVal > 0) {
+              int pct = rVal <= 3.0 ? (rVal * 100).round() : rVal.round();
+              if (pct >= 1 && pct <= 200) {
+                detectedRating = pct;
               }
-
-              times.add({
-                'name': stepName,
-                'time': timeMs,
-                'cumulative_time': cumulativeMs.toInt(),
-                'type': 'normal',
-                'status': 'done',
-                'step_index': r
-              });
             }
           }
+        }
+
+        if (detectedRating != null) {
+          cycleRatings[c] = detectedRating;
         }
       }
       
       if (times.isEmpty) {
         return null;
       }
-      return {'mode': StopwatchMode.continuo, 'times': times};
+
+      return {
+        'mode': StopwatchMode.continuo,
+        'times': times,
+        'stepNames': stepNames,
+        'cycleRatings': cycleRatings,
+        'studyName': studyName,
+      };
     } catch (e) {
       throw Exception("Error al leer Excel. Asegúrate de que tenga el formato Jabil de la App.");
     }
   }
-}
+}

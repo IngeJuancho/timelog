@@ -10,6 +10,7 @@ import 'main.dart';
 import 'storage_service.dart';
 import 'export_service.dart';
 import 'time_log_state.dart';
+import 'theme.dart';
 
 final timeLogProvider = NotifierProvider<TimeLogNotifier, TimeLogState>(TimeLogNotifier.new);
 
@@ -970,15 +971,40 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       if (result != null) {
         final StopwatchMode importedMode = result['mode'];
         final List<Map<String, dynamic>> importedTimes = result['times'];
+        final List<String> stepNames = (result['stepNames'] as List<dynamic>?)?.cast<String>() ?? [];
+        final Map<int, int> cycleRatings = (result['cycleRatings'] as Map<dynamic, dynamic>?)?.cast<int, int>() ?? {};
+        final String? studyName = result['studyName'];
 
         setMode(importedMode); 
-        clearTemplate(); 
         resetAll();
-        
-        if (importedMode == StopwatchMode.regresoACero) {
-          state = state.copyWith(recordedTimesRegresoACero: importedTimes);
+
+        if (stepNames.isNotEmpty) {
+          OperationTemplate importedTemplate = OperationTemplate()
+            ..name = studyName ?? 'Estudio Importado'
+            ..steps = stepNames;
+          if (importedMode == StopwatchMode.regresoACero) {
+            state = state.copyWith(activeTemplateRAC: () => importedTemplate);
+          } else {
+            state = state.copyWith(activeTemplateCont: () => importedTemplate);
+          }
         } else {
-          state = state.copyWith(recordedTimesContinuo: importedTimes);
+          clearTemplate();
+        }
+
+        if (importedMode == StopwatchMode.regresoACero) {
+          state = state.copyWith(
+            recordedTimesRegresoACero: importedTimes,
+            cycleRatingsRAC: cycleRatings,
+          );
+        } else {
+          state = state.copyWith(
+            recordedTimesContinuo: importedTimes,
+            cycleRatingsCont: cycleRatings,
+          );
+        }
+
+        if (studyName != null && studyName.isNotEmpty) {
+          syncActiveStudyName(studyName);
         }
         
         _recalculateLastRecordedTime();
@@ -988,10 +1014,12 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         
         state = state.copyWith(hasExported: true); 
         saveTimeData();
+        saveTimerState();
         calculateStatistics();
         _syncStartTime(); 
         
-        _showSnackBar('Estudio importado correctamente.', Icons.file_download_done, Colors.tealAccent);
+        final ratingMsg = cycleRatings.isNotEmpty ? " con calificaciones" : "";
+        _showSnackBar('Estudio "$studyName" importado correctamente$ratingMsg.', Icons.file_download_done, AppTheme.primaryTeal);
       }
     } catch (e) {
       _showSnackBar(e.toString(), Icons.error_outline, Colors.redAccent);

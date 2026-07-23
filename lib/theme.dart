@@ -82,4 +82,31 @@ class AppTheme {
     ),
     iconTheme: const IconThemeData(color: Colors.black54),
   );
+
+  /// Devuelve el verde/teal acento adecuado según el modo (oscuro o claro)
+  /// para garantizar alto contraste y legibilidad.
+  static Color getTealAccent(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.light
+        ? const Color(0xFF00796B) // Teal 700 de alto contraste para modo claro
+        : Colors.tealAccent;      // Neon verde para AMOLED/modo oscuro
+  }
+
+  static Color getTealFill(BuildContext context, {double darkAlpha = 0.15, double lightAlpha = 0.18}) {
+    return Theme.of(context).brightness == Brightness.light
+        ? const Color(0xFF00796B).withValues(alpha: lightAlpha)
+        : Colors.tealAccent.withValues(alpha: darkAlpha);
+  }
+
+  static Color getTealBorder(BuildContext context, {double darkAlpha = 0.5, double lightAlpha = 0.7}) {
+    return Theme.of(context).brightness == Brightness.light
+        ? const Color(0xFF00796B).withValues(alpha: lightAlpha)
+        : Colors.tealAccent.withValues(alpha: darkAlpha);
+  }
+
+  static Color getGreenAccent(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.light
+        ? const Color(0xFF2E7D32) // Verde oscuro legible para modo claro
+        : Colors.greenAccent;
+  }
 }
+

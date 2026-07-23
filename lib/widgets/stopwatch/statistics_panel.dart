@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../time_log_controller.dart';
+import '../../theme.dart';
 
 class AnalysisViewWidget extends ConsumerWidget {
   const AnalysisViewWidget({super.key});
@@ -9,6 +10,7 @@ class AnalysisViewWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(timeLogProvider);
     final notifier = ref.read(timeLogProvider.notifier);
+    final minColor = AppTheme.getGreenAccent(context);
 
     final realData = state.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
     if (realData.isEmpty) {
@@ -35,7 +37,7 @@ class AnalysisViewWidget extends ConsumerWidget {
           ]),
           const SizedBox(height: 12),
           Row(children: [
-            Expanded(child: _buildStatBox('Mínimo', state.minTime, Colors.greenAccent, notifier)), 
+            Expanded(child: _buildStatBox('Mínimo', state.minTime, minColor, notifier)), 
             const SizedBox(width: 12), 
             Expanded(child: _buildStatBox('Máximo', state.maxTime, Colors.redAccent, notifier))
           ]),

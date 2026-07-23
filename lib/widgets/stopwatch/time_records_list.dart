@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../time_log_controller.dart';
+import '../../theme.dart';
 
 class ContinuousTableWidget extends ConsumerStatefulWidget {
   final ScrollController scrollController;
@@ -61,6 +62,8 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
   }
 
   Widget _buildLinearTable(BuildContext context, dynamic state, dynamic notifier) {
+    final tealFill = AppTheme.getTealFill(context);
+
     return SingleChildScrollView(
       controller: widget.scrollController,
       scrollDirection: Axis.vertical,
@@ -89,15 +92,15 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
               return DataRow(
                 onLongPress: isPending ? null : () => widget.onMergeRequest(e.key), 
                 color: WidgetStateProperty.resolveWith((states) {
-                  if (isActiveStep) return Colors.tealAccent.withValues(alpha: 0.15); 
+                  if (isActiveStep) return tealFill; 
                   if (isOutlier) return Colors.redAccent.withValues(alpha: 0.05);
                   return null;
                 }),
                 cells: [
-                  DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))), 
+                  DataCell(Text('${e.key + 1}', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5)))), 
                   DataCell(ElementNameWidget(timeData: e.value, index: e.key)), 
-                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime((e.value['cumulative_time'] ?? 0).toDouble()), style: TextStyle(color: isOutlier ? Colors.white54 : (isPending ? Colors.white38 : Colors.white70)))), 
-                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Theme.of(context).textTheme.bodyMedium?.color)))), 
+                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime((e.value['cumulative_time'] ?? 0).toDouble()), style: TextStyle(color: isOutlier ? Theme.of(context).textTheme.bodySmall?.color : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7))))), 
+                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color)))), 
                   DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => notifier.deleteItem(e.key)))
                 ]
               );
@@ -113,6 +116,9 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
     final int numElements = elements.length;
     final List<Map<String, dynamic>> recordedTimes = state.recordedTimesContinuo;
     final Map<int, int> cycleRatings = state.cycleRatingsCont as Map<int, int>;
+    final tealColor = AppTheme.getTealAccent(context);
+    final tealFill = AppTheme.getTealFill(context);
+    final tealBorder = AppTheme.getTealBorder(context);
     
     int numCycles = (recordedTimes.length / numElements).ceil();
     if (numCycles == 0) numCycles = 1; // Mostrar al menos la columna C1 vacía
@@ -135,16 +141,16 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
                   margin: const EdgeInsets.only(top: 2),
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
-                    color: Colors.tealAccent.withValues(alpha: 0.15),
+                    color: tealFill,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     '$assignedRating%',
-                    style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.tealAccent),
+                    style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: tealColor),
                   ),
                 )
               else
-                const Text('•', style: TextStyle(fontSize: 8, color: Colors.tealAccent)),
+                Text('•', style: TextStyle(fontSize: 8, color: tealColor)),
             ],
           ),
         ),
@@ -175,7 +181,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
                    Text(
                     isPending ? '--:--.--' : notifier.formatTime(record['time'].toDouble()), 
                     style: TextStyle(
-                      color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Theme.of(context).textTheme.bodyMedium?.color),
+                      color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color),
                       decoration: isOutlier ? TextDecoration.lineThrough : null,
                     )
                   ),
@@ -186,13 +192,13 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
-                            color: isOutlier ? Colors.redAccent.withValues(alpha: 0.15) : Colors.tealAccent.withValues(alpha: 0.1),
+                            color: isOutlier ? Colors.redAccent.withValues(alpha: 0.15) : tealFill,
                             borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.5) : Colors.tealAccent.withValues(alpha: 0.3)),
+                            border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.5) : tealBorder),
                           ),
                           child: Text(
                             isOutlier ? 'ATÍPICO' : 'NORMAL',
-                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isOutlier ? Colors.redAccent : Colors.tealAccent, decoration: TextDecoration.none),
+                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isOutlier ? Colors.redAccent : tealColor, decoration: TextDecoration.none),
                           ),
                         ),
                       ),
@@ -210,7 +216,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
     
     // Add "Total Ciclo" row
     final totalCells = <DataCell>[
-      const DataCell(Text('TOTAL CICLO', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent))),
+      DataCell(Text('TOTAL CICLO', style: TextStyle(fontWeight: FontWeight.bold, color: tealColor))),
     ];
     
     for (int cycle = 0; cycle < numCycles; cycle++) {
@@ -223,7 +229,6 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
         if (recordIndex < recordedTimes.length) {
           final record = recordedTimes[recordIndex];
           bool isPending = record['status'] == 'pending';
-          // bool isOutlier = record['type'] == 'outlier'; // Opcional: ignorar atípicos en la suma total? Normalmente sí se suman al ciclo real transcurrido.
           
           if (isPending) {
             hasPending = true;
@@ -240,7 +245,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
          totalCells.add(DataCell(
            Text(
              hasPending ? '--:--.--' : notifier.formatTime(cycleTotal),
-             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.tealAccent)
+             style: TextStyle(fontWeight: FontWeight.bold, color: tealColor)
            )
          ));
       }
@@ -276,12 +281,15 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
 
   void _showCycleRatingDialog(BuildContext context, dynamic notifier, int cycleIndex, int? currentRating) {
     final TextEditingController ctrl = TextEditingController(text: '${currentRating ?? 100}');
+    final tealColor = AppTheme.getTealAccent(context);
+    final tealFill = AppTheme.getTealFill(context);
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.star_rate_rounded, color: Colors.tealAccent, size: 22),
+            Icon(Icons.star_rate_rounded, color: tealColor, size: 22),
             const SizedBox(width: 8),
             Text('Calificación — Ciclo ${cycleIndex + 1}',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -298,14 +306,14 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
               autofocus: true,
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.tealAccent),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: tealColor),
               decoration: InputDecoration(
                 suffixText: '%',
                 suffixStyle: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 18),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.tealAccent, width: 2)),
+                  borderSide: BorderSide(color: tealColor, width: 2)),
                 contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
               ),
             ),
@@ -318,10 +326,10 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.tealAccent.withValues(alpha: 0.15),
-              foregroundColor: Colors.tealAccent,
+              backgroundColor: tealFill,
+              foregroundColor: tealColor,
               elevation: 0,
-              side: const BorderSide(color: Colors.tealAccent, width: 1),
+              side: BorderSide(color: tealColor, width: 1),
             ),
             onPressed: () {
               Navigator.pop(ctx);
@@ -352,7 +360,8 @@ class SimpleRecordsListWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(timeLogProvider);
     final notifier = ref.read(timeLogProvider.notifier);
-    
+    final tealFill = AppTheme.getTealFill(context);
+
     if (state.recordedTimesRegresoACero.isEmpty) return const EmptyStateWidget();
     
     return SingleChildScrollView(
@@ -381,14 +390,14 @@ class SimpleRecordsListWidget extends ConsumerWidget {
               return DataRow(
                 onLongPress: isPending ? null : () => onMergeRequest(e.key),
                 color: WidgetStateProperty.resolveWith((states) {
-                  if (isActiveStep) return Colors.tealAccent.withValues(alpha: 0.15);
+                  if (isActiveStep) return tealFill;
                   if (isOutlier) return Colors.redAccent.withValues(alpha: 0.05);
                   return null;
                 }),
                 cells: [
-                  DataCell(Text('${e.key + 1}', style: const TextStyle(color: Colors.white38))),
+                  DataCell(Text('${e.key + 1}', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5)))),
                   DataCell(ElementNameWidget(timeData: e.value, index: e.key)),
-                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Colors.white38 : Theme.of(context).textTheme.bodyMedium?.color)))),
+                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(e.value['time'].toDouble()), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color)))),
                   DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => notifier.deleteItem(e.key)))
                 ],
               );
@@ -410,7 +419,10 @@ class ElementNameWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     bool isOutlier = timeData['type'] == 'outlier';
     bool isPending = timeData['status'] == 'pending';
-    
+    final tealColor = AppTheme.getTealAccent(context);
+    final tealFill = AppTheme.getTealFill(context);
+    final tealBorder = AppTheme.getTealBorder(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -422,7 +434,7 @@ class ElementNameWidget extends ConsumerWidget {
               timeData['name'], 
               style: TextStyle(
                 fontWeight: FontWeight.w500, 
-                color: isOutlier ? Colors.white54 : (isPending ? Colors.white60 : Theme.of(context).textTheme.bodyMedium?.color), 
+                color: isOutlier ? Theme.of(context).textTheme.bodySmall?.color : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color), 
                 decoration: isOutlier ? TextDecoration.lineThrough : null
               )
             ),
@@ -432,13 +444,13 @@ class ElementNameWidget extends ConsumerWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isOutlier ? Colors.redAccent.withValues(alpha: 0.15) : Colors.tealAccent.withValues(alpha: 0.1),
+                  color: isOutlier ? Colors.redAccent.withValues(alpha: 0.15) : tealFill,
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.5) : Colors.tealAccent.withValues(alpha: 0.3)),
+                  border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.5) : tealBorder),
                 ),
                 child: Text(
                   isOutlier ? 'ATÍPICO' : 'NORMAL',
-                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isOutlier ? Colors.redAccent : Colors.tealAccent, decoration: TextDecoration.none),
+                  style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isOutlier ? Colors.redAccent : tealColor, decoration: TextDecoration.none),
                 ),
               ),
             ),
@@ -448,6 +460,7 @@ class ElementNameWidget extends ConsumerWidget {
     );
   }
 }
+
 
 class EmptyStateWidget extends StatelessWidget {
   const EmptyStateWidget({super.key});
