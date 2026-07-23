@@ -7,6 +7,7 @@ import 'time_log_controller.dart';
 import 'models.dart';
 import 'storage_service.dart';
 import 'export_service.dart';
+import 'theme.dart';
 
 class StudiesHistoryScreen extends ConsumerStatefulWidget {
   const StudiesHistoryScreen({super.key});
@@ -163,8 +164,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
           'step_index': e.stepIndex,
         }).toList();
 
-        // Convert string keys to int keys for ratings map
-        Map<int, int> cycleRatings = {};
+        Map<int, int> cycleRatings = study.cycleRatingsMap;
 
         OperationTemplate? template;
         if (study.isTemplate) {
@@ -183,7 +183,12 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
 
         final date = study.date;
         final baseName = study.name.replaceAll(' ', '_');
-        final fileName = "${baseName}_${date.year}${date.month}${date.day}_${date.hour}${date.minute}.xlsx";
+        final y = date.year;
+        final m = date.month.toString().padLeft(2, '0');
+        final d = date.day.toString().padLeft(2, '0');
+        final hh = date.hour.toString().padLeft(2, '0');
+        final mm = date.minute.toString().padLeft(2, '0');
+        final fileName = "${baseName}_$y$m$d" "_$hh$mm.xlsx";
         
         final filePath = '${tempDir.path}/$fileName';
         final file = File(filePath);
@@ -293,8 +298,6 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                       onTap: () {
                         if (isSelectionModeActive) {
                           _toggleSelection(study.id);
-                        } else {
-                          if (!isActive) _loadStudyToActive(study);
                         }
                       },
                       child: Container(
@@ -314,7 +317,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                               : [],
                         ),
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           leading: isSelectionModeActive 
                             ? Checkbox(
                                 value: isSelected,
@@ -359,10 +362,23 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                                 onPressed: () => _editStudyName(study),
                                 tooltip: 'Renombrar',
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.folder_open, color: Colors.blueAccent),
-                                onPressed: () => _loadStudyToActive(study),
-                                tooltip: 'Cargar Estudio',
+                              ElevatedButton.icon(
+                                onPressed: isActive ? null : () => _loadStudyToActive(study),
+                                icon: Icon(isActive ? Icons.check_circle_rounded : Icons.open_in_new_rounded, size: 14),
+                                label: Text(isActive ? 'ABIERTO' : 'ABRIR', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isActive 
+                                      ? Colors.tealAccent.withValues(alpha: 0.15) 
+                                      : AppTheme.getTealAccent(context).withValues(alpha: 0.2),
+                                  foregroundColor: isActive 
+                                      ? Colors.tealAccent 
+                                      : AppTheme.getTealAccent(context),
+                                  disabledBackgroundColor: Colors.tealAccent.withValues(alpha: 0.15),
+                                  disabledForegroundColor: Colors.tealAccent,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
                               ),
                               IconButton(
                                 icon: const Icon(Icons.delete_outline, color: Colors.redAccent),

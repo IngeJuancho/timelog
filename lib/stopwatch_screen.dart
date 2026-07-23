@@ -169,6 +169,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
 
   Future<void> _promptSaveStudy(BuildContext context) async {
     final state = ref.read(timeLogProvider);
+    final notifier = ref.read(timeLogProvider.notifier);
     final tealColor = AppTheme.getTealAccent(context);
     final realData = state.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
     if (realData.isEmpty) {
@@ -201,6 +202,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
       if (chooseUpdate == null) return; 
 
       if (chooseUpdate == true) {
+        await notifier.updateCurrentStudy();
         return;
       }
     }
@@ -229,8 +231,12 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR')),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
+              final studyName = nameController.text.trim();
               Navigator.pop(context);
+              if (studyName.isNotEmpty) {
+                await notifier.saveCurrentStudyToHistory(studyName);
+              }
             },
             child: Text('GUARDAR', style: TextStyle(color: tealColor, fontWeight: FontWeight.bold)),
           ),

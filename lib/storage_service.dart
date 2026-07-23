@@ -41,6 +41,7 @@ class StorageService {
     required StopwatchMode mode,
     required List<Map<String, dynamic>> times,
     OperationTemplate? template,
+    Map<int, int> cycleRatings = const {},
   }) async {
     final isar = await db;
     final newStudy = StudyModel()
@@ -49,7 +50,8 @@ class StorageService {
       ..mode = mode
       ..times = _mapToTimeRecords(times)
       ..isTemplate = template != null
-      ..templateSteps = template?.steps ?? [];
+      ..templateSteps = template?.steps ?? []
+      ..cycleRatingsMap = cycleRatings;
     
     await isar.writeTxn(() async {
       await isar.studyModels.put(newStudy); 
@@ -62,6 +64,7 @@ class StorageService {
     required StopwatchMode mode,
     required List<Map<String, dynamic>> times,
     OperationTemplate? template,
+    Map<int, int> cycleRatings = const {},
   }) async {
     final isar = await db;
     final existingStudy = await isar.studyModels.get(id);
@@ -70,6 +73,7 @@ class StorageService {
       existingStudy.date = DateTime.now(); 
       existingStudy.mode = mode;
       existingStudy.times = _mapToTimeRecords(times);
+      existingStudy.cycleRatingsMap = cycleRatings;
       
       if (template != null) {
         existingStudy.isTemplate = true;

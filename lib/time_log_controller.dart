@@ -916,6 +916,8 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       activeStudyIdCont: () => state.currentMode == StopwatchMode.continuo ? null : state.activeStudyIdCont,
       recordedTimesRegresoACero: state.currentMode == StopwatchMode.regresoACero ? [] : state.recordedTimesRegresoACero,
       recordedTimesContinuo: state.currentMode == StopwatchMode.continuo ? [] : state.recordedTimesContinuo,
+      cycleRatingsRAC: state.currentMode == StopwatchMode.regresoACero ? const {} : state.cycleRatingsRAC,
+      cycleRatingsCont: state.currentMode == StopwatchMode.continuo ? const {} : state.cycleRatingsCont,
       lastRecordedTimeMs: 0,
       hasExported: true
     );
@@ -1030,11 +1032,13 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     final dataToSave = state.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
     if (dataToSave.isEmpty) return;
     
+    final activeRatings = state.currentMode == StopwatchMode.regresoACero ? state.cycleRatingsRAC : state.cycleRatingsCont;
     int newId = await _storage.saveStudyToHistory(
       name: studyName,
       mode: state.currentMode,
       times: dataToSave,
       template: state.activeTemplate, 
+      cycleRatings: activeRatings,
     );
     
     if (state.currentMode == StopwatchMode.regresoACero) {
@@ -1051,23 +1055,25 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
 
     saveTimerState(); 
 
-    _showSnackBar('Estudio "$studyName" guardado con éxito.', Icons.save, Colors.tealAccent);
+    _showSnackBar('Estudio "$studyName" guardado con éxito.', Icons.save, AppTheme.primaryTeal);
   }
 
   Future<void> updateCurrentStudy() async {
     final dataToSave = state.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
     if (dataToSave.isEmpty || state.activeStudyId == null) return;
     
+    final activeRatings = state.currentMode == StopwatchMode.regresoACero ? state.cycleRatingsRAC : state.cycleRatingsCont;
     await _storage.updateExistingStudy(
       id: state.activeStudyId!,
       mode: state.currentMode,
       times: dataToSave,
       template: state.activeTemplate, 
+      cycleRatings: activeRatings,
     );
     
     saveTimerState();
 
-    _showSnackBar('Estudio actualizado correctamente.', Icons.update, Colors.tealAccent);
+    _showSnackBar('Estudio actualizado correctamente.', Icons.update, AppTheme.primaryTeal);
   }
 
   void loadStudyFromHistory(StudyModel study) {
@@ -1092,9 +1098,15 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     }).toList();
 
     if (study.mode == StopwatchMode.regresoACero) {
-      state = state.copyWith(recordedTimesRegresoACero: convertedTimes);
+      state = state.copyWith(
+        recordedTimesRegresoACero: convertedTimes,
+        cycleRatingsRAC: study.cycleRatingsMap,
+      );
     } else {
-      state = state.copyWith(recordedTimesContinuo: convertedTimes);
+      state = state.copyWith(
+        recordedTimesContinuo: convertedTimes,
+        cycleRatingsCont: study.cycleRatingsMap,
+      );
     }
     
     if (study.isTemplate && study.templateSteps.isNotEmpty) {

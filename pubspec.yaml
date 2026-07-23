@@ -2,7 +2,7 @@ name: timelog
 description: "App para medir, controlar y analizar tiempos."
 publish_to: 'none'
 
-version: 3.11.1+30
+version: 3.11.2+30
 
 environment:
   sdk: '>=3.8.1 <4.0.0'

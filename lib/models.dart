@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:isar/isar.dart';
 
 part 'models.g.dart';
@@ -30,6 +31,27 @@ class StudyModel {
 
   bool isTemplate = false;
   List<String> templateSteps = [];
+
+  String? cycleRatingsJson;
+
+  @ignore
+  Map<int, int> get cycleRatingsMap {
+    if (cycleRatingsJson == null || cycleRatingsJson!.isEmpty) return {};
+    try {
+      final Map<String, dynamic> decoded = jsonDecode(cycleRatingsJson!);
+      return decoded.map((k, v) => MapEntry(int.parse(k), v as int));
+    } catch (_) {
+      return {};
+    }
+  }
+
+  set cycleRatingsMap(Map<int, int> ratings) {
+    if (ratings.isEmpty) {
+      cycleRatingsJson = null;
+    } else {
+      cycleRatingsJson = jsonEncode(ratings.map((k, v) => MapEntry(k.toString(), v)));
+    }
+  }
 }
 
 @embedded

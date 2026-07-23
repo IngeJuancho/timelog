@@ -26,7 +26,12 @@ class ExportService {
 
     final date = DateTime.now();
     final baseName = studyName.replaceAll(' ', '_');
-    final name = "${baseName}_${date.year}${date.month}${date.day}_${date.hour}${date.minute}";
+    final y = date.year;
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    final hh = date.hour.toString().padLeft(2, '0');
+    final mm = date.minute.toString().padLeft(2, '0');
+    final name = "${baseName}_$y$m$d" "_$hh$mm";
 
     final result = await FileSaver.instance.saveAs(
       name: name, 

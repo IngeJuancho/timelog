@@ -17,34 +17,39 @@ const StudyModelSchema = CollectionSchema(
   name: r'StudyModel',
   id: 742453653029790294,
   properties: {
-    r'date': PropertySchema(
+    r'cycleRatingsJson': PropertySchema(
       id: 0,
+      name: r'cycleRatingsJson',
+      type: IsarType.string,
+    ),
+    r'date': PropertySchema(
+      id: 1,
       name: r'date',
       type: IsarType.dateTime,
     ),
     r'isTemplate': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'isTemplate',
       type: IsarType.bool,
     ),
     r'mode': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'mode',
       type: IsarType.byte,
       enumMap: _StudyModelmodeEnumValueMap,
     ),
     r'name': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'name',
       type: IsarType.string,
     ),
     r'templateSteps': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'templateSteps',
       type: IsarType.stringList,
     ),
     r'times': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'times',
       type: IsarType.objectList,
       target: r'TimeRecord',
@@ -70,6 +75,12 @@ int _studyModelEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.cycleRatingsJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.name.length * 3;
   bytesCount += 3 + object.templateSteps.length * 3;
   {
@@ -95,13 +106,14 @@ void _studyModelSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeDateTime(offsets[0], object.date);
-  writer.writeBool(offsets[1], object.isTemplate);
-  writer.writeByte(offsets[2], object.mode.index);
-  writer.writeString(offsets[3], object.name);
-  writer.writeStringList(offsets[4], object.templateSteps);
+  writer.writeString(offsets[0], object.cycleRatingsJson);
+  writer.writeDateTime(offsets[1], object.date);
+  writer.writeBool(offsets[2], object.isTemplate);
+  writer.writeByte(offsets[3], object.mode.index);
+  writer.writeString(offsets[4], object.name);
+  writer.writeStringList(offsets[5], object.templateSteps);
   writer.writeObjectList<TimeRecord>(
-    offsets[5],
+    offsets[6],
     allOffsets,
     TimeRecordSchema.serialize,
     object.times,
@@ -115,16 +127,17 @@ StudyModel _studyModelDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = StudyModel();
-  object.date = reader.readDateTime(offsets[0]);
+  object.cycleRatingsJson = reader.readStringOrNull(offsets[0]);
+  object.date = reader.readDateTime(offsets[1]);
   object.id = id;
-  object.isTemplate = reader.readBool(offsets[1]);
+  object.isTemplate = reader.readBool(offsets[2]);
   object.mode =
-      _StudyModelmodeValueEnumMap[reader.readByteOrNull(offsets[2])] ??
+      _StudyModelmodeValueEnumMap[reader.readByteOrNull(offsets[3])] ??
           StopwatchMode.regresoACero;
-  object.name = reader.readString(offsets[3]);
-  object.templateSteps = reader.readStringList(offsets[4]) ?? [];
+  object.name = reader.readString(offsets[4]);
+  object.templateSteps = reader.readStringList(offsets[5]) ?? [];
   object.times = reader.readObjectList<TimeRecord>(
-        offsets[5],
+        offsets[6],
         TimeRecordSchema.deserialize,
         allOffsets,
         TimeRecord(),
@@ -141,17 +154,19 @@ P _studyModelDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 1:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 2:
+      return (reader.readBool(offset)) as P;
+    case 3:
       return (_StudyModelmodeValueEnumMap[reader.readByteOrNull(offset)] ??
           StopwatchMode.regresoACero) as P;
-    case 3:
-      return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readStringList(offset) ?? []) as P;
+      return (reader.readString(offset)) as P;
     case 5:
+      return (reader.readStringList(offset) ?? []) as P;
+    case 6:
       return (reader.readObjectList<TimeRecord>(
             offset,
             TimeRecordSchema.deserialize,
@@ -264,6 +279,160 @@ extension StudyModelQueryWhere
 
 extension StudyModelQueryFilter
     on QueryBuilder<StudyModel, StudyModel, QFilterCondition> {
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'cycleRatingsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'cycleRatingsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cycleRatingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'cycleRatingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'cycleRatingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'cycleRatingsJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'cycleRatingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'cycleRatingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'cycleRatingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'cycleRatingsJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'cycleRatingsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition>
+      cycleRatingsJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'cycleRatingsJson',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<StudyModel, StudyModel, QAfterFilterCondition> dateEqualTo(
       DateTime value) {
     return QueryBuilder.apply(this, (query) {
@@ -892,6 +1061,19 @@ extension StudyModelQueryLinks
 
 extension StudyModelQuerySortBy
     on QueryBuilder<StudyModel, StudyModel, QSortBy> {
+  QueryBuilder<StudyModel, StudyModel, QAfterSortBy> sortByCycleRatingsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cycleRatingsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterSortBy>
+      sortByCycleRatingsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cycleRatingsJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<StudyModel, StudyModel, QAfterSortBy> sortByDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'date', Sort.asc);
@@ -943,6 +1125,19 @@ extension StudyModelQuerySortBy
 
 extension StudyModelQuerySortThenBy
     on QueryBuilder<StudyModel, StudyModel, QSortThenBy> {
+  QueryBuilder<StudyModel, StudyModel, QAfterSortBy> thenByCycleRatingsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cycleRatingsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<StudyModel, StudyModel, QAfterSortBy>
+      thenByCycleRatingsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'cycleRatingsJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<StudyModel, StudyModel, QAfterSortBy> thenByDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'date', Sort.asc);
@@ -1006,6 +1201,14 @@ extension StudyModelQuerySortThenBy
 
 extension StudyModelQueryWhereDistinct
     on QueryBuilder<StudyModel, StudyModel, QDistinct> {
+  QueryBuilder<StudyModel, StudyModel, QDistinct> distinctByCycleRatingsJson(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'cycleRatingsJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<StudyModel, StudyModel, QDistinct> distinctByDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'date');
@@ -1043,6 +1246,13 @@ extension StudyModelQueryProperty
   QueryBuilder<StudyModel, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<StudyModel, String?, QQueryOperations>
+      cycleRatingsJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'cycleRatingsJson');
     });
   }
 

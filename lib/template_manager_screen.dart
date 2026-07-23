@@ -419,11 +419,75 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
         leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.list_alt, color: Colors.white, size: 20)),
         title: Text(template.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         subtitle: Text('${template.steps.length} pasos estandarizados', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        trailing: PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, color: Colors.white70),
+          color: const Color(0xFF333333),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          onSelected: (value) async {
+            switch (value) {
+              case 'rename':
+                _editTemplateName(template);
+                break;
+              case 'steps':
+                _editTemplateSteps(template);
+                break;
+              case 'export':
+                _exportTemplate(template);
+                break;
+              case 'delete':
+                await StorageService().deleteTemplate(template.id);
+                _loadData();
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'rename',
+              child: Row(
+                children: [
+                  Icon(Icons.edit, color: Colors.orangeAccent, size: 18),
+                  SizedBox(width: 12),
+                  Text('Renombrar', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'steps',
+              child: Row(
+                children: [
+                  Icon(Icons.format_list_bulleted, color: Colors.greenAccent, size: 18),
+                  SizedBox(width: 12),
+                  Text('Editar Pasos', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'export',
+              child: Row(
+                children: [
+                  Icon(Icons.upload_file, color: Colors.blueAccent, size: 18),
+                  SizedBox(width: 12),
+                  Text('Exportar', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.redAccent, size: 18),
+                  SizedBox(width: 12),
+                  Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+                ],
+              ),
+            ),
+          ],
+        ),
         children: [
           const Divider(color: Colors.white10, height: 1),
           Container(
             color: const Color(0xFF1E1E1E),
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: Column(
               children: [
                 ...template.steps.asMap().entries.map((e) => Padding(
@@ -437,40 +501,6 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
                     ],
                   ),
                 )),
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Wrap(
-                    alignment: WrapAlignment.spaceEvenly,
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () => _editTemplateName(template),
-                        icon: const Icon(Icons.edit, color: Colors.orangeAccent, size: 16),
-                        label: const Text('Renombrar', style: TextStyle(color: Colors.orangeAccent, fontSize: 13)),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => _editTemplateSteps(template),
-                        icon: const Icon(Icons.format_list_bulleted, color: Colors.greenAccent, size: 16),
-                        label: const Text('Pasos', style: TextStyle(color: Colors.greenAccent, fontSize: 13)),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => _exportTemplate(template),
-                        icon: const Icon(Icons.upload_file, color: Colors.blueAccent, size: 16),
-                        label: const Text('Exportar', style: TextStyle(color: Colors.blueAccent, fontSize: 13)),
-                      ),
-                      TextButton.icon(
-                        onPressed: () async {
-                          await StorageService().deleteTemplate(template.id);
-                          _loadData();
-                        },
-                        icon: const Icon(Icons.delete, color: Colors.redAccent, size: 16),
-                        label: const Text('Eliminar', style: TextStyle(color: Colors.redAccent, fontSize: 13)),
-                      ),
-                    ],
-                  ),
-                )
               ],
             ),
           )
