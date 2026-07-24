@@ -316,75 +316,96 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                               ? [BoxShadow(color: Colors.tealAccent.withValues(alpha: 0.15), blurRadius: 10, spreadRadius: 1)]
                               : [],
                         ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          leading: isSelectionModeActive 
-                            ? Checkbox(
-                                value: isSelected,
-                                onChanged: (_) => _toggleSelection(study.id),
-                                activeColor: Colors.blueAccent,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                              )
-                            : null,
-                          title: Text(study.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today, size: 14, color: Colors.white54),
-                                const SizedBox(width: 4),
-                                Text(dateStr, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                                const SizedBox(width: 16),
-                                Icon(study.mode == StopwatchMode.continuo ? Icons.timeline : Icons.replay, size: 14, color: Colors.tealAccent),
-                                const SizedBox(width: 4),
-                                Text(modeStr, style: const TextStyle(color: Colors.tealAccent, fontSize: 12)),
-                                
-                                if (study.isTemplate) ...[
-                                  const SizedBox(width: 12),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.yellowAccent.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: Colors.yellowAccent.withValues(alpha: 0.5)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  if (isSelectionModeActive) ...[
+                                    Checkbox(
+                                      value: isSelected,
+                                      onChanged: (_) => _toggleSelection(study.id),
+                                      activeColor: Colors.blueAccent,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                                     ),
-                                    child: const Text('PLANTILLA', style: TextStyle(color: Colors.yellowAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Expanded(
+                                    child: Text(
+                                      study.name, 
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                    ),
                                   ),
                                 ],
-                              ],
-                            ),
-                          ),
-                          trailing: isSelectionModeActive ? null : Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit_outlined, color: Colors.white70),
-                                onPressed: () => _editStudyName(study),
-                                tooltip: 'Renombrar',
                               ),
-                              ElevatedButton.icon(
-                                onPressed: isActive ? null : () => _loadStudyToActive(study),
-                                icon: Icon(isActive ? Icons.check_circle_rounded : Icons.open_in_new_rounded, size: 14),
-                                label: Text(isActive ? 'ABIERTO' : 'ABRIR', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: isActive 
-                                      ? Colors.tealAccent.withValues(alpha: 0.15) 
-                                      : AppTheme.getTealAccent(context).withValues(alpha: 0.2),
-                                  foregroundColor: isActive 
-                                      ? Colors.tealAccent 
-                                      : AppTheme.getTealAccent(context),
-                                  disabledBackgroundColor: Colors.tealAccent.withValues(alpha: 0.15),
-                                  disabledForegroundColor: Colors.tealAccent,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.calendar_today, size: 12, color: Colors.white54),
+                                  const SizedBox(width: 4),
+                                  Text(dateStr, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                                  const SizedBox(width: 14),
+                                  Icon(study.mode == StopwatchMode.continuo ? Icons.timeline : Icons.replay, size: 12, color: Colors.tealAccent),
+                                  const SizedBox(width: 4),
+                                  Text(modeStr, style: const TextStyle(color: Colors.tealAccent, fontSize: 12)),
+                                  if (study.isTemplate) ...[
+                                    const SizedBox(width: 14),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.amber.withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                                      ),
+                                      child: const Text('PLANTILLA', style: TextStyle(color: Colors.amber, fontSize: 9, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              if (!isSelectionModeActive) ...[
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_outlined, color: Colors.white70, size: 20),
+                                      onPressed: () => _editStudyName(study),
+                                      tooltip: 'Renombrar',
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.all(8),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton.icon(
+                                      onPressed: isActive ? null : () => _loadStudyToActive(study),
+                                      icon: Icon(isActive ? Icons.check_circle_rounded : Icons.open_in_new_rounded, size: 14),
+                                      label: Text(isActive ? 'ABIERTO' : 'ABRIR', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: isActive 
+                                            ? Colors.tealAccent.withValues(alpha: 0.15) 
+                                            : AppTheme.getTealAccent(context).withValues(alpha: 0.2),
+                                        foregroundColor: isActive 
+                                            ? Colors.tealAccent 
+                                            : AppTheme.getTealAccent(context),
+                                        disabledBackgroundColor: Colors.tealAccent.withValues(alpha: 0.15),
+                                        disabledForegroundColor: Colors.tealAccent,
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                      onPressed: () => _confirmDelete(study),
+                                      tooltip: 'Eliminar',
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.all(8),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                onPressed: () => _confirmDelete(study),
-                                tooltip: 'Eliminar',
-                              ),
+                              ],
                             ],
                           ),
                         ),

@@ -343,6 +343,174 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
     );
   }
 
+  void _promptSaveCurrentTemplate(BuildContext context, TimeLogState state, TimeLogNotifier notifier) async {
+    List<String> steps = [];
+    if (state.activeTemplate != null) {
+      steps = List<String>.from(state.activeTemplate!.steps);
+    } else {
+      final recorded = state.recordedTimesContinuo;
+      for (final item in recorded) {
+        if (item['status'] == 'pending') continue;
+        final name = (item['name'] as String? ?? '').trim();
+        if (name.isNotEmpty) {
+          if (!steps.contains(name)) {
+            steps.add(name);
+          } else if (steps.isNotEmpty && name == steps.first) {
+            break;
+          }
+        }
+      }
+    }
+
+    if (steps.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No hay elementos etiquetados o registrados para guardar como plantilla.', style: TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final initialName = (state.activeTemplate?.name.isNotEmpty == true)
+        ? state.activeTemplate!.name
+        : (state.savedTaskNameCont.isNotEmpty ? state.savedTaskNameCont : 'Nueva Ruta Estándar');
+    final nameController = TextEditingController(text: initialName);
+    
+    final storage = StorageService();
+    final folders = await storage.getFolders();
+    int? selectedFolderId;
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: Theme.of(context).cardColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  const Icon(Icons.bookmark_add, color: Colors.amber),
+                  const SizedBox(width: 10),
+                  Text('Guardar Ruta Estándar', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Nombre de la Ruta', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: nameController,
+                      style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+                      decoration: InputDecoration(
+                        hintText: 'Ej. Ensamble de Motor',
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Carpeta Destino', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<int?>(
+                      initialValue: selectedFolderId,
+                      dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      ),
+                      items: [
+                        DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text('Sin Carpeta (Raíz)', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+                        ),
+                        ...folders.map((f) => DropdownMenuItem<int?>(
+                          value: f.id,
+                          child: Text('📁 ${f.name}', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+                        )),
+                      ],
+                      onChanged: (val) {
+                        setDialogState(() {
+                          selectedFolderId = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Pasos de la Ruta (${steps.length})', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 150),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: steps.length,
+                        itemBuilder: (_, index) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 10,
+                                backgroundColor: AppTheme.getTealAccent(context).withValues(alpha: 0.2),
+                                child: Text('${index + 1}', style: TextStyle(fontSize: 10, color: AppTheme.getTealAccent(context), fontWeight: FontWeight.bold)),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(steps[index], style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text('CANCELAR', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) return;
+                    await storage.saveTemplate(name, steps, folderId: selectedFolderId);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('¡Ruta Estándar "$name" guardada con éxito!', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          backgroundColor: Colors.teal,
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.check, size: 16),
+                  label: const Text('GUARDAR', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.amber,
+                    foregroundColor: Colors.black,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this); 
@@ -645,7 +813,40 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(children: [Icon(_showingAnalysis ? Icons.pie_chart_outline : Icons.list_alt, color: tealColor, size: 20), const SizedBox(width: 10), Text(_showingAnalysis ? 'ESTADÍSTICAS' : 'REGISTROS', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Theme.of(context).textTheme.bodyMedium?.color))]),
-                  SizedBox(height: 32, width: 32, child: IconButton(padding: EdgeInsets.zero, onPressed: _toggleView, icon: Icon(_showingAnalysis ? Icons.list : Icons.analytics, size: 20), style: IconButton.styleFrom(backgroundColor: Theme.of(context).dividerColor, foregroundColor: Theme.of(context).textTheme.bodyMedium?.color))),
+                  Row(
+                    children: [
+                      if (state.currentMode == StopwatchMode.continuo) ...[
+                        SizedBox(
+                          height: 32,
+                          width: 32,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            onPressed: () => _promptSaveCurrentTemplate(context, state, notifier),
+                            icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+                            tooltip: 'Guardar como Ruta Estándar',
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.amber.withValues(alpha: 0.2),
+                              foregroundColor: Colors.amber,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      SizedBox(
+                        height: 32,
+                        width: 32,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: _toggleView,
+                          icon: Icon(_showingAnalysis ? Icons.list : Icons.analytics, size: 18),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Theme.of(context).dividerColor,
+                            foregroundColor: Theme.of(context).textTheme.bodyMedium?.color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -740,7 +941,7 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
             children: [
               if (_currentFolder != null && _searchQuery.isEmpty)
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color),
                   onPressed: _navigateBack,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -793,6 +994,9 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
   }
 
   Widget _buildContent() {
+    final titleStyle = TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold);
+    final subtitleStyle = TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.54));
+
     if (_isLoading) {
       return Center(child: CircularProgressIndicator(color: AppTheme.getTealAccent(context)));
     }
@@ -800,14 +1004,14 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
     if (_searchQuery.isNotEmpty) {
       final filtered = _allTemplates.where((t) => t.name.toLowerCase().contains(_searchQuery)).toList();
       if (filtered.isEmpty) {
-        return const Center(child: Padding(padding: EdgeInsets.all(20.0), child: Text('No se encontraron coincidencias', style: TextStyle(color: Colors.white54))));
+        return Center(child: Padding(padding: const EdgeInsets.all(20.0), child: Text('No se encontraron coincidencias', style: subtitleStyle)));
       }
       return ListView(
         shrinkWrap: true,
         children: filtered.map((template) => ListTile(
           leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.route, color: Colors.white, size: 20)),
-          title: Text(template.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          subtitle: Text('${template.steps.length} pasos programados', style: const TextStyle(color: Colors.white54)),
+          title: Text(template.name, style: titleStyle),
+          subtitle: Text('${template.steps.length} pasos programados', style: subtitleStyle),
           onTap: () {
             widget.state.loadTemplate(template);
             Navigator.pop(context);
@@ -817,7 +1021,7 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
     }
 
     if (_folders.isEmpty && _templates.isEmpty) {
-      return const Center(child: Padding(padding: EdgeInsets.all(20.0), child: Text('Carpeta vacía', style: TextStyle(color: Colors.white54))));
+      return Center(child: Padding(padding: const EdgeInsets.all(20.0), child: Text('Carpeta vacía', style: subtitleStyle)));
     }
 
     return ListView(
@@ -825,14 +1029,14 @@ class _TemplateSelectorSheetState extends State<_TemplateSelectorSheet> {
       children: [
         ..._folders.map((folder) => ListTile(
           leading: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.folder, color: Colors.white, size: 20)),
-          title: Text(folder.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          trailing: const Icon(Icons.chevron_right, color: Colors.white54),
+          title: Text(folder.name, style: titleStyle),
+          trailing: Icon(Icons.chevron_right, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.5)),
           onTap: () => _navigateIntoFolder(folder),
         )),
         ..._templates.map((template) => ListTile(
           leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.route, color: Colors.white, size: 20)),
-          title: Text(template.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          subtitle: Text('${template.steps.length} pasos programados', style: const TextStyle(color: Colors.white54)),
+          title: Text(template.name, style: titleStyle),
+          subtitle: Text('${template.steps.length} pasos programados', style: subtitleStyle),
           onTap: () {
             widget.state.loadTemplate(template);
             Navigator.pop(context);
