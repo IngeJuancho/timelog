@@ -179,53 +179,224 @@ class ExportService {
     int pfdCol = freqCol + 1;
     int stdTimeCol = pfdCol + 1;
     int remarksCol = stdTimeCol + 1;
+    int totalCols = remarksCol + 3;
 
     // ==========================================
-    // 2. ENCABEZADOS PRINCIPALES
+    // 2. ENCABEZADO OFICIAL JABIL (Filas 1 a 4 en Excel -> rowIndex 0..3)
     // ==========================================
-    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1));
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value = TextCellValue("Seq.");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = headerStyle;
+    CellStyle grayHeaderStyle = CellStyle(
+      backgroundColorHex: ExcelColor.fromHexString("#C0C0C0"),
+      bold: true,
+      horizontalAlign: HorizontalAlign.Center,
+      verticalAlign: VerticalAlign.Center,
+      textWrapping: TextWrapping.WrapText,
+    );
+
+    CellStyle greenTitleStyle = CellStyle(
+      fontFamily: "Arial",
+      fontSize: 22,
+      bold: true,
+      fontColorHex: ExcelColor.fromHexString("#00B050"),
+      backgroundColorHex: ExcelColor.fromHexString("#C0C0C0"),
+      horizontalAlign: HorizontalAlign.Center,
+      verticalAlign: VerticalAlign.Center,
+    );
+
+    CellStyle docControlHeaderStyle = CellStyle(
+      fontFamily: "Arial",
+      fontSize: 12,
+      bold: false,
+      backgroundColorHex: ExcelColor.fromHexString("#C0C0C0"),
+      horizontalAlign: HorizontalAlign.Left,
+      verticalAlign: VerticalAlign.Center,
+    );
+
+    CellStyle docControlValueStyle = CellStyle(
+      fontFamily: "Arial",
+      fontSize: 18,
+      bold: true,
+      fontColorHex: ExcelColor.fromHexString("#00B050"),
+      backgroundColorHex: ExcelColor.fromHexString("#C0C0C0"),
+      horizontalAlign: HorizontalAlign.Center,
+      verticalAlign: VerticalAlign.Center,
+    );
+
+    CellStyle formLabelStyle = CellStyle(
+      fontFamily: "Calibri",
+      fontSize: 11,
+      bold: true,
+      backgroundColorHex: ExcelColor.fromHexString("#F2F2F2"),
+      horizontalAlign: HorizontalAlign.Left,
+      verticalAlign: VerticalAlign.Center,
+    );
+
+    CellStyle formInputStyle = CellStyle(
+      fontFamily: "Calibri",
+      fontSize: 11,
+      bold: false,
+      horizontalAlign: HorizontalAlign.Left,
+      verticalAlign: VerticalAlign.Center,
+    );
+
+    CellStyle ncHeaderStyle = CellStyle(
+      backgroundColorHex: ExcelColor.fromHexString("#FCE4D6"),
+      bold: true,
+      horizontalAlign: HorizontalAlign.Center,
+      verticalAlign: VerticalAlign.Center,
+      textWrapping: TextWrapping.WrapText,
+    );
+
+    CellStyle stdTimeHeaderStyle = CellStyle(
+      backgroundColorHex: ExcelColor.fromHexString("#E2EFDA"),
+      bold: true,
+      horizontalAlign: HorizontalAlign.Center,
+      verticalAlign: VerticalAlign.Center,
+      textWrapping: TextWrapping.WrapText,
+    );
+
+    // Fondo gris del bloque A1:W4
+    for (int r = 0; r <= 3; r++) {
+      for (int c = 0; c < totalCols; c++) {
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r)).cellStyle = grayHeaderStyle;
+      }
+    }
+
+    // Logo Box A1:C4 (Merged col 0..2, row 0..3)
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 3));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value = TextCellValue("J A B I L");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).cellStyle = CellStyle(
+      backgroundColorHex: ExcelColor.fromHexString("#C0C0C0"),
+      bold: true,
+      fontSize: 22,
+      horizontalAlign: HorizontalAlign.Center,
+      verticalAlign: VerticalAlign.Center,
+    );
+
+    // Title Box D1:P4 (Merged col 3..15, row 0..3)
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 15, rowIndex: 3));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 0)).value = TextCellValue("Formato para toma de tiempos");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 0)).cellStyle = greenTitleStyle;
+
+    // Document Control Block Q1:W4 (col 16..totalCols-1)
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: totalCols - 1, rowIndex: 0));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 0)).value = TextCellValue("Document Number");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 0)).cellStyle = docControlHeaderStyle;
+
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 1), CellIndex.indexByColumnRow(columnIndex: totalCols - 1, rowIndex: 1));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 1)).value = TextCellValue("06-IE80-IE-ALLPLANT-00026");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 1)).cellStyle = docControlValueStyle;
+
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 2), CellIndex.indexByColumnRow(columnIndex: totalCols - 1, rowIndex: 2));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 2)).value = TextCellValue("Revision");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 2)).cellStyle = docControlHeaderStyle;
+
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 3), CellIndex.indexByColumnRow(columnIndex: totalCols - 1, rowIndex: 3));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 3)).value = TextCellValue("D");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: 3)).cellStyle = docControlValueStyle;
+
+    // ==========================================
+    // 3. FORMULARIO DE METADATOS (Filas 5 a 8 en Excel -> rowIndex 4..7)
+    // ==========================================
+    final now = DateTime.now();
+    final dateFormatted = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";
+
+    void buildFormRow({
+      required int rowIndex,
+      required String label1, dynamic val1,
+      String? label2, dynamic val2,
+      required String label3, dynamic val3,
+    }) {
+      // 1. Campo Izquierdo: Etiqueta A:B (col 0..1), Input C:G (col 2..6) ó C:P (col 2..15) si no hay campo medio
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex), CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex));
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value = TextCellValue(label1);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).cellStyle = formLabelStyle;
+      
+      int endVal1Col = (label2 == null) ? 15 : 6;
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex), CellIndex.indexByColumnRow(columnIndex: endVal1Col, rowIndex: rowIndex));
+      if (val1 != null) {
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex)).value = TextCellValue(val1.toString());
+      }
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex)).cellStyle = formInputStyle;
+
+      // 2. Campo Medio: Etiqueta H:J (col 7..9), Input K:P (col 10..15)
+      if (label2 != null) {
+        sheet.merge(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex), CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: rowIndex));
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex)).value = TextCellValue(label2);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex)).cellStyle = formLabelStyle;
+
+        sheet.merge(CellIndex.indexByColumnRow(columnIndex: 10, rowIndex: rowIndex), CellIndex.indexByColumnRow(columnIndex: 15, rowIndex: rowIndex));
+        if (val2 != null) {
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 10, rowIndex: rowIndex)).value = TextCellValue(val2.toString());
+        }
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 10, rowIndex: rowIndex)).cellStyle = formInputStyle;
+      }
+
+      // 3. Campo Derecho: Etiqueta Q:R (col 16..17), Input S:W (col 18..totalCols-1)
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: rowIndex), CellIndex.indexByColumnRow(columnIndex: 17, rowIndex: rowIndex));
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: rowIndex)).value = TextCellValue(label3);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 16, rowIndex: rowIndex)).cellStyle = formLabelStyle;
+
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: 18, rowIndex: rowIndex), CellIndex.indexByColumnRow(columnIndex: totalCols - 1, rowIndex: rowIndex));
+      if (val3 != null) {
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 18, rowIndex: rowIndex)).value = TextCellValue(val3.toString());
+      }
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 18, rowIndex: rowIndex)).cellStyle = formInputStyle;
+    }
+
+    buildFormRow(rowIndex: 4, label1: "Workcell/Customer:", val1: null, label2: "Workcenter:", val2: null, label3: "Study Date:", val3: dateFormatted);
+    buildFormRow(rowIndex: 5, label1: "Product Family:", val1: null, label2: "Sub Workcenter:", val2: null, label3: "IE Name:", val3: null);
+    buildFormRow(rowIndex: 6, label1: "Assembly / Rev:", val1: null, label2: "WI No./Rev:", val2: null, label3: "Approving Mgr:", val3: null);
+    buildFormRow(rowIndex: 7, label1: "Process Description:", val1: studyName, label2: null, val2: null, label3: "Approved Date:", val3: null);
+
+    // ==========================================
+    // 4. ENCABEZADOS PRINCIPALES DE LA TABLA (Filas 9 y 10 en Excel -> rowIndex 8 y 9)
+    // ==========================================
+    int headerRow0 = 8;
+    int headerRow1 = 9;
+
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: headerRow0), CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: headerRow1));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: headerRow0)).value = TextCellValue("Seq.");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: headerRow0)).cellStyle = headerStyle;
     
-    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: 1));
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0)).value = TextCellValue("Work Element Description");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: 0)).cellStyle = headerStyle;
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: headerRow0), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: headerRow1));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: headerRow0)).value = TextCellValue("Work Element Description");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: headerRow0)).cellStyle = headerStyle;
     
-    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 1));
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 0)).value = TextCellValue("Type");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: 0)).cellStyle = headerStyle;
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: headerRow0), CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: headerRow1));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: headerRow0)).value = TextCellValue("Type");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: headerRow0)).cellStyle = headerStyle;
     
-    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles - 1, rowIndex: 0));
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 0)).value = TextCellValue("Observed Time (OT)");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: 0)).cellStyle = headerStyle;
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: headerRow0), CellIndex.indexByColumnRow(columnIndex: 4 + maxCycles - 1, rowIndex: headerRow0));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: headerRow0)).value = TextCellValue("Observed Time (OT)");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: headerRow0)).cellStyle = headerStyle;
 
     for (int i = 0; i < maxCycles; i++) {
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + i, rowIndex: 1)).value = IntCellValue(i + 1);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + i, rowIndex: 1)).cellStyle = headerStyle;
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + i, rowIndex: headerRow1)).value = IntCellValue(i + 1);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + i, rowIndex: headerRow1)).cellStyle = headerStyle;
     }
 
-    void addHeader(int col, String text) {
-      sheet.merge(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 1));
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0)).value = TextCellValue(text);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0)).cellStyle = headerStyle;
+    void addHeader(int col, String text, [CellStyle? customStyle]) {
+      sheet.merge(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: headerRow0), CellIndex.indexByColumnRow(columnIndex: col, rowIndex: headerRow1));
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: headerRow0)).value = TextCellValue(text);
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: headerRow0)).cellStyle = customStyle ?? headerStyle;
     }
 
-    addHeader(ncCol, "NC");
+    addHeader(ncCol, "NC", ncHeaderStyle);
     addHeader(avgOtCol, "Avg. OT");
     addHeader(avgNtCol, "Avg. NT");
     addHeader(freqCol, "NC\nFreq.");
     addHeader(pfdCol, "App.\nPF&D");
-    addHeader(stdTimeCol, "Std. Time");
+    addHeader(stdTimeCol, "Std. Time", stdTimeHeaderStyle);
     
-    sheet.merge(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: 0), CellIndex.indexByColumnRow(columnIndex: remarksCol + 2, rowIndex: 1));
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: 0)).value = TextCellValue("Remarks");
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: 0)).cellStyle = headerStyle;
+    sheet.merge(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: headerRow0), CellIndex.indexByColumnRow(columnIndex: remarksCol + 2, rowIndex: headerRow1));
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: headerRow0)).value = TextCellValue("Remarks");
+    sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: headerRow0)).cellStyle = headerStyle;
 
     // ==========================================
-    // 3. DATOS Y FÓRMULAS ESTRUCTURADAS
+    // 5. DATOS Y FÓRMULAS ESTRUCTURADAS (Fila 11+ de Excel -> rowIndex 10+)
     // ==========================================
-    int currentRow = 2; 
-    int firstDataRowExcel = currentRow + 1; 
+    int currentRow = 10; 
+    int firstDataRowExcel = currentRow + 1; // 11 en Excel
     
     for (int i = 0; i < numSteps; i++) {
       int excelRow = currentRow + 1; // Fila en el software Excel (inicia en 1)
@@ -484,12 +655,25 @@ class ExportService {
         return null;
       }
 
+      // Escanear dinámicamente la fila donde comienza la tabla principal (Seq. / Work Element)
+      int tableHeaderRow0Index = 0;
+      for (int r = 0; r < 20; r++) {
+        var val0 = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: r)).value?.toString().trim().toLowerCase() ?? '';
+        var val1 = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: r)).value?.toString().trim().toLowerCase() ?? '';
+        if (val0.contains("seq") || val1.contains("work element")) {
+          tableHeaderRow0Index = r;
+          break;
+        }
+      }
+      int tableHeaderRow1Index = tableHeaderRow0Index + 1;
+      int dataStartRowIndex = tableHeaderRow0Index + 2;
+
       // Detección de la cantidad exacta de ciclos de tiempo observados (OT)
       int maxCycles = 0;
       while (true) {
         int col = 4 + maxCycles;
-        var headerRow0 = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0)).value?.toString().trim().toLowerCase() ?? '';
-        var headerRow1 = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 1)).value?.toString().trim().toLowerCase() ?? '';
+        var headerRow0 = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: tableHeaderRow0Index)).value?.toString().trim().toLowerCase() ?? '';
+        var headerRow1 = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: tableHeaderRow1Index)).value?.toString().trim().toLowerCase() ?? '';
 
         // Detenerse inmediatamente al llegar a las columnas de resumen de la plantilla Jabil
         if (headerRow0.startsWith("nc") || headerRow0.contains("avg") || headerRow0.contains("freq") || 
@@ -500,7 +684,7 @@ class ExportService {
         }
 
         // Comprobar si el encabezado de fila 1 es un número de ciclo (1, 2, 3...)
-        var cycleNumVal = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 1)).value;
+        var cycleNumVal = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: tableHeaderRow1Index)).value;
         int? cycleNum;
         if (cycleNumVal is IntCellValue) {
           cycleNum = cycleNumVal.value;
@@ -514,7 +698,7 @@ class ExportService {
         }
 
         // Si no hay encabezado numérico, verificar si la celda de tiempo tiene un valor válido
-        var dataCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 2)).value;
+        var dataCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: dataStartRowIndex)).value;
         if (dataCell == null || dataCell.toString().trim().isEmpty) {
           break;
         }
@@ -528,7 +712,7 @@ class ExportService {
       List<String> stepNames = [];
 
       while (true) {
-        int row = 2 + (numSteps * 2);
+        int row = dataStartRowIndex + (numSteps * 2);
         var seqCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row));
         var nameCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row));
         
@@ -565,44 +749,42 @@ class ExportService {
         int? detectedRating;
 
         for (int r = 0; r < numSteps; r++) {
-          int row = 2 + (r * 2);
+          int row = dataStartRowIndex + (r * 2);
           int ratingRow = row + 1;
 
-          // Extraer tiempo del elemento
-          var timeCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: row));
-          double? timeSec = _parseCellValue(timeCell.value);
-
-          if (timeSec != null && timeSec > 0) {
-            int timeMs = (timeSec * 1000).round();
-            cumulativeMs += timeMs;
-            
-            String stepName = stepNames.length > r ? stepNames[r] : 'Paso ${r + 1}';
-
-            times.add({
-              'name': stepName,
-              'time': timeMs,
-              'cumulative_time': cumulativeMs.round(),
-              'type': 'normal',
-              'status': 'done',
-              'step_index': r
-            });
-          }
-
-          // Intentar extraer rating si aún no se ha detectado para este ciclo
-          if (detectedRating == null) {
-            var ratingCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: ratingRow));
-            double? rVal = _parseCellValue(ratingCell.value);
-            if (rVal != null && rVal > 0) {
-              int pct = rVal <= 3.0 ? (rVal * 100).round() : rVal.round();
-              if (pct >= 1 && pct <= 200) {
-                detectedRating = pct;
-              }
+          var ratingCellVal = _parseCellValue(sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: ratingRow)).value);
+          if (ratingCellVal != null && ratingCellVal > 0) {
+            int pctVal = (ratingCellVal <= 2.5) ? (ratingCellVal * 100).round() : ratingCellVal.round();
+            if (pctVal >= 10 && pctVal <= 300) {
+              detectedRating = pctVal;
+              break;
             }
           }
         }
 
         if (detectedRating != null) {
           cycleRatings[c] = detectedRating;
+        }
+
+        for (int r = 0; r < numSteps; r++) {
+          int row = dataStartRowIndex + (r * 2);
+          var cellVal = _parseCellValue(sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: row)).value);
+          
+          if (cellVal != null && cellVal > 0) {
+            double seconds = cellVal;
+            int timeMs = (seconds * 1000).round();
+            cumulativeMs += timeMs;
+
+            times.add({
+              'name': stepNames[r],
+              'time': timeMs,
+              'cumulative_time': cumulativeMs.round(),
+              'type': 'normal',
+              'status': 'done',
+              'step_index': r,
+              'applied_rating': detectedRating ?? 100,
+            });
+          }
         }
       }
       

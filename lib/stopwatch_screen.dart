@@ -815,7 +815,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
                   Row(children: [Icon(_showingAnalysis ? Icons.pie_chart_outline : Icons.list_alt, color: tealColor, size: 20), const SizedBox(width: 10), Text(_showingAnalysis ? 'ESTADÍSTICAS' : 'REGISTROS', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Theme.of(context).textTheme.bodyMedium?.color))]),
                   Row(
                     children: [
-                      if (state.currentMode == StopwatchMode.continuo) ...[
+                      if (!_showingAnalysis && state.currentMode == StopwatchMode.continuo) ...[
                         SizedBox(
                           height: 32,
                           width: 32,
