@@ -485,12 +485,13 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen> with TickerPr
                   onPressed: () async {
                     final name = nameController.text.trim();
                     if (name.isEmpty) return;
-                    await storage.saveTemplate(name, steps, folderId: selectedFolderId);
+                    final savedTemplate = await storage.saveTemplate(name, steps, folderId: selectedFolderId);
+                    notifier.attachLiveTemplate(savedTemplate);
                     if (ctx.mounted) Navigator.pop(ctx);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('¡Ruta Estándar "$name" guardada con éxito!', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          content: Text('¡Ruta Estándar "$name" activada y guardada con éxito!', style: const TextStyle(fontWeight: FontWeight.bold)),
                           backgroundColor: Colors.teal,
                         ),
                       );

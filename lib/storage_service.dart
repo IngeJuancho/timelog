@@ -163,7 +163,7 @@ class StorageService {
     }
   }
 
-  Future<void> saveTemplate(String name, List<String> steps, {int? folderId}) async {
+  Future<OperationTemplate> saveTemplate(String name, List<String> steps, {int? folderId}) async {
     final isar = await db;
     final template = OperationTemplate()
       ..name = name
@@ -173,6 +173,7 @@ class StorageService {
     await isar.writeTxn(() async {
       await isar.operationTemplates.put(template);
     });
+    return template;
   }
 
   Future<void> updateTemplateName(int id, String newName) async {

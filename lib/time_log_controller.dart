@@ -83,6 +83,47 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     saveTimerState();
   }
 
+  void attachLiveTemplate(OperationTemplate template) {
+    if (template.steps.isEmpty) return;
+
+    final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
+    currentList.removeWhere((e) => e['status'] == 'pending');
+
+    for (int i = 0; i < currentList.length; i++) {
+      final item = Map<String, dynamic>.from(currentList[i]);
+      item['step_index'] = i % template.steps.length;
+      currentList[i] = item;
+    }
+
+    if (state.currentMode == StopwatchMode.regresoACero) {
+      state = state.copyWith(
+        activeTemplateRAC: () => template,
+        currentTemplateStepIndexRAC: currentList.length,
+        recordedTimesRegresoACero: currentList,
+      );
+    } else {
+      state = state.copyWith(
+        activeTemplateCont: () => template,
+        currentTemplateStepIndexCont: currentList.length,
+        recordedTimesContinuo: currentList,
+      );
+    }
+
+    _restorePlaceholdersForList(
+      state.currentMode == StopwatchMode.regresoACero 
+          ? state.recordedTimesRegresoACero 
+          : state.recordedTimesContinuo, 
+      template
+    );
+
+    taskNameController.text = template.steps[state.currentTemplateStepIndex % template.steps.length];
+
+    _recalculateLastRecordedTime();
+    saveTimeData();
+    saveTimerState();
+    calculateStatistics();
+  }
+
   void _appendTemplatePlaceholders() {
     if (state.activeTemplate == null) return;
     final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
@@ -978,20 +1019,8 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         final String? studyName = result['studyName'];
 
         setMode(importedMode); 
+        clearTemplate(); 
         resetAll();
-
-        if (stepNames.isNotEmpty) {
-          OperationTemplate importedTemplate = OperationTemplate()
-            ..name = studyName ?? 'Estudio Importado'
-            ..steps = stepNames;
-          if (importedMode == StopwatchMode.regresoACero) {
-            state = state.copyWith(activeTemplateRAC: () => importedTemplate);
-          } else {
-            state = state.copyWith(activeTemplateCont: () => importedTemplate);
-          }
-        } else {
-          clearTemplate();
-        }
 
         if (importedMode == StopwatchMode.regresoACero) {
           state = state.copyWith(
@@ -1003,6 +1032,39 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
             recordedTimesContinuo: importedTimes,
             cycleRatingsCont: cycleRatings,
           );
+        }
+
+        if (stepNames.isNotEmpty) {
+          OperationTemplate importedTemplate = OperationTemplate()
+            ..id = -1
+            ..name = studyName ?? 'Estudio Importado'
+            ..steps = stepNames;
+
+          if (importedMode == StopwatchMode.regresoACero) {
+            state = state.copyWith(
+              activeTemplateRAC: () => importedTemplate,
+              currentTemplateStepIndexRAC: importedTimes.length,
+            );
+          } else {
+            state = state.copyWith(
+              activeTemplateCont: () => importedTemplate,
+              currentTemplateStepIndexCont: importedTimes.length,
+            );
+          }
+
+          _restorePlaceholdersForList(
+            state.currentMode == StopwatchMode.regresoACero 
+                ? state.recordedTimesRegresoACero 
+                : state.recordedTimesContinuo, 
+            state.activeTemplate!
+          );
+
+          taskNameController.text = state.activeTemplate!.steps[state.currentTemplateStepIndex % state.activeTemplate!.steps.length];
+        } else {
+          clearTemplate();
+          if (studyName != null && studyName.isNotEmpty) {
+            taskNameController.text = studyName;
+          }
         }
 
         if (studyName != null && studyName.isNotEmpty) {

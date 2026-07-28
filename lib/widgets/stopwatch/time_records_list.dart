@@ -34,7 +34,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
     // Auto-scroll logic
     ref.listen(timeLogProvider.select((s) => s.recordedTimesContinuo.length), (previous, next) {
       if (previous != null && next > previous) {
-        Future.delayed(const Duration(milliseconds: 100), () {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_horizontalController.hasClients) {
             _horizontalController.animateTo(
               _horizontalController.position.maxScrollExtent,
@@ -186,8 +186,8 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
                     )
                   ),
                   if (!isPending) ...[
-                     const SizedBox(height: 2),
-                     GestureDetector(
+                      const SizedBox(height: 2),
+                      GestureDetector(
                         onTap: () => notifier.toggleElementType(recordIndex),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -346,7 +346,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
   }
 }
 
-class SimpleRecordsListWidget extends ConsumerWidget {
+class SimpleRecordsListWidget extends ConsumerStatefulWidget {
   final ScrollController scrollController;
   final void Function(int) onMergeRequest;
 
@@ -357,15 +357,35 @@ class SimpleRecordsListWidget extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SimpleRecordsListWidget> createState() => _SimpleRecordsListWidgetState();
+}
+
+class _SimpleRecordsListWidgetState extends ConsumerState<SimpleRecordsListWidget> {
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(timeLogProvider);
     final notifier = ref.read(timeLogProvider.notifier);
     final tealFill = AppTheme.getTealFill(context);
 
+    // Auto-scroll logic para Regreso a Cero
+    ref.listen(timeLogProvider.select((s) => s.recordedTimesRegresoACero.length), (previous, next) {
+      if (previous != null && next > previous) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (widget.scrollController.hasClients) {
+            widget.scrollController.animateTo(
+              widget.scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
+    });
+
     if (state.recordedTimesRegresoACero.isEmpty) return const EmptyStateWidget();
     
     return SingleChildScrollView(
-      controller: scrollController,
+      controller: widget.scrollController,
       scrollDirection: Axis.vertical,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -388,7 +408,7 @@ class SimpleRecordsListWidget extends ConsumerWidget {
               bool isActiveStep = state.activeTemplate != null && e.key == state.currentTemplateStepIndex;
 
               return DataRow(
-                onLongPress: isPending ? null : () => onMergeRequest(e.key),
+                onLongPress: isPending ? null : () => widget.onMergeRequest(e.key),
                 color: WidgetStateProperty.resolveWith((states) {
                   if (isActiveStep) return tealFill;
                   if (isOutlier) return Colors.redAccent.withValues(alpha: 0.05);
