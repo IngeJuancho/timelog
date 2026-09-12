@@ -1,29 +1,27 @@
 import 'dart:async';
-import 'dart:math';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'models.dart';
-import 'main.dart'; 
+import 'main.dart';
 import 'storage_service.dart';
 import 'export_service.dart';
 import 'time_log_state.dart';
 import 'theme.dart';
+import 'services/time_log_calculator.dart';
+import 'services/hardware_button_service.dart';
+import 'services/time_log_preferences_service.dart';
 
 final timeLogProvider = NotifierProvider<TimeLogNotifier, TimeLogState>(TimeLogNotifier.new);
 
 class TimeLogNotifier extends Notifier<TimeLogState> {
   final StorageService _storage = StorageService();
   final ExportService _export = ExportService();
-  
+  final TimeLogPreferencesService _prefsService = TimeLogPreferencesService();
+
   final Stopwatch _stopwatch = Stopwatch();
   final TextEditingController taskNameController = TextEditingController();
   final TextEditingController ratingController = TextEditingController(text: "100");
   Timer? _snackBarTimer;
-
-  static const platform = MethodChannel('com.timelog/volume_buttons');
 
   int get elapsedMilliseconds => state.baseTimeMs + _stopwatch.elapsedMilliseconds;
   bool get isRunning => _stopwatch.isRunning;
@@ -33,7 +31,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     _initNativeButtonListener();
     loadAllData();
     ref.onDispose(() {
-      platform.setMethodCallHandler(null);
+      HardwareButtonService.dispose();
       taskNameController.dispose();
     });
     return const TimeLogState();
@@ -48,38 +46,28 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   void _recalculateLastRecordedTime() {
-    if (state.currentMode != StopwatchMode.continuo) {
-      state = state.copyWith(lastRecordedTimeMs: 0);
-      return;
-    }
-    
-    final doneItems = state.recordedTimesContinuo.where((e) => e['status'] != 'pending').toList();
-    if (doneItems.isEmpty) {
-      state = state.copyWith(lastRecordedTimeMs: 0);
-      return;
-    }
-    
-    if (state.activeTemplate != null && doneItems.length % state.activeTemplate!.steps.length == 0) {
-      state = state.copyWith(lastRecordedTimeMs: 0);
-    } else {
-      state = state.copyWith(lastRecordedTimeMs: doneItems.last['cumulative_time'] as int);
-    }
+    final lastTime = TimeLogCalculator.recalculateLastRecordedTime(
+      mode: state.currentMode,
+      recordedTimesContinuo: state.recordedTimesContinuo,
+      activeTemplate: state.activeTemplate,
+    );
+    state = state.copyWith(lastRecordedTimeMs: lastTime);
   }
 
   void loadTemplate(OperationTemplate template) {
     if (template.steps.isEmpty) return;
-    resetAll(); 
-    
+    resetAll();
+
     if (state.currentMode == StopwatchMode.regresoACero) {
       state = state.copyWith(activeTemplateRAC: () => template, currentTemplateStepIndexRAC: 0);
     } else {
       state = state.copyWith(activeTemplateCont: () => template, currentTemplateStepIndexCont: 0);
     }
-    
+
     _appendTemplatePlaceholders();
     _setMasterName(template.name);
     taskNameController.text = template.steps[0];
-    
+
     saveTimerState();
   }
 
@@ -109,13 +97,8 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       );
     }
 
-    _restorePlaceholdersForList(
-      state.currentMode == StopwatchMode.regresoACero 
-          ? state.recordedTimesRegresoACero 
-          : state.recordedTimesContinuo, 
-      template
-    );
-
+    _appendTemplatePlaceholders();
+    _setMasterName(template.name);
     taskNameController.text = template.steps[state.currentTemplateStepIndex % template.steps.length];
 
     _recalculateLastRecordedTime();
@@ -126,19 +109,23 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
 
   void _appendTemplatePlaceholders() {
     if (state.activeTemplate == null) return;
+    final template = state.activeTemplate!;
     final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
-    
-    for (int i = 0; i < state.activeTemplate!.steps.length; i++) {
+
+    final doneCount = currentList.where((e) => e['status'] != 'pending').length;
+    final currentStepInCycle = doneCount % template.steps.length;
+
+    for (int i = currentStepInCycle; i < template.steps.length; i++) {
       currentList.add({
-        'name': state.activeTemplate!.steps[i],
+        'name': template.steps[i],
         'time': 0,
         'cumulative_time': 0,
         'type': 'normal',
         'status': 'pending',
-        'step_index': i 
+        'step_index': i,
       });
     }
-    
+
     if (state.currentMode == StopwatchMode.regresoACero) {
       state = state.copyWith(recordedTimesRegresoACero: currentList);
     } else {
@@ -147,49 +134,44 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   void _restorePlaceholdersForList(List<Map<String, dynamic>> list, OperationTemplate template) {
-    int remainder = list.length % template.steps.length;
-    if (remainder != 0) {
-      for (int i = remainder; i < template.steps.length; i++) {
-        list.add({
-          'name': template.steps[i],
-          'time': 0,
-          'cumulative_time': 0,
-          'type': 'normal',
-          'status': 'pending',
-          'step_index': i 
-        });
-      }
-    } else {
-      for (int i = 0; i < template.steps.length; i++) {
-        list.add({
-          'name': template.steps[i],
-          'time': 0,
-          'cumulative_time': 0,
-          'type': 'normal',
-          'status': 'pending',
-          'step_index': i 
-        });
-      }
+    if (template.steps.isEmpty) return;
+
+    list.removeWhere((e) => e['status'] == 'pending');
+    final doneCount = list.length;
+    final currentStepInCycle = doneCount % template.steps.length;
+
+    for (int i = currentStepInCycle; i < template.steps.length; i++) {
+      list.add({
+        'name': template.steps[i],
+        'time': 0,
+        'cumulative_time': 0,
+        'type': 'normal',
+        'status': 'pending',
+        'step_index': i,
+      });
     }
   }
 
   void clearTemplate() {
     if (state.currentMode == StopwatchMode.regresoACero) {
-      state = state.copyWith(activeTemplateRAC: () => null, currentTemplateStepIndexRAC: 0);
+      final list = List<Map<String, dynamic>>.from(state.recordedTimesRegresoACero);
+      list.removeWhere((e) => e['status'] == 'pending');
+      state = state.copyWith(
+        activeTemplateRAC: () => null,
+        currentTemplateStepIndexRAC: 0,
+        recordedTimesRegresoACero: list,
+      );
     } else {
-      state = state.copyWith(activeTemplateCont: () => null, currentTemplateStepIndexCont: 0);
+      final list = List<Map<String, dynamic>>.from(state.recordedTimesContinuo);
+      list.removeWhere((e) => e['status'] == 'pending');
+      state = state.copyWith(
+        activeTemplateCont: () => null,
+        currentTemplateStepIndexCont: 0,
+        recordedTimesContinuo: list,
+      );
     }
-    
-    final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
-    currentList.removeWhere((e) => e['status'] == 'pending');
-    
-    if (state.currentMode == StopwatchMode.regresoACero) {
-      state = state.copyWith(recordedTimesRegresoACero: currentList);
-    } else {
-      state = state.copyWith(recordedTimesContinuo: currentList);
-    }
-    
-    _recalculateLastRecordedTime(); 
+
+    _recalculateLastRecordedTime();
 
     taskNameController.clear();
     _setMasterName('');
@@ -197,115 +179,48 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   Future<void> loadAllData() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    bool usePhysicalButtons = prefs.getBool('usePhysicalButtons') ?? false;
-    bool useHapticFeedback = prefs.getBool('useHapticFeedback') ?? false;
-    bool recordOnPause = prefs.getBool('recordOnPause') ?? false;
-    bool isAmoledMode = prefs.getBool('isAmoledMode') ?? true;
-    
-    int hapticIndex = prefs.getInt('hapticLevel') ?? HapticLevel.medium.index;
-    HapticLevel hapticLevel = HapticLevel.values[hapticIndex];
-
-    int formatIndex = prefs.getInt('timeFormat') ?? TimeFormat.standard.index;
-    TimeFormat timeFormat = TimeFormat.values[formatIndex];
-
-    PhysicalButtonAction volUpActionRAC = PhysicalButtonAction.values[prefs.getInt('volUpActionRAC') ?? PhysicalButtonAction.lapSnapback.index];
-    PhysicalButtonAction volDownActionRAC = PhysicalButtonAction.values[prefs.getInt('volDownActionRAC') ?? PhysicalButtonAction.stopAndRecord.index];
-    PhysicalButtonAction volUpActionCont = PhysicalButtonAction.values[prefs.getInt('volUpActionCont') ?? PhysicalButtonAction.lapSnapback.index];
-    PhysicalButtonAction volDownActionCont = PhysicalButtonAction.values[prefs.getInt('volDownActionCont') ?? PhysicalButtonAction.stopAndRecord.index];
-
-    List<Map<String, dynamic>> racTimes = [];
-    String? racJson = prefs.getString('times_rac');
-    if (racJson != null) racTimes = List<Map<String, dynamic>>.from(jsonDecode(racJson));
-
-    List<Map<String, dynamic>> contTimes = [];
-    String? contJson = prefs.getString('times_cont');
-    if (contJson != null) contTimes = List<Map<String, dynamic>>.from(jsonDecode(contJson));
-
-    String savedTaskNameRAC = prefs.getString('taskNameRAC') ?? prefs.getString('taskName') ?? '';
-    String savedTaskNameCont = prefs.getString('taskNameCont') ?? prefs.getString('taskName') ?? '';
-    
-    Map<int, int> loadMap(String key) {
-      String? jsonStr = prefs.getString(key);
-      if (jsonStr == null) return {};
-      try {
-        Map<String, dynamic> rawMap = jsonDecode(jsonStr);
-        return rawMap.map((k, v) => MapEntry(int.parse(k), v as int));
-      } catch (e) {
-        return {};
-      }
-    }
-    Map<int, int> cycleRatingsRAC = loadMap('cycleRatingsRAC');
-    Map<int, int> cycleRatingsCont = loadMap('cycleRatingsCont');
-
-    StopwatchMode currentMode = StopwatchMode.values[prefs.getInt('currentMode') ?? StopwatchMode.regresoACero.index];
-    
-    int? activeStudyIdRAC = prefs.getInt('activeStudyIdRAC') ?? prefs.getInt('activeStudyId'); 
-    int? activeStudyIdCont = prefs.getInt('activeStudyIdCont') ?? prefs.getInt('activeStudyId'); 
-
-    int templateIdRAC = prefs.getInt('activeTemplateIdRAC') ?? prefs.getInt('activeTemplateId') ?? -1;
-    int templateIdCont = prefs.getInt('activeTemplateIdCont') ?? prefs.getInt('activeTemplateId') ?? -1;
-    final templates = await _storage.getAllTemplates(); 
-    
-    OperationTemplate? activeTemplateRAC;
-    if (templateIdRAC != -1) {
-      activeTemplateRAC = templates.cast<OperationTemplate?>().firstWhere((t) => t?.id == templateIdRAC, orElse: () => null);
-    } else {
-      String? vNameRAC = prefs.getString('virtualTemplateNameRAC');
-      List<String>? vStepsRAC = prefs.getStringList('virtualTemplateStepsRAC');
-      if (vNameRAC != null && vStepsRAC != null) {
-        activeTemplateRAC = OperationTemplate()..id = -1..name = vNameRAC..steps = vStepsRAC;
-      }
-    }
+    final loaded = await _prefsService.loadAllData();
 
     int currentTemplateStepIndexRAC = 0;
-    if (activeTemplateRAC != null) {
-      currentTemplateStepIndexRAC = racTimes.length; 
-      if (currentMode == StopwatchMode.regresoACero) _restorePlaceholdersForList(racTimes, activeTemplateRAC);
-    }
-
-    OperationTemplate? activeTemplateCont;
-    if (templateIdCont != -1) {
-      activeTemplateCont = templates.cast<OperationTemplate?>().firstWhere((t) => t?.id == templateIdCont, orElse: () => null);
-    } else {
-      String? vNameCont = prefs.getString('virtualTemplateNameCont');
-      List<String>? vStepsCont = prefs.getStringList('virtualTemplateStepsCont');
-      if (vNameCont != null && vStepsCont != null) {
-        activeTemplateCont = OperationTemplate()..id = -1..name = vNameCont..steps = vStepsCont;
+    if (loaded.activeTemplateRAC != null) {
+      currentTemplateStepIndexRAC = loaded.racTimes.length;
+      if (loaded.currentMode == StopwatchMode.regresoACero) {
+        _restorePlaceholdersForList(loaded.racTimes, loaded.activeTemplateRAC!);
       }
     }
 
     int currentTemplateStepIndexCont = 0;
-    if (activeTemplateCont != null) {
-      currentTemplateStepIndexCont = contTimes.length; 
-      if (currentMode == StopwatchMode.continuo) _restorePlaceholdersForList(contTimes, activeTemplateCont);
+    if (loaded.activeTemplateCont != null) {
+      currentTemplateStepIndexCont = loaded.contTimes.length;
+      if (loaded.currentMode == StopwatchMode.continuo) {
+        _restorePlaceholdersForList(loaded.contTimes, loaded.activeTemplateCont!);
+      }
     }
 
     state = state.copyWith(
-      usePhysicalButtons: usePhysicalButtons,
-      useHapticFeedback: useHapticFeedback,
-      recordOnPause: recordOnPause,
-      hapticLevel: hapticLevel,
-      timeFormat: timeFormat,
-      volUpActionRAC: volUpActionRAC,
-      volDownActionRAC: volDownActionRAC,
-      volUpActionCont: volUpActionCont,
-      volDownActionCont: volDownActionCont,
-      isAmoledMode: isAmoledMode,
-      recordedTimesRegresoACero: racTimes,
-      recordedTimesContinuo: contTimes,
-      savedTaskNameRAC: savedTaskNameRAC,
-      savedTaskNameCont: savedTaskNameCont,
-      currentMode: currentMode,
-      activeStudyIdRAC: () => activeStudyIdRAC,
-      activeStudyIdCont: () => activeStudyIdCont,
-      activeTemplateRAC: () => activeTemplateRAC,
+      usePhysicalButtons: loaded.usePhysicalButtons,
+      useHapticFeedback: loaded.useHapticFeedback,
+      recordOnPause: loaded.recordOnPause,
+      hapticLevel: loaded.hapticLevel,
+      timeFormat: loaded.timeFormat,
+      volUpActionRAC: loaded.volUpActionRAC,
+      volDownActionRAC: loaded.volDownActionRAC,
+      volUpActionCont: loaded.volUpActionCont,
+      volDownActionCont: loaded.volDownActionCont,
+      isAmoledMode: loaded.isAmoledMode,
+      recordedTimesRegresoACero: loaded.racTimes,
+      recordedTimesContinuo: loaded.contTimes,
+      savedTaskNameRAC: loaded.savedTaskNameRAC,
+      savedTaskNameCont: loaded.savedTaskNameCont,
+      currentMode: loaded.currentMode,
+      activeStudyIdRAC: () => loaded.activeStudyIdRAC,
+      activeStudyIdCont: () => loaded.activeStudyIdCont,
+      activeTemplateRAC: () => loaded.activeTemplateRAC,
       currentTemplateStepIndexRAC: currentTemplateStepIndexRAC,
-      activeTemplateCont: () => activeTemplateCont,
+      activeTemplateCont: () => loaded.activeTemplateCont,
       currentTemplateStepIndexCont: currentTemplateStepIndexCont,
-      cycleRatingsRAC: cycleRatingsRAC,
-      cycleRatingsCont: cycleRatingsCont,
+      cycleRatingsRAC: loaded.cycleRatingsRAC,
+      cycleRatingsCont: loaded.cycleRatingsCont,
     );
 
     _recalculateLastRecordedTime();
@@ -313,17 +228,14 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     if (state.activeTemplate != null) {
       taskNameController.text = state.activeTemplate!.steps[state.currentTemplateStepIndex % state.activeTemplate!.steps.length];
     } else {
-      taskNameController.text = currentMode == StopwatchMode.regresoACero ? state.savedTaskNameRAC : state.savedTaskNameCont;
+      taskNameController.text = loaded.currentMode == StopwatchMode.regresoACero ? state.savedTaskNameRAC : state.savedTaskNameCont;
     }
 
-    bool wasRunning = prefs.getBool('isRunning') ?? false;
-    int savedStartTime = prefs.getInt('startTimeEpoch') ?? 0;
-    int baseTimeMs = prefs.getInt('baseTimeMs') ?? (currentMode == StopwatchMode.continuo ? state.lastRecordedTimeMs : 0);
-    
+    int baseTimeMs = loaded.baseTimeMs != 0 ? loaded.baseTimeMs : (loaded.currentMode == StopwatchMode.continuo ? state.lastRecordedTimeMs : 0);
     state = state.copyWith(baseTimeMs: baseTimeMs);
 
-    if (wasRunning && savedStartTime > 0) {
-      int missedTime = DateTime.now().millisecondsSinceEpoch - savedStartTime;
+    if (loaded.wasRunning && loaded.savedStartTime > 0) {
+      int missedTime = DateTime.now().millisecondsSinceEpoch - loaded.savedStartTime;
       state = state.copyWith(baseTimeMs: missedTime);
       _stopwatch.start();
       _syncStartTime();
@@ -333,17 +245,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   Future<void> saveSettings(TimeLogState newState) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('useHapticFeedback', newState.useHapticFeedback);
-    await prefs.setInt('timeFormat', newState.timeFormat.index);
-    await prefs.setInt('hapticLevel', newState.hapticLevel.index);
-    await prefs.setBool('usePhysicalButtons', newState.usePhysicalButtons);
-    await prefs.setBool('recordOnPause', newState.recordOnPause);
-    await prefs.setInt('volUpActionRAC', newState.volUpActionRAC.index);
-    await prefs.setInt('volDownActionRAC', newState.volDownActionRAC.index);
-    await prefs.setInt('volUpActionCont', newState.volUpActionCont.index);
-    await prefs.setInt('volDownActionCont', newState.volDownActionCont.index);
-    await prefs.setBool('isAmoledMode', newState.isAmoledMode);
+    await _prefsService.saveSettings(newState);
   }
 
   void updateSetting({
@@ -375,146 +277,58 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   Future<void> saveTimeData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final racDone = state.recordedTimesRegresoACero.where((e) => e['status'] != 'pending').toList();
-    final contDone = state.recordedTimesContinuo.where((e) => e['status'] != 'pending').toList();
-    await prefs.setString('times_rac', jsonEncode(racDone));
-    await prefs.setString('times_cont', jsonEncode(contDone));
+    await _prefsService.saveTimeData(state);
   }
 
   Future<void> saveTimerState() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isRunning', _stopwatch.isRunning);
-    await prefs.setInt('baseTimeMs', state.baseTimeMs);
-    await prefs.setInt('startTimeEpoch', state.startTimeEpoch ?? 0);
-    await prefs.setInt('currentMode', state.currentMode.index);
-    
-    await prefs.setString('taskNameRAC', state.savedTaskNameRAC);
-    await prefs.setString('taskNameCont', state.savedTaskNameCont);
-    
-    await prefs.setString('cycleRatingsRAC', jsonEncode(state.cycleRatingsRAC.map((k, v) => MapEntry(k.toString(), v))));
-    await prefs.setString('cycleRatingsCont', jsonEncode(state.cycleRatingsCont.map((k, v) => MapEntry(k.toString(), v))));
-    
-    if (state.activeStudyIdRAC != null) {
-      await prefs.setInt('activeStudyIdRAC', state.activeStudyIdRAC!);
-    } else {
-      await prefs.remove('activeStudyIdRAC');
-    }
-
-    if (state.activeStudyIdCont != null) {
-      await prefs.setInt('activeStudyIdCont', state.activeStudyIdCont!);
-    } else {
-      await prefs.remove('activeStudyIdCont');
-    }
-    
-    if (state.activeTemplateRAC != null) {
-      await prefs.setInt('activeTemplateIdRAC', state.activeTemplateRAC!.id);
-      if (state.activeTemplateRAC!.id == -1) {
-        await prefs.setString('virtualTemplateNameRAC', state.activeTemplateRAC!.name);
-        await prefs.setStringList('virtualTemplateStepsRAC', state.activeTemplateRAC!.steps);
-      } else {
-        await prefs.remove('virtualTemplateNameRAC');
-        await prefs.remove('virtualTemplateStepsRAC');
-      }
-    } else {
-      await prefs.remove('activeTemplateIdRAC');
-      await prefs.remove('virtualTemplateNameRAC');
-      await prefs.remove('virtualTemplateStepsRAC');
-    }
-
-    if (state.activeTemplateCont != null) {
-      await prefs.setInt('activeTemplateIdCont', state.activeTemplateCont!.id);
-      if (state.activeTemplateCont!.id == -1) {
-        await prefs.setString('virtualTemplateNameCont', state.activeTemplateCont!.name);
-        await prefs.setStringList('virtualTemplateStepsCont', state.activeTemplateCont!.steps);
-      } else {
-        await prefs.remove('virtualTemplateNameCont');
-        await prefs.remove('virtualTemplateStepsCont');
-      }
-    } else {
-      await prefs.remove('activeTemplateIdCont');
-      await prefs.remove('virtualTemplateNameCont');
-      await prefs.remove('virtualTemplateStepsCont');
-    }
+    await _prefsService.saveTimerState(state: state, isRunning: _stopwatch.isRunning);
   }
 
   Future<void> updateTaskName(String value) async {
-    if (state.activeTemplate != null) return;
-    
     _setMasterName(value);
-    final prefs = await SharedPreferences.getInstance();
-    if (state.currentMode == StopwatchMode.regresoACero) {
-      await prefs.setString('taskNameRAC', value);
-    } else {
-      await prefs.setString('taskNameCont', value);
+    if (state.activeStudyId != null) {
+      clearActiveStudyId();
     }
+    saveTimerState();
   }
 
   void updateGlobalRating(String value) {
-    int parsed = int.tryParse(value) ?? 100;
-    if (parsed < 1) parsed = 1;
-    state = state.copyWith(globalRating: parsed, hasExported: false);
+    int? parsed = int.tryParse(value);
+    if (parsed != null && parsed > 0) {
+      state = state.copyWith(globalRating: parsed);
+    }
   }
 
   void applyRatingToCurrentCycle() {
-    int parsed = int.tryParse(ratingController.text) ?? 100;
-    if (parsed < 1) parsed = 1;
-    
-    int stepCount = state.activeTemplate?.steps.length ?? 1;
-    if (stepCount == 0) stepCount = 1;
-    
-    if (state.currentMode == StopwatchMode.regresoACero) {
-      int rawCycle = state.currentTemplateStepIndexRAC ~/ stepCount;
-      // Si el índice está justo en la frontera de ciclo (ciclo recién terminado),
-      // apuntamos al ciclo anterior (el que tiene datos) no al siguiente (vacío).
-      int targetCycle = (state.currentTemplateStepIndexRAC > 0 &&
-              state.currentTemplateStepIndexRAC % stepCount == 0)
-          ? rawCycle - 1
-          : rawCycle;
-      Map<int, int> newRatings = Map.from(state.cycleRatingsRAC);
-      newRatings[targetCycle] = parsed;
-      state = state.copyWith(cycleRatingsRAC: newRatings, hasExported: false);
-      saveTimerState();
-      _showSnackBarWithUndo(
-          'Calificación de $parsed% aplicada al ciclo ${targetCycle + 1}',
-          Icons.check_circle,
-          Colors.tealAccent);
-    } else {
-      int rawCycle = state.currentTemplateStepIndexCont ~/ stepCount;
-      // Si el índice está justo en la frontera de ciclo (ciclo recién terminado),
-      // apuntamos al ciclo anterior (el que tiene datos) no al siguiente (vacío).
-      int targetCycle = (state.currentTemplateStepIndexCont > 0 &&
-              state.currentTemplateStepIndexCont % stepCount == 0)
-          ? rawCycle - 1
-          : rawCycle;
-      Map<int, int> newRatings = Map.from(state.cycleRatingsCont);
-      newRatings[targetCycle] = parsed;
-      state = state.copyWith(cycleRatingsCont: newRatings, hasExported: false);
-      saveTimerState();
-      _showSnackBarWithUndo(
-          'Calificación de $parsed% aplicada al ciclo ${targetCycle + 1}',
-          Icons.check_circle,
-          Colors.tealAccent);
+    int? rating = int.tryParse(ratingController.text.trim());
+    if (rating == null || rating < 10 || rating > 300) {
+      _showSnackBar('Ingresa un rating válido (ej. 100)', Icons.warning_amber_rounded, Colors.orangeAccent);
+      return;
     }
+
+    int currentCycle = 0;
+    if (state.activeTemplate != null && state.activeTemplate!.steps.isNotEmpty) {
+      currentCycle = state.currentTemplateStepIndex ~/ state.activeTemplate!.steps.length;
+    } else {
+      currentCycle = state.activeRecordedTimes.where((e) => e['status'] != 'pending').length;
+    }
+
+    applyRatingToCycle(currentCycle, rating);
+
+    _showSnackBar('Rating $rating% asignado al Ciclo ${currentCycle + 1}', Icons.star_rounded, Colors.amber);
   }
 
-  /// Aplica una calificación directamente a un ciclo específico por su índice.
-  /// Usado por el diálogo que aparece al tocar el encabezado de ciclo en la tabla.
   void applyRatingToCycle(int cycleIndex, int rating) {
     if (state.currentMode == StopwatchMode.regresoACero) {
-      final newRatings = Map<int, int>.from(state.cycleRatingsRAC);
-      newRatings[cycleIndex] = rating;
-      state = state.copyWith(cycleRatingsRAC: newRatings, hasExported: false);
+      final newMap = Map<int, int>.from(state.cycleRatingsRAC);
+      newMap[cycleIndex] = rating;
+      state = state.copyWith(cycleRatingsRAC: newMap);
     } else {
-      final newRatings = Map<int, int>.from(state.cycleRatingsCont);
-      newRatings[cycleIndex] = rating;
-      state = state.copyWith(cycleRatingsCont: newRatings, hasExported: false);
+      final newMap = Map<int, int>.from(state.cycleRatingsCont);
+      newMap[cycleIndex] = rating;
+      state = state.copyWith(cycleRatingsCont: newMap);
     }
     saveTimerState();
-    _showSnackBarWithUndo(
-        'Calificación de $rating% aplicada al ciclo ${cycleIndex + 1}',
-        Icons.star_rate_rounded,
-        Colors.tealAccent);
   }
 
   void syncActiveStudyName(String newName) {
@@ -522,6 +336,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     if (state.activeTemplate == null) {
       taskNameController.text = newName;
     }
+    saveTimerState();
   }
 
   void _syncStartTime() {
@@ -534,112 +349,85 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   void _initNativeButtonListener() {
-    platform.setMethodCallHandler((call) async {
-      if (!state.usePhysicalButtons) return;
-      if (call.method == 'volumeUp') {
-        _handleNativeButtonPress(isVolumeUp: true);
-      } else if (call.method == 'volumeDown') {
-        _handleNativeButtonPress(isVolumeUp: false);
-      }
-    });
+    HardwareButtonService.initialize(
+      shouldHandle: () => state.usePhysicalButtons,
+      onButtonPressed: _handleNativeButtonPress,
+    );
   }
 
   void triggerHaptic() {
-    if (state.useHapticFeedback) {
-      switch (state.hapticLevel) {
-        case HapticLevel.light: HapticFeedback.lightImpact(); break;
-        case HapticLevel.medium: HapticFeedback.mediumImpact(); break;
-        case HapticLevel.heavy: HapticFeedback.heavyImpact(); break;
-      }
-    }
+    HardwareButtonService.triggerHaptic(
+      enabled: state.useHapticFeedback,
+      level: state.hapticLevel,
+    );
   }
 
   void setMode(StopwatchMode mode) {
-    if (state.currentMode != mode) {
-      final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
-      currentList.removeWhere((e) => e['status'] == 'pending');
+    if (state.currentMode == mode) return;
 
-      if (state.activeTemplate == null) {
-        _setMasterName(taskNameController.text);
-      }
-      
-      if (state.currentMode == StopwatchMode.regresoACero) {
-        state = state.copyWith(recordedTimesRegresoACero: currentList);
-      } else {
-        state = state.copyWith(recordedTimesContinuo: currentList);
-      }
+    triggerHaptic();
+    stopTimerLogic();
+    _stopwatch.reset();
 
-      state = state.copyWith(currentMode: mode);
-      
-      bool wasRunning = _stopwatch.isRunning;
-      _stopwatch.reset(); 
-      
-      _recalculateLastRecordedTime();
-      state = state.copyWith(baseTimeMs: state.currentMode == StopwatchMode.continuo ? state.lastRecordedTimeMs : 0);
-      
-      if (wasRunning) _stopwatch.start();
-      _syncStartTime();
+    state = state.copyWith(
+      currentMode: mode,
+      baseTimeMs: 0,
+      hasExported: true,
+    );
 
-      if (state.activeTemplate != null) {
-        if (state.currentMode == StopwatchMode.regresoACero) {
-          state = state.copyWith(currentTemplateStepIndexRAC: state.recordedTimesRegresoACero.length);
-        } else {
-          state = state.copyWith(currentTemplateStepIndexCont: state.recordedTimesContinuo.length);
-        }
-        _restorePlaceholdersForList(
-            state.currentMode == StopwatchMode.regresoACero ? state.recordedTimesRegresoACero : state.recordedTimesContinuo, 
-            state.activeTemplate!);
-        
-        taskNameController.text = state.activeTemplate!.steps[state.currentTemplateStepIndex % state.activeTemplate!.steps.length];
-      } else {
-        taskNameController.text = state.currentMode == StopwatchMode.regresoACero ? state.savedTaskNameRAC : state.savedTaskNameCont;
-      }
+    _recalculateLastRecordedTime();
 
-      calculateStatistics();
-      _showSnackBar('Modo: ${mode == StopwatchMode.regresoACero ? "Por Ciclo" : "Por Elemento"}', Icons.settings, Colors.tealAccent);
+    if (state.activeTemplate != null && state.activeTemplate!.steps.isNotEmpty) {
+      taskNameController.text = state.activeTemplate!.steps[state.currentTemplateStepIndex % state.activeTemplate!.steps.length];
+    } else {
+      taskNameController.text = mode == StopwatchMode.regresoACero ? state.savedTaskNameRAC : state.savedTaskNameCont;
     }
+
+    _syncStartTime();
+    calculateStatistics();
   }
 
   void toggleElementType(int index) {
     final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
-    if (index >= 0 && index < currentList.length) {
-      final item = Map<String, dynamic>.from(currentList[index]);
-      final currentType = item['type'] ?? 'normal';
-      item['type'] = currentType == 'normal' ? 'outlier' : 'normal';
-      currentList[index] = item;
-      
-      if (state.currentMode == StopwatchMode.regresoACero) {
-        state = state.copyWith(recordedTimesRegresoACero: currentList);
-      } else {
-        state = state.copyWith(recordedTimesContinuo: currentList);
-      }
-      
-      triggerHaptic();
-      saveTimeData();
-      calculateStatistics();
-    }
-  }
+    if (index >= currentList.length || currentList[index]['status'] == 'pending') return;
 
-  void deleteItem(int index) {
-    final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
-    currentList.removeAt(index);
-    
-    if (state.activeTemplate != null && index < state.currentTemplateStepIndex) {
-      if (state.currentMode == StopwatchMode.regresoACero) {
-        state = state.copyWith(currentTemplateStepIndexRAC: state.currentTemplateStepIndexRAC - 1);
-      } else {
-        state = state.copyWith(currentTemplateStepIndexCont: state.currentTemplateStepIndexCont - 1);
-      }
-    }
-    
+    final item = Map<String, dynamic>.from(currentList[index]);
+    item['type'] = item['type'] == 'normal' ? 'outlier' : 'normal';
+    currentList[index] = item;
+
     if (state.currentMode == StopwatchMode.regresoACero) {
       state = state.copyWith(recordedTimesRegresoACero: currentList);
     } else {
       state = state.copyWith(recordedTimesContinuo: currentList);
     }
 
+    saveTimeData();
+    calculateStatistics();
+  }
+
+  void deleteItem(int index) {
+    final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
+    if (index >= currentList.length) return;
+
+    currentList.removeAt(index);
+
+    if (state.currentMode == StopwatchMode.regresoACero) {
+      state = state.copyWith(
+        recordedTimesRegresoACero: currentList,
+        currentTemplateStepIndexRAC: state.activeTemplate != null
+            ? (state.currentTemplateStepIndexRAC > 0 ? state.currentTemplateStepIndexRAC - 1 : 0)
+            : state.currentTemplateStepIndexRAC,
+      );
+    } else {
+      state = state.copyWith(
+        recordedTimesContinuo: currentList,
+        currentTemplateStepIndexCont: state.activeTemplate != null
+            ? (state.currentTemplateStepIndexCont > 0 ? state.currentTemplateStepIndexCont - 1 : 0)
+            : state.currentTemplateStepIndexCont,
+      );
+    }
+
     _recalculateLastRecordedTime();
-    
     saveTimeData();
     calculateStatistics();
   }
@@ -648,35 +436,39 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
     if (index <= 0 || index >= currentList.length) return;
 
-    final prev = currentList[index - 1];
-    final curr = currentList[index];
+    final current = currentList[index];
+    final previous = currentList[index - 1];
 
-    int mergedTime = (prev['time'] as int) + (curr['time'] as int);
-    String mergedName = '${prev['name']} + ${curr['name']}';
+    if (current['status'] == 'pending' || previous['status'] == 'pending') return;
 
-    Map<String, dynamic> mergedEntry = {
-      'name': mergedName,
-      'time': mergedTime,
-      'type': 'normal', 
-      'status': 'done',
-      'step_index': prev['step_index'] 
-    };
+    final int mergedTime = (previous['time'] as int) + (current['time'] as int);
+
+    final mergedItem = Map<String, dynamic>.from(previous);
+    mergedItem['time'] = mergedTime;
 
     if (state.currentMode == StopwatchMode.continuo) {
-      mergedEntry['cumulative_time'] = curr['cumulative_time'];
+      mergedItem['cumulative_time'] = current['cumulative_time'];
     }
 
-    currentList[index - 1] = mergedEntry;
+    currentList[index - 1] = mergedItem;
     currentList.removeAt(index);
-    
-    if (state.activeTemplate != null && index <= state.currentTemplateStepIndex) {
+
+    if (state.activeTemplate != null) {
       if (state.currentMode == StopwatchMode.regresoACero) {
-        state = state.copyWith(currentTemplateStepIndexRAC: state.currentTemplateStepIndexRAC - 1);
+        state = state.copyWith(
+          currentTemplateStepIndexRAC: state.currentTemplateStepIndexRAC > 0
+              ? state.currentTemplateStepIndexRAC - 1
+              : 0,
+        );
       } else {
-        state = state.copyWith(currentTemplateStepIndexCont: state.currentTemplateStepIndexCont - 1);
+        state = state.copyWith(
+          currentTemplateStepIndexCont: state.currentTemplateStepIndexCont > 0
+              ? state.currentTemplateStepIndexCont - 1
+              : 0,
+        );
       }
     }
-    
+
     if (state.currentMode == StopwatchMode.regresoACero) {
       state = state.copyWith(recordedTimesRegresoACero: currentList);
     } else {
@@ -684,16 +476,12 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     }
 
     _recalculateLastRecordedTime();
-
-    triggerHaptic();
     saveTimeData();
     calculateStatistics();
-    
-    _showSnackBar('Elementos fusionados correctamente.', Icons.call_merge, Colors.tealAccent);
   }
 
   void _handleNativeButtonPress({required bool isVolumeUp}) {
-    PhysicalButtonAction action = state.currentMode == StopwatchMode.regresoACero 
+    PhysicalButtonAction action = state.currentMode == StopwatchMode.regresoACero
         ? (isVolumeUp ? state.volUpActionRAC : state.volDownActionRAC)
         : (isVolumeUp ? state.volUpActionCont : state.volDownActionCont);
     if (action != PhysicalButtonAction.none) {
@@ -735,7 +523,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       case PhysicalButtonAction.reset:
         state = state.copyWith(
           animateResetTrigger: state.animateResetTrigger + 1,
-          showResetDialogTrigger: state.showResetDialogTrigger + 1
+          showResetDialogTrigger: state.showResetDialogTrigger + 1,
         );
         break;
       case PhysicalButtonAction.none:
@@ -744,19 +532,16 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   void startTimerLogic() {
+    triggerHaptic();
     if (!_stopwatch.isRunning) {
-      triggerHaptic();
-      if (state.currentMode == StopwatchMode.continuo && state.baseTimeMs == 0 && _stopwatch.elapsedMilliseconds == 0) {
-        state = state.copyWith(lastRecordedTimeMs: 0);
-      }
       _stopwatch.start();
       _syncStartTime();
     }
   }
 
   void stopTimerLogic() {
+    triggerHaptic();
     if (_stopwatch.isRunning) {
-      triggerHaptic();
       state = state.copyWith(baseTimeMs: state.baseTimeMs + _stopwatch.elapsedMilliseconds);
       _stopwatch.reset();
       _stopwatch.stop();
@@ -782,7 +567,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     if (individualTimeMs >= 0) {
       triggerHaptic();
       bool cycleJustFinished = false;
-      
+
       if (state.activeTemplate != null && state.currentTemplateStepIndex < currentList.length) {
         final item = Map<String, dynamic>.from(currentList[state.currentTemplateStepIndex]);
         item['time'] = individualTimeMs;
@@ -791,14 +576,14 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         }
         item['status'] = 'done';
         currentList[state.currentTemplateStepIndex] = item;
-        
+
         int nextIndex = state.currentTemplateStepIndex + 1;
         if (state.currentMode == StopwatchMode.regresoACero) {
           state = state.copyWith(currentTemplateStepIndexRAC: nextIndex);
         } else {
           state = state.copyWith(currentTemplateStepIndexCont: nextIndex);
         }
-        
+
         if (nextIndex % state.activeTemplate!.steps.length == 0) {
           cycleJustFinished = true;
         }
@@ -812,24 +597,23 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         if (nextIndex >= currentList.length) {
           _appendTemplatePlaceholders();
         }
-        
+
         taskNameController.text = state.activeTemplate!.steps[state.currentTemplateStepIndex % state.activeTemplate!.steps.length];
-      } 
-      else {
+      } else {
         Map<String, dynamic> timeEntry = {};
         if (state.currentMode == StopwatchMode.continuo) {
           timeEntry['cumulative_time'] = currentTimeMs;
         }
         String baseName = taskNameController.text.trim();
         final name = baseName.isNotEmpty ? baseName : 'Ciclo ${currentList.length + 1}';
-        
+
         timeEntry['name'] = name;
         timeEntry['time'] = individualTimeMs;
         timeEntry['type'] = 'normal';
         timeEntry['status'] = 'done';
 
         currentList.add(timeEntry);
-        
+
         if (state.currentMode == StopwatchMode.regresoACero) {
           state = state.copyWith(recordedTimesRegresoACero: currentList);
         } else {
@@ -841,7 +625,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       saveTimeData();
       calculateStatistics();
       _showSnackBarWithUndo('Registrado: ${formatTime(individualTimeMs.toDouble())}', Icons.check_circle, Colors.tealAccent);
-      
+
       if (state.currentMode == StopwatchMode.continuo) {
         state = state.copyWith(lastRecordedTimeMs: currentTimeMs);
       }
@@ -855,10 +639,10 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         _stopwatch.reset();
         state = state.copyWith(baseTimeMs: 0);
         if (state.currentMode == StopwatchMode.continuo) {
-           state = state.copyWith(lastRecordedTimeMs: 0);
+          state = state.copyWith(lastRecordedTimeMs: 0);
         }
       }
-      
+
       if (keepRunning) {
         if (!_stopwatch.isRunning) _stopwatch.start();
         _syncStartTime();
@@ -880,77 +664,58 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         } else {
           state = state.copyWith(currentTemplateStepIndexCont: newIndex);
         }
-        
+
         final item = Map<String, dynamic>.from(currentList[newIndex]);
         item['time'] = 0;
-        if (state.currentMode == StopwatchMode.continuo) {
-          item['cumulative_time'] = 0;
-        }
         item['status'] = 'pending';
-        item['type'] = 'normal';
         currentList[newIndex] = item;
-        
-        taskNameController.text = state.activeTemplate!.steps[newIndex % state.activeTemplate!.steps.length];
-        
-        int targetLength = newIndex + (state.activeTemplate!.steps.length - (newIndex % state.activeTemplate!.steps.length));
-        if (currentList.length > targetLength) {
-          currentList.removeRange(targetLength, currentList.length);
+
+        int lastCycleStart = (newIndex ~/ state.activeTemplate!.steps.length + 1) * state.activeTemplate!.steps.length;
+        if (currentList.length > lastCycleStart) {
+          currentList.removeRange(lastCycleStart, currentList.length);
         }
+
+        if (state.currentMode == StopwatchMode.regresoACero) {
+          state = state.copyWith(recordedTimesRegresoACero: currentList);
+        } else {
+          state = state.copyWith(recordedTimesContinuo: currentList);
+        }
+
+        taskNameController.text = state.activeTemplate!.steps[newIndex % state.activeTemplate!.steps.length];
       }
     } else {
       currentList.removeLast();
+      if (state.currentMode == StopwatchMode.regresoACero) {
+        state = state.copyWith(recordedTimesRegresoACero: currentList);
+      } else {
+        state = state.copyWith(recordedTimesContinuo: currentList);
+      }
     }
-    
-    if (state.currentMode == StopwatchMode.regresoACero) {
-      state = state.copyWith(recordedTimesRegresoACero: currentList);
-    } else {
-      state = state.copyWith(recordedTimesContinuo: currentList);
-    }
-    
+
     _recalculateLastRecordedTime();
-    
+
     saveTimeData();
     calculateStatistics();
-    
+
     scaffoldMessengerKey.currentState?.clearSnackBars();
     _showSnackBar('Último registro deshecho.', Icons.undo, Colors.orangeAccent);
   }
 
   void calculateStatistics() {
-    final currentList = state.activeRecordedTimes;
-    if (currentList.isEmpty) {
-      state = state.copyWith(averageTime: 0.0, minTime: 0.0, maxTime: 0.0, stdDev: 0.0);
-      return;
-    }
-    
-    final validTimes = currentList
-        .where((e) => (e['type'] ?? 'normal') != 'outlier' && (e['time'] as int) > 0 && e['status'] != 'pending')
-        .map((e) => e['time'] as int)
-        .toList();
-        
-    if (validTimes.isEmpty) {
-      state = state.copyWith(averageTime: 0.0, minTime: 0.0, maxTime: 0.0, stdDev: 0.0);
-      return;
-    }
-    
-    double avg = validTimes.reduce((a, b) => a + b) / validTimes.length;
-    double mTime = validTimes.reduce(min).toDouble();
-    double mxTime = validTimes.reduce(max).toDouble();
-    double sDev = 0.0;
-    
-    if (validTimes.length > 1) {
-      final variance = validTimes.map((t) => pow(t - avg, 2)).reduce((a, b) => a + b) / (validTimes.length - 1);
-      sDev = sqrt(variance);
-    }
-    
-    state = state.copyWith(averageTime: avg, minTime: mTime, maxTime: mxTime, stdDev: sDev);
+    final stats = TimeLogCalculator.calculate(state.activeRecordedTimes);
+    state = state.copyWith(
+      averageTime: stats.averageTime,
+      minTime: stats.minTime,
+      maxTime: stats.maxTime,
+      stdDev: stats.stdDev,
+    );
   }
 
   void resetAll() {
     triggerHaptic();
     stopTimerLogic();
     _stopwatch.reset();
-    
+
     state = state.copyWith(
       baseTimeMs: 0,
       activeStudyIdRAC: () => state.currentMode == StopwatchMode.regresoACero ? null : state.activeStudyIdRAC,
@@ -960,11 +725,11 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       cycleRatingsRAC: state.currentMode == StopwatchMode.regresoACero ? const {} : state.cycleRatingsRAC,
       cycleRatingsCont: state.currentMode == StopwatchMode.continuo ? const {} : state.cycleRatingsCont,
       lastRecordedTimeMs: 0,
-      hasExported: true
+      hasExported: true,
     );
-    
+
     _syncStartTime();
-    
+
     if (state.activeTemplate != null && state.activeTemplate!.steps.isNotEmpty) {
       if (state.currentMode == StopwatchMode.regresoACero) {
         state = state.copyWith(currentTemplateStepIndexRAC: 0);
@@ -974,7 +739,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       _appendTemplatePlaceholders();
       taskNameController.text = state.activeTemplate!.steps[0];
     } else {
-      taskNameController.text = ''; 
+      taskNameController.text = '';
       _setMasterName('');
     }
 
@@ -998,7 +763,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         globalRating: state.globalRating,
         cycleRatings: state.currentMode == StopwatchMode.regresoACero ? state.cycleRatingsRAC : state.cycleRatingsCont,
       );
-      
+
       if (fileName != null) {
         state = state.copyWith(hasExported: true);
         _showSnackBar('Exportado: $fileName', Icons.check_circle, Colors.tealAccent);
@@ -1018,8 +783,8 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         final Map<int, int> cycleRatings = (result['cycleRatings'] as Map<dynamic, dynamic>?)?.cast<int, int>() ?? {};
         final String? studyName = result['studyName'];
 
-        setMode(importedMode); 
-        clearTemplate(); 
+        setMode(importedMode);
+        clearTemplate();
         resetAll();
 
         if (importedMode == StopwatchMode.regresoACero) {
@@ -1053,10 +818,10 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
           }
 
           _restorePlaceholdersForList(
-            state.currentMode == StopwatchMode.regresoACero 
-                ? state.recordedTimesRegresoACero 
-                : state.recordedTimesContinuo, 
-            state.activeTemplate!
+            state.currentMode == StopwatchMode.regresoACero
+                ? state.recordedTimesRegresoACero
+                : state.recordedTimesContinuo,
+            state.activeTemplate!,
           );
 
           taskNameController.text = state.activeTemplate!.steps[state.currentTemplateStepIndex % state.activeTemplate!.steps.length];
@@ -1070,18 +835,18 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         if (studyName != null && studyName.isNotEmpty) {
           syncActiveStudyName(studyName);
         }
-        
+
         _recalculateLastRecordedTime();
         if (state.currentMode == StopwatchMode.continuo) {
           state = state.copyWith(baseTimeMs: state.lastRecordedTimeMs);
         }
-        
-        state = state.copyWith(hasExported: true); 
+
+        state = state.copyWith(hasExported: true);
         saveTimeData();
         saveTimerState();
         calculateStatistics();
-        _syncStartTime(); 
-        
+        _syncStartTime();
+
         final ratingMsg = cycleRatings.isNotEmpty ? " con calificaciones" : "";
         _showSnackBar('Estudio "$studyName" importado correctamente$ratingMsg.', Icons.file_download_done, AppTheme.primaryTeal);
       }
@@ -1093,29 +858,29 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   Future<void> saveCurrentStudyToHistory(String studyName) async {
     final dataToSave = state.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
     if (dataToSave.isEmpty) return;
-    
+
     final activeRatings = state.currentMode == StopwatchMode.regresoACero ? state.cycleRatingsRAC : state.cycleRatingsCont;
     int newId = await _storage.saveStudyToHistory(
       name: studyName,
       mode: state.currentMode,
       times: dataToSave,
-      template: state.activeTemplate, 
+      template: state.activeTemplate,
       cycleRatings: activeRatings,
     );
-    
+
     if (state.currentMode == StopwatchMode.regresoACero) {
       state = state.copyWith(activeStudyIdRAC: () => newId);
     } else {
       state = state.copyWith(activeStudyIdCont: () => newId);
     }
-    
+
     _setMasterName(studyName);
-    
+
     if (state.activeTemplate == null) {
       taskNameController.text = studyName;
     }
 
-    saveTimerState(); 
+    saveTimerState();
 
     _showSnackBar('Estudio "$studyName" guardado con éxito.', Icons.save, AppTheme.primaryTeal);
   }
@@ -1123,40 +888,40 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   Future<void> updateCurrentStudy() async {
     final dataToSave = state.activeRecordedTimes.where((e) => e['status'] != 'pending').toList();
     if (dataToSave.isEmpty || state.activeStudyId == null) return;
-    
+
     final activeRatings = state.currentMode == StopwatchMode.regresoACero ? state.cycleRatingsRAC : state.cycleRatingsCont;
     await _storage.updateExistingStudy(
       id: state.activeStudyId!,
       mode: state.currentMode,
       times: dataToSave,
-      template: state.activeTemplate, 
+      template: state.activeTemplate,
       cycleRatings: activeRatings,
     );
-    
+
     saveTimerState();
 
     _showSnackBar('Estudio actualizado correctamente.', Icons.update, AppTheme.primaryTeal);
   }
 
   void loadStudyFromHistory(StudyModel study) {
-    setMode(study.mode); 
-    clearTemplate(); 
+    setMode(study.mode);
+    clearTemplate();
     resetAll();
-    
+
     if (study.mode == StopwatchMode.regresoACero) {
       state = state.copyWith(activeStudyIdRAC: () => study.id);
     } else {
       state = state.copyWith(activeStudyIdCont: () => study.id);
     }
     _setMasterName(study.name);
-    
+
     final convertedTimes = study.times.map((t) => {
       'name': t.name,
       'time': t.time,
       'type': t.type,
       'cumulative_time': t.cumulativeTime,
       'status': 'done',
-      'step_index': t.stepIndex 
+      'step_index': t.stepIndex,
     }).toList();
 
     if (study.mode == StopwatchMode.regresoACero) {
@@ -1170,26 +935,26 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         cycleRatingsCont: study.cycleRatingsMap,
       );
     }
-    
+
     if (study.isTemplate && study.templateSteps.isNotEmpty) {
       final t = OperationTemplate()
-        ..id = -1 
+        ..id = -1
         ..name = study.name
         ..steps = study.templateSteps;
-        
+
       if (study.mode == StopwatchMode.regresoACero) {
         state = state.copyWith(activeTemplateRAC: () => t, currentTemplateStepIndexRAC: convertedTimes.length);
       } else {
         state = state.copyWith(activeTemplateCont: () => t, currentTemplateStepIndexCont: convertedTimes.length);
       }
-      
+
       _restorePlaceholdersForList(state.activeRecordedTimes, state.activeTemplate!);
-      
+
       taskNameController.text = state.activeTemplate!.steps[state.currentTemplateStepIndex % state.activeTemplate!.steps.length];
     } else {
       taskNameController.text = study.name;
     }
-    
+
     _recalculateLastRecordedTime();
     if (state.currentMode == StopwatchMode.continuo) {
       state = state.copyWith(baseTimeMs: state.lastRecordedTimeMs);
@@ -1212,7 +977,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
 
   String formatTime(double milliseconds, {bool forExport = false}) {
     if (milliseconds < 0) return "00:00.00";
-    
+
     if (state.timeFormat == TimeFormat.seconds) {
       String val = (milliseconds / 1000).toStringAsFixed(2);
       return forExport ? val : '$val s';
@@ -1234,20 +999,31 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
     if (view != null) {
       final screenHeight = view.physicalSize.height / view.devicePixelRatio;
-      bottomMargin = screenHeight - 140; 
+      bottomMargin = screenHeight - 140;
       if (bottomMargin < 16.0) bottomMargin = 16.0;
     }
 
     scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
-        content: Row(children: [Icon(icon, color: iconColor), const SizedBox(width: 12), Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))]),
+        content: Row(
+          children: [
+            Icon(icon, color: iconColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
         backgroundColor: const Color(0xFF333333),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
         elevation: 6,
-        duration: const Duration(seconds: 2), 
-        dismissDirection: DismissDirection.up, 
+        duration: const Duration(seconds: 2),
+        dismissDirection: DismissDirection.up,
       ),
     );
     _snackBarTimer = Timer(const Duration(seconds: 2), () {
@@ -1256,19 +1032,30 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   void _showSnackBarWithUndo(String message, IconData icon, Color iconColor) {
-    scaffoldMessengerKey.currentState?.clearSnackBars(); 
+    scaffoldMessengerKey.currentState?.clearSnackBars();
     _snackBarTimer?.cancel();
     double bottomMargin = 16.0;
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
     if (view != null) {
       final screenHeight = view.physicalSize.height / view.devicePixelRatio;
-      bottomMargin = screenHeight - 140; 
+      bottomMargin = screenHeight - 140;
       if (bottomMargin < 16.0) bottomMargin = 16.0;
     }
 
     scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
-        content: Row(children: [Icon(icon, color: iconColor), const SizedBox(width: 12), Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))]),
+        content: Row(
+          children: [
+            Icon(icon, color: iconColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
         backgroundColor: const Color(0xFF333333),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
