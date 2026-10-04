@@ -20,6 +20,8 @@ class TimeLogState {
   final int animateResetTrigger;
   final int animateExportTrigger;
   final int showResetDialogTrigger;
+  final int recordAddedTrigger;
+  final int? lastRecordedIndex;
 
   final List<Map<String, dynamic>> recordedTimesRegresoACero;
   final List<Map<String, dynamic>> recordedTimesContinuo;
@@ -67,6 +69,8 @@ class TimeLogState {
     this.animateResetTrigger = 0,
     this.animateExportTrigger = 0,
     this.showResetDialogTrigger = 0,
+    this.recordAddedTrigger = 0,
+    this.lastRecordedIndex,
     this.recordedTimesRegresoACero = const [],
     this.recordedTimesContinuo = const [],
     this.averageTime = 0.0,
@@ -140,6 +144,8 @@ class TimeLogState {
     int? animateResetTrigger,
     int? animateExportTrigger,
     int? showResetDialogTrigger,
+    int? recordAddedTrigger,
+    int? Function()? lastRecordedIndex,
     List<Map<String, dynamic>>? recordedTimesRegresoACero,
     List<Map<String, dynamic>>? recordedTimesContinuo,
     double? averageTime,
@@ -183,6 +189,8 @@ class TimeLogState {
       animateResetTrigger: animateResetTrigger ?? this.animateResetTrigger,
       animateExportTrigger: animateExportTrigger ?? this.animateExportTrigger,
       showResetDialogTrigger: showResetDialogTrigger ?? this.showResetDialogTrigger,
+      recordAddedTrigger: recordAddedTrigger ?? this.recordAddedTrigger,
+      lastRecordedIndex: lastRecordedIndex != null ? lastRecordedIndex() : this.lastRecordedIndex,
       // Hacemos una copia profunda superficial para que cambie la referencia
       recordedTimesRegresoACero: recordedTimesRegresoACero ?? List.from(this.recordedTimesRegresoACero),
       recordedTimesContinuo: recordedTimesContinuo ?? List.from(this.recordedTimesContinuo),

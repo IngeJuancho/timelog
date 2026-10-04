@@ -584,15 +584,16 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       bool cycleJustFinished = false;
 
       if (state.activeTemplate != null && state.currentTemplateStepIndex < currentList.length) {
-        final item = Map<String, dynamic>.from(currentList[state.currentTemplateStepIndex]);
+        final recordedIndex = state.currentTemplateStepIndex;
+        final item = Map<String, dynamic>.from(currentList[recordedIndex]);
         item['time'] = individualTimeMs;
         if (state.currentMode == StopwatchMode.continuo) {
           item['cumulative_time'] = currentTimeMs;
         }
         item['status'] = 'done';
-        currentList[state.currentTemplateStepIndex] = item;
+        currentList[recordedIndex] = item;
 
-        int nextIndex = state.currentTemplateStepIndex + 1;
+        int nextIndex = recordedIndex + 1;
         if (state.currentMode == StopwatchMode.regresoACero) {
           state = state.copyWith(currentTemplateStepIndexRAC: nextIndex);
         } else {
@@ -604,9 +605,17 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         }
 
         if (state.currentMode == StopwatchMode.regresoACero) {
-          state = state.copyWith(recordedTimesRegresoACero: currentList);
+          state = state.copyWith(
+            recordedTimesRegresoACero: currentList,
+            recordAddedTrigger: state.recordAddedTrigger + 1,
+            lastRecordedIndex: () => recordedIndex,
+          );
         } else {
-          state = state.copyWith(recordedTimesContinuo: currentList);
+          state = state.copyWith(
+            recordedTimesContinuo: currentList,
+            recordAddedTrigger: state.recordAddedTrigger + 1,
+            lastRecordedIndex: () => recordedIndex,
+          );
         }
 
         if (nextIndex >= currentList.length) {
@@ -628,11 +637,20 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         timeEntry['status'] = 'done';
 
         currentList.add(timeEntry);
+        final recordedIndex = currentList.length - 1;
 
         if (state.currentMode == StopwatchMode.regresoACero) {
-          state = state.copyWith(recordedTimesRegresoACero: currentList);
+          state = state.copyWith(
+            recordedTimesRegresoACero: currentList,
+            recordAddedTrigger: state.recordAddedTrigger + 1,
+            lastRecordedIndex: () => recordedIndex,
+          );
         } else {
-          state = state.copyWith(recordedTimesContinuo: currentList);
+          state = state.copyWith(
+            recordedTimesContinuo: currentList,
+            recordAddedTrigger: state.recordAddedTrigger + 1,
+            lastRecordedIndex: () => recordedIndex,
+          );
         }
       }
 
@@ -709,6 +727,15 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
 
     _recalculateLastRecordedTime();
 
+    int? updatedLastIndex;
+    if (state.activeTemplate != null) {
+      final prevIndex = state.currentTemplateStepIndex - 1;
+      updatedLastIndex = prevIndex >= 0 ? prevIndex : null;
+    } else {
+      updatedLastIndex = currentList.isNotEmpty ? (currentList.length - 1) : null;
+    }
+    state = state.copyWith(lastRecordedIndex: () => updatedLastIndex);
+
     saveTimeData();
     calculateStatistics();
 
@@ -741,6 +768,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       cycleRatingsCont: state.currentMode == StopwatchMode.continuo ? const {} : state.cycleRatingsCont,
       lastRecordedTimeMs: 0,
       hasExported: true,
+      lastRecordedIndex: () => null,
     );
 
     _syncStartTime();

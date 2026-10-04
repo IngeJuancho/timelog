@@ -108,47 +108,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
     _viewChangeController.forward().then((_) => _viewChangeController.reverse());
   }
 
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
-  void _scrollToIndex(int index, bool isContinuous) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        double estimatedItemHeight = isContinuous ? 48.0 : 72.0;
-        double headerOffset = isContinuous ? 56.0 : 0.0;
-
-        double targetItemOffset = (index * estimatedItemHeight) + headerOffset;
-        double currentOffset = _scrollController.offset;
-        double viewportHeight = _scrollController.position.viewportDimension;
-
-        if (targetItemOffset < currentOffset ||
-            targetItemOffset > currentOffset + viewportHeight - estimatedItemHeight) {
-          double targetScroll = targetItemOffset - (viewportHeight / 2) + (estimatedItemHeight / 2);
-
-          if (targetScroll < 0) targetScroll = 0;
-          if (targetScroll > _scrollController.position.maxScrollExtent) {
-            targetScroll = _scrollController.position.maxScrollExtent;
-          }
-
-          _scrollController.animateTo(
-            targetScroll,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      }
-    });
-  }
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -175,29 +134,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
       StopwatchDialogs.confirmReset(context, state, notifier);
     });
 
-    ref.listen<int>(
-      timeLogProvider.select((s) => s.activeRecordedTimes.length),
-      (previous, next) {
-        final state = ref.read(timeLogProvider);
-        if (previous != null && next > previous && !_showingAnalysis) {
-          if (state.activeTemplate == null) {
-            _scrollToBottom();
-          } else {
-            _scrollToIndex(state.currentTemplateStepIndex, state.currentMode == StopwatchMode.continuo);
-          }
-        }
-      },
-    );
-
-    ref.listen<int>(
-      timeLogProvider.select((s) => s.currentTemplateStepIndex),
-      (previous, next) {
-        final state = ref.read(timeLogProvider);
-        if (previous != null && next != previous && !_showingAnalysis && state.activeTemplate != null) {
-          _scrollToIndex(next, state.currentMode == StopwatchMode.continuo);
-        }
-      },
-    );
 
     ref.listen(timeLogProvider.select((s) => s.isRunning), (_, isRunning) {
       if (isRunning && !_pulseController.isAnimating) {
