@@ -34,7 +34,7 @@ class ControlButtons extends ConsumerWidget {
     return Column(
       children: [
         _buildPrimaryButton(context, ref, state),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         _buildSecondaryButtons(context, state),
       ]);
   }
@@ -66,11 +66,11 @@ class ControlButtons extends ConsumerWidget {
         scale: startButtonAnimation.value,
         child: SizedBox(
           width: double.infinity,
-          height: 80,
+          height: 56,
           child: ElevatedButton.icon(
             onPressed: onStartPressed,
-            icon: Icon(primaryIcon, size: 28),
-            label: Text(primaryLabel.toUpperCase(), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            icon: Icon(primaryIcon, size: 24),
+            label: Text(primaryLabel.toUpperCase(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryColor.withValues(alpha: isLight ? 0.20 : 0.15), 
               foregroundColor: primaryColor, 
@@ -141,14 +141,14 @@ class ControlButtons extends ConsumerWidget {
         backgroundColor: Theme.of(context).cardColor, 
         foregroundColor: color, 
         elevation: 0, 
-        padding: const EdgeInsets.symmetric(vertical: 16), 
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
+        padding: const EdgeInsets.symmetric(vertical: 10), 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min, 
         children: [
-          Icon(icon, size: 22), 
-          const SizedBox(height: 6), 
+          Icon(icon, size: 20), 
+          const SizedBox(height: 4), 
           Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))
         ]
       ));

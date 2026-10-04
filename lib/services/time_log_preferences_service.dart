@@ -12,7 +12,8 @@ class TimeLogPreferencesService {
 
     bool usePhysicalButtons = prefs.getBool('usePhysicalButtons') ?? false;
     bool useHapticFeedback = prefs.getBool('useHapticFeedback') ?? false;
-    bool recordOnPause = prefs.getBool('recordOnPause') ?? false;
+    bool recordOnPauseRAC = prefs.getBool('recordOnPauseRAC') ?? prefs.getBool('recordOnPause') ?? false;
+    bool recordOnPauseCont = prefs.getBool('recordOnPauseCont') ?? false;
     bool isAmoledMode = prefs.getBool('isAmoledMode') ?? true;
 
     T safeEnum<T>(List<T> values, int index, T fallback) {
@@ -125,7 +126,8 @@ class TimeLogPreferencesService {
     return TimeLogStateLoadedData(
       usePhysicalButtons: usePhysicalButtons,
       useHapticFeedback: useHapticFeedback,
-      recordOnPause: recordOnPause,
+      recordOnPauseRAC: recordOnPauseRAC,
+      recordOnPauseCont: recordOnPauseCont,
       isAmoledMode: isAmoledMode,
       hapticLevel: hapticLevel,
       timeFormat: timeFormat,
@@ -156,7 +158,8 @@ class TimeLogPreferencesService {
     await prefs.setInt('timeFormat', newState.timeFormat.index);
     await prefs.setInt('hapticLevel', newState.hapticLevel.index);
     await prefs.setBool('usePhysicalButtons', newState.usePhysicalButtons);
-    await prefs.setBool('recordOnPause', newState.recordOnPause);
+    await prefs.setBool('recordOnPauseRAC', newState.recordOnPauseRAC);
+    await prefs.setBool('recordOnPauseCont', newState.recordOnPauseCont);
     await prefs.setInt('volUpActionRAC', newState.volUpActionRAC.index);
     await prefs.setInt('volDownActionRAC', newState.volDownActionRAC.index);
     await prefs.setInt('volUpActionCont', newState.volUpActionCont.index);
@@ -237,7 +240,8 @@ class TimeLogPreferencesService {
 class TimeLogStateLoadedData {
   final bool usePhysicalButtons;
   final bool useHapticFeedback;
-  final bool recordOnPause;
+  final bool recordOnPauseRAC;
+  final bool recordOnPauseCont;
   final bool isAmoledMode;
   final HapticLevel hapticLevel;
   final TimeFormat timeFormat;
@@ -263,7 +267,8 @@ class TimeLogStateLoadedData {
   const TimeLogStateLoadedData({
     required this.usePhysicalButtons,
     required this.useHapticFeedback,
-    required this.recordOnPause,
+    required this.recordOnPauseRAC,
+    required this.recordOnPauseCont,
     required this.isAmoledMode,
     required this.hapticLevel,
     required this.timeFormat,

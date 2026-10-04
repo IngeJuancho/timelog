@@ -143,7 +143,7 @@ class StopwatchDrawer extends ConsumerWidget {
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 24),
             leading: Icon(Icons.route, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)),
-            title: Text('Rutas Estándar', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+            title: Text('Plantillas', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TemplateManagerScreen()));

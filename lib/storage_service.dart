@@ -146,7 +146,7 @@ class StorageService {
   }
 
   // ===========================================================================
-  // MANEJO DE PLANTILLAS (RUTAS ESTÁNDAR)
+  // MANEJO DE PLANTILLAS
   // ===========================================================================
   
   Future<List<OperationTemplate>> getAllTemplates() async {
@@ -217,7 +217,7 @@ class StorageService {
       
       final date = DateTime.now();
       final baseName = template.name.replaceAll(' ', '_');
-      final fileName = 'Ruta_${baseName}_${date.year}${date.month}${date.day}';
+      final fileName = 'Plantilla_${baseName}_${date.year}${date.month}${date.day}';
 
       final result = await FileSaver.instance.saveAs(
         name: fileName,
@@ -273,7 +273,7 @@ class StorageService {
       if (result == null || result.files.isEmpty) return false;
 
       // Si estamos en raíz, creamos la carpeta con el nombre que nos dio el usuario
-      int folderIdToUse = targetFolderId ?? await createFolder(newFolderName ?? "Rutas Importadas");
+      int folderIdToUse = targetFolderId ?? await createFolder(newFolderName ?? "Plantillas Importadas");
       bool importedAny = false;
 
       // Leemos todos los archivos seleccionados de forma segura

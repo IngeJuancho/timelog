@@ -87,7 +87,7 @@ class _TemplateSelectorSheetState extends State<TemplateSelectorSheet> {
                 child: Text(
                   _searchQuery.isNotEmpty
                       ? 'Resultados de Búsqueda'
-                      : (_currentFolder == null ? 'Seleccionar Ruta Estándar' : _currentFolder!.name),
+                      : (_currentFolder == null ? 'Seleccionar Plantilla' : _currentFolder!.name),
                   style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 18, fontWeight: FontWeight.bold),
                   textAlign: _currentFolder == null && _searchQuery.isEmpty ? TextAlign.center : TextAlign.left,
                 ),

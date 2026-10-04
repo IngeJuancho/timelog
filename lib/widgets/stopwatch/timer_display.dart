@@ -22,24 +22,44 @@ class TimerDisplay extends ConsumerWidget {
         return Transform.scale(
           scale: state.isRunning ? pulseAnimation.value : 1.0,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                state.currentMode == StopwatchMode.regresoACero ? "POR CICLO" : "POR ELEMENTO", 
-                style: TextStyle(fontSize: 10, letterSpacing: 2, color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.38), fontWeight: FontWeight.bold)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Text(
+                  state.currentMode == StopwatchMode.regresoACero ? "POR CICLO" : "POR ELEMENTO",
+                  style: TextStyle(
+                    fontSize: 10,
+                    letterSpacing: 1.5,
+                    color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
-                  notifier.formatTime(notifier.elapsedMilliseconds.toDouble()), 
+                  notifier.formatTime(notifier.elapsedMilliseconds.toDouble()),
                   style: const TextStyle(
-                    fontSize: 80, 
-                    fontWeight: FontWeight.w300, 
-                    fontFeatures: [FontFeature.tabularFigures()], 
-                    letterSpacing: -2.0
-                  )
-                )),
-            ]));
-      });
+                    fontSize: 52,
+                    fontWeight: FontWeight.w300,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                    letterSpacing: -1.0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

@@ -83,7 +83,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
               ListTile(
                 leading: const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.create_new_folder, color: Colors.white)),
                 title: const Text('Nueva Carpeta', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                subtitle: const Text('Agrupa tus rutas por área o modelo.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                subtitle: const Text('Agrupa tus plantillas por área o modelo.', style: TextStyle(color: Colors.white54, fontSize: 12)),
                 onTap: () {
                   Navigator.pop(context);
                   _createNewFolder();
@@ -93,7 +93,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
             ],
             ListTile(
               leading: const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.route, color: Colors.white)),
-              title: const Text('Nueva Ruta Estándar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              title: const Text('Nueva Plantilla', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               subtitle: const Text('Crea una secuencia de pasos para tomar tiempos.', style: TextStyle(color: Colors.white54, fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);
@@ -156,7 +156,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF252525),
         title: const Text('¿Borrar Carpeta?', style: TextStyle(color: Colors.white)),
-        content: Text('Esto borrará la carpeta "${folder.name}" y TODAS las rutas estándar que contenga. ¿Estás seguro?', style: const TextStyle(color: Colors.white70)),
+        content: Text('Esto borrará la carpeta "${folder.name}" y TODAS las plantillas que contenga. ¿Estás seguro?', style: const TextStyle(color: Colors.white70)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
           TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('BORRAR', style: TextStyle(color: Colors.redAccent))),
@@ -175,7 +175,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF252525),
-        title: const Text('Renombrar Ruta', style: TextStyle(color: Colors.white)),
+        title: const Text('Renombrar Plantilla', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: nameController,
           style: const TextStyle(color: Colors.white),
@@ -250,7 +250,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
           content: TextField(
             controller: folderController,
             style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(labelText: 'Nombre para las rutas importadas', focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.amber))),
+            decoration: const InputDecoration(labelText: 'Nombre para las plantillas importadas', focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.amber))),
             autofocus: true,
           ),
           actions: [
@@ -276,7 +276,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
     if (!mounted) return;
     
     if (success) {
-      _showSnackBar(targetFolderId == null ? 'Carpeta y rutas importadas con éxito' : 'Rutas importadas con éxito', Colors.amber);
+      _showSnackBar(targetFolderId == null ? 'Carpeta y plantillas importadas con éxito' : 'Plantillas importadas con éxito', Colors.amber);
       _loadData();
     } else {
       _showSnackBar('No se importó nada o se canceló', Colors.orangeAccent);
@@ -300,7 +300,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
           leading: _currentFolder != null 
               ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => _navigateBack()) 
               : null,
-          title: Text(_currentFolder == null ? 'Rutas Estándar' : _currentFolder!.name),
+          title: Text(_currentFolder == null ? 'Plantillas' : _currentFolder!.name),
           centerTitle: true,
           backgroundColor: Colors.transparent,
           actions: [
@@ -322,7 +322,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
                     children: [
                       Icon(Icons.insert_drive_file, color: Colors.blueAccent, size: 20),
                       SizedBox(width: 10),
-                      Text('Importar 1 Ruta', style: TextStyle(color: Colors.white)),
+                      Text('Importar 1 Plantilla', style: TextStyle(color: Colors.white)),
                     ],
                   ),
                 ),
@@ -332,7 +332,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
                     children: [
                       Icon(_currentFolder == null ? Icons.create_new_folder : Icons.library_add, color: Colors.amber, size: 20),
                       const SizedBox(width: 10),
-                      Text(_currentFolder == null ? 'Importar Varios a Carpeta' : 'Importar Varias Rutas', style: const TextStyle(color: Colors.white)),
+                      Text(_currentFolder == null ? 'Importar Varios a Carpeta' : 'Importar Varias Plantillas', style: const TextStyle(color: Colors.white)),
                     ],
                   ),
                 ),
@@ -379,11 +379,11 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
                         const SizedBox(height: 24),
                       ],
 
-                      // SECCIÓN DE RUTAS (PLANTILLAS)
+                      // SECCIÓN DE PLANTILLAS
                       if (_templates.isNotEmpty) ...[
                         Padding(
                           padding: const EdgeInsets.only(left: 8, bottom: 8),
-                          child: Text(_currentFolder == null ? "RUTAS SIN CARPETA" : "RUTAS EN ${_currentFolder!.name.toUpperCase()}", style: const TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                          child: Text(_currentFolder == null ? "PLANTILLAS SIN CARPETA" : "PLANTILLAS EN ${_currentFolder!.name.toUpperCase()}", style: const TextStyle(color: Colors.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                         ),
                         ..._templates.map((template) => _buildTemplateCard(template)),
                       ]
@@ -398,9 +398,9 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(_currentFolder == null ? Icons.folder_open : Icons.route_outlined, size: 64, color: Colors.white24),
+          Icon(_currentFolder == null ? Icons.folder_open : Icons.list_alt_outlined, size: 64, color: Colors.white24),
           const SizedBox(height: 16),
-          Text(_currentFolder == null ? 'No hay carpetas ni rutas creadas' : 'Esta carpeta está vacía', style: const TextStyle(color: Colors.white54)),
+          Text(_currentFolder == null ? 'No hay carpetas ni plantillas creadas' : 'Esta carpeta está vacía', style: const TextStyle(color: Colors.white54)),
         ],
       ),
     );
@@ -541,7 +541,7 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
     final tealColor = AppTheme.getTealAccent(context);
     return AlertDialog(
       backgroundColor: Theme.of(context).cardColor,
-      title: Text('Nueva Ruta Estándar', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+      title: Text('Nueva Plantilla', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
       content: SizedBox(
         width: double.maxFinite,
         child: Column(

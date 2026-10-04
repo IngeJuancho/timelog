@@ -238,17 +238,17 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
           color: Theme.of(context).scaffoldBackgroundColor,
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
               child: Column(
                 children: [
                   TimerDisplay(pulseAnimation: _pulseAnimation),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   TaskNameInput(
                     focusNode: _taskNameFocusNode,
                     state: state,
                     notifier: notifier,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
                   ControlButtons(
                     startButtonAnimation: _startButtonAnimation,
                     secondaryButtonAnimation: _secondaryButtonAnimation,
@@ -289,7 +289,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                       );
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 14),
                   Expanded(child: _buildStatsCard(state, notifier)),
                 ],
               ),
@@ -343,7 +343,7 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                             padding: EdgeInsets.zero,
                             onPressed: () => StopwatchDialogs.promptSaveCurrentTemplate(context, state, notifier),
                             icon: const Icon(Icons.bookmark_add_outlined, size: 18),
-                            tooltip: 'Guardar como Ruta Estándar',
+                            tooltip: 'Guardar como Plantilla',
                             style: IconButton.styleFrom(
                               backgroundColor: Colors.amber.withValues(alpha: 0.2),
                               foregroundColor: Colors.amber,

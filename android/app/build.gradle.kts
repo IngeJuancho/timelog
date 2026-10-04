@@ -69,3 +69,19 @@ android {
 flutter {
     source = "../.."
 }
+
+tasks.matching { it.name == "assembleRelease" }.configureEach {
+    doLast {
+        val buildDir = layout.buildDirectory.get().asFile
+        val releaseApk = File(buildDir, "outputs/apk/release/app-release.apk")
+        val flutterApkDir = File(buildDir, "outputs/flutter-apk")
+        flutterApkDir.mkdirs()
+        if (releaseApk.exists()) {
+            val targetFlutterApk = File(flutterApkDir, "TimeLog.apk")
+            releaseApk.copyTo(targetFlutterApk, overwrite = true)
+            val targetReleaseApk = File(buildDir, "outputs/apk/release/TimeLog.apk")
+            releaseApk.copyTo(targetReleaseApk, overwrite = true)
+            println("APK generado con éxito como TimeLog.apk en: ${targetFlutterApk.absolutePath}")
+        }
+    }
+}

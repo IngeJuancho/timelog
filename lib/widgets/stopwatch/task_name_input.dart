@@ -68,17 +68,17 @@ class TaskNameInput extends StatelessWidget {
           ),
           prefixIcon: IconButton(
             icon: Icon(
-              isTemplateActive ? Icons.route : Icons.alt_route,
+              isTemplateActive ? Icons.bookmark : Icons.bookmark_border_outlined,
               color: isTemplateActive ? Colors.orangeAccent : tealColor,
               size: 20,
             ),
-            tooltip: 'Cargar Ruta Estándar',
+            tooltip: 'Cargar Plantilla',
             onPressed: () => _showTemplateSelector(context),
           ),
           suffixIcon: isTemplateActive
               ? IconButton(
                   icon: const Icon(Icons.cancel_presentation, color: Colors.orangeAccent, size: 20),
-                  tooltip: 'Desvincular Ruta',
+                  tooltip: 'Desvincular Plantilla',
                   onPressed: () => notifier.clearTemplate(),
                 )
               : IconButton(

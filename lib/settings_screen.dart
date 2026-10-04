@@ -36,7 +36,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
     final useHaptic = ref.watch(timeLogProvider.select((s) => s.useHapticFeedback));
     final hapticLvl = ref.watch(timeLogProvider.select((s) => s.hapticLevel));
     final usePhysical = ref.watch(timeLogProvider.select((s) => s.usePhysicalButtons));
-    final recOnPause = ref.watch(timeLogProvider.select((s) => s.recordOnPause));
+    final recOnPauseRAC = ref.watch(timeLogProvider.select((s) => s.recordOnPauseRAC));
+    final recOnPauseCont = ref.watch(timeLogProvider.select((s) => s.recordOnPauseCont));
     final tFormat = ref.watch(timeLogProvider.select((s) => s.timeFormat));
     
     final vUpRAC = ref.watch(timeLogProvider.select((s) => s.volUpActionRAC));
@@ -97,17 +98,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
           SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Theme.of(context).colorScheme.primary, title: const Text('Botones de Volumen', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: Text('Usar botones físicos para controlar.', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)), value: usePhysical, onChanged: (v) { controller.updateSetting(usePhysicalButtons: v); }),
           
           if (usePhysical) ...[
-            SwitchListTile(contentPadding: EdgeInsets.zero, activeTrackColor: Theme.of(context).colorScheme.primary, title: const Text('¿Registrar al pausar?', style: TextStyle(fontWeight: FontWeight.bold)), subtitle: Text('Registra el tiempo automáticamente al pausar con el botón físico.', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)), value: recOnPause, onChanged: (v) { controller.updateSetting(recordOnPause: v); }),
-            const SizedBox(height: 20),
-            // SOLUCIÓN BUG: Eliminada la altura fija de 350. 
-            // Ahora usamos AnimatedSize y mostramos condicionalmente las páginas.
+            const SizedBox(height: 10),
             Container(
               decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(16)),
               child: Column(
-                mainAxisSize: MainAxisSize.min, // El contenedor tomará solo el alto necesario
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   TabBar(
-                    controller: _tabController, 
+                    controller: _tabController,
+                    onTap: (_) => setState(() {}),
                     indicatorColor: Theme.of(context).colorScheme.primary, 
                     labelColor: Theme.of(context).colorScheme.primary, 
                     unselectedLabelColor: Colors.white38, 
@@ -117,8 +116,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeInOutCubic,
                     child: _tabController.index == 0
-                        ? _buildButtonConfigPage("Botón Subir", vUpRAC, (v) { controller.updateSetting(volUpActionRAC: v!); }, "Botón Bajar", vDownRAC, (v) { controller.updateSetting(volDownActionRAC: v!); })
-                        : _buildButtonConfigPage("Botón Subir", vUpCont, (v) { controller.updateSetting(volUpActionCont: v!); }, "Botón Bajar", vDownCont, (v) { controller.updateSetting(volDownActionCont: v!); }),
+                        ? _buildButtonConfigPage(
+                            l1: "Botón Subir",
+                            v1: vUpRAC,
+                            c1: (v) { controller.updateSetting(volUpActionRAC: v!); },
+                            l2: "Botón Bajar",
+                            v2: vDownRAC,
+                            c2: (v) { controller.updateSetting(volDownActionRAC: v!); },
+                            recOnPause: recOnPauseRAC,
+                            onRecOnPauseChanged: (v) { controller.updateSetting(recordOnPauseRAC: v); },
+                            recSubtitle: "Registra el ciclo automáticamente al pausar con el botón físico.",
+                          )
+                        : _buildButtonConfigPage(
+                            l1: "Botón Subir",
+                            v1: vUpCont,
+                            c1: (v) { controller.updateSetting(volUpActionCont: v!); },
+                            l2: "Botón Bajar",
+                            v2: vDownCont,
+                            c2: (v) { controller.updateSetting(volDownActionCont: v!); },
+                            recOnPause: recOnPauseCont,
+                            onRecOnPauseChanged: (v) { controller.updateSetting(recordOnPauseCont: v); },
+                            recSubtitle: "Registra el elemento automáticamente al pausar con el botón físico.",
+                          ),
                   )
                 ]
               ),
@@ -133,14 +152,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
     return Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(title.toUpperCase(), style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5)));
   }
 
-  Widget _buildButtonConfigPage(String l1, PhysicalButtonAction v1, ValueChanged<PhysicalButtonAction?> c1, String l2, PhysicalButtonAction v2, ValueChanged<PhysicalButtonAction?> c2) {
-    return Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(l1, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)),
-      DropdownButton<PhysicalButtonAction>(isExpanded: true, value: v1,  underline: Container(height: 1, color: Theme.of(context).dividerColor), items: _getActionItems(), onChanged: c1),
-      const SizedBox(height: 20),
-      Text(l2, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)),
-      DropdownButton<PhysicalButtonAction>(isExpanded: true, value: v2,  underline: Container(height: 1, color: Theme.of(context).dividerColor), items: _getActionItems(), onChanged: c2),
-    ]));
+  Widget _buildButtonConfigPage({
+    required String l1,
+    required PhysicalButtonAction v1,
+    required ValueChanged<PhysicalButtonAction?> c1,
+    required String l2,
+    required PhysicalButtonAction v2,
+    required ValueChanged<PhysicalButtonAction?> c2,
+    required bool recOnPause,
+    required ValueChanged<bool> onRecOnPauseChanged,
+    required String recSubtitle,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l1, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)),
+          DropdownButton<PhysicalButtonAction>(isExpanded: true, value: v1, underline: Container(height: 1, color: Theme.of(context).dividerColor), items: _getActionItems(), onChanged: c1),
+          const SizedBox(height: 20),
+          Text(l2, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12)),
+          DropdownButton<PhysicalButtonAction>(isExpanded: true, value: v2, underline: Container(height: 1, color: Theme.of(context).dividerColor), items: _getActionItems(), onChanged: c2),
+          const SizedBox(height: 14),
+          Divider(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            activeTrackColor: Theme.of(context).colorScheme.primary,
+            title: const Text('¿Registrar al pausar?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            subtitle: Text(
+              recSubtitle,
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12),
+            ),
+            value: recOnPause,
+            onChanged: onRecOnPauseChanged,
+          ),
+        ],
+      ),
+    );
   }
 
   List<DropdownMenuItem<PhysicalButtonAction>> _getActionItems() {

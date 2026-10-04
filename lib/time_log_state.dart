@@ -39,7 +39,8 @@ class TimeLogState {
   final bool usePhysicalButtons;
   final bool useHapticFeedback;
   final HapticLevel hapticLevel;
-  final bool recordOnPause;
+  final bool recordOnPauseRAC;
+  final bool recordOnPauseCont;
   final TimeFormat timeFormat;
   final PhysicalButtonAction volUpActionRAC;
   final PhysicalButtonAction volDownActionRAC;
@@ -79,7 +80,8 @@ class TimeLogState {
     this.usePhysicalButtons = false,
     this.useHapticFeedback = false,
     this.hapticLevel = HapticLevel.medium,
-    this.recordOnPause = false,
+    this.recordOnPauseRAC = false,
+    this.recordOnPauseCont = false,
     this.timeFormat = TimeFormat.standard,
     this.volUpActionRAC = PhysicalButtonAction.lapSnapback,
     this.volDownActionRAC = PhysicalButtonAction.stopAndRecord,
@@ -92,6 +94,7 @@ class TimeLogState {
   int? get activeStudyId => currentMode == StopwatchMode.regresoACero ? activeStudyIdRAC : activeStudyIdCont;
   OperationTemplate? get activeTemplate => currentMode == StopwatchMode.regresoACero ? activeTemplateRAC : activeTemplateCont;
   int get currentTemplateStepIndex => currentMode == StopwatchMode.regresoACero ? currentTemplateStepIndexRAC : currentTemplateStepIndexCont;
+  bool get recordOnPause => currentMode == StopwatchMode.regresoACero ? recordOnPauseRAC : recordOnPauseCont;
   
   List<Map<String, dynamic>> get activeRecordedTimes => 
       currentMode == StopwatchMode.regresoACero ? recordedTimesRegresoACero : recordedTimesContinuo;
@@ -135,7 +138,8 @@ class TimeLogState {
     bool? usePhysicalButtons,
     bool? useHapticFeedback,
     HapticLevel? hapticLevel,
-    bool? recordOnPause,
+    bool? recordOnPauseRAC,
+    bool? recordOnPauseCont,
     TimeFormat? timeFormat,
     PhysicalButtonAction? volUpActionRAC,
     PhysicalButtonAction? volDownActionRAC,
@@ -176,7 +180,8 @@ class TimeLogState {
       usePhysicalButtons: usePhysicalButtons ?? this.usePhysicalButtons,
       useHapticFeedback: useHapticFeedback ?? this.useHapticFeedback,
       hapticLevel: hapticLevel ?? this.hapticLevel,
-      recordOnPause: recordOnPause ?? this.recordOnPause,
+      recordOnPauseRAC: recordOnPauseRAC ?? this.recordOnPauseRAC,
+      recordOnPauseCont: recordOnPauseCont ?? this.recordOnPauseCont,
       timeFormat: timeFormat ?? this.timeFormat,
       volUpActionRAC: volUpActionRAC ?? this.volUpActionRAC,
       volDownActionRAC: volDownActionRAC ?? this.volDownActionRAC,

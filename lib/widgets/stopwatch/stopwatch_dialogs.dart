@@ -229,7 +229,7 @@ class StopwatchDialogs {
 
     final initialName = (state.activeTemplate?.name.isNotEmpty == true)
         ? state.activeTemplate!.name
-        : (state.savedTaskNameCont.isNotEmpty ? state.savedTaskNameCont : 'Nueva Ruta Estándar');
+        : (state.savedTaskNameCont.isNotEmpty ? state.savedTaskNameCont : 'Nueva Plantilla');
     final nameController = TextEditingController(text: initialName);
 
     final storage = StorageService();
@@ -251,7 +251,7 @@ class StopwatchDialogs {
                   const Icon(Icons.bookmark_add, color: Colors.amber),
                   const SizedBox(width: 10),
                   Text(
-                    'Guardar Ruta Estándar',
+                    'Guardar Plantilla',
                     style: TextStyle(
                       color: Theme.of(context).textTheme.bodyMedium?.color,
                       fontSize: 18,
@@ -266,7 +266,7 @@ class StopwatchDialogs {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Nombre de la Ruta',
+                      'Nombre de la Plantilla',
                       style: TextStyle(
                         color: Theme.of(context).textTheme.bodySmall?.color,
                         fontSize: 12,
@@ -320,7 +320,7 @@ class StopwatchDialogs {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Pasos de la Ruta (${steps.length})',
+                      'Pasos de la Plantilla (${steps.length})',
                       style: TextStyle(
                         color: Theme.of(context).textTheme.bodySmall?.color,
                         fontSize: 12,
@@ -381,7 +381,7 @@ class StopwatchDialogs {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            '¡Ruta Estándar "$name" activada y guardada con éxito!',
+                            '¡Plantilla "$name" activada y guardada con éxito!',
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           backgroundColor: Colors.teal,
