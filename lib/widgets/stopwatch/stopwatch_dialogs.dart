@@ -200,7 +200,7 @@ class StopwatchDialogs {
     if (state.activeTemplate != null) {
       steps = List<String>.from(state.activeTemplate!.steps);
     } else {
-      final recorded = state.recordedTimesContinuo;
+      final recorded = state.activeRecordedTimes;
       for (final item in recorded) {
         if (item['status'] == 'pending') continue;
         final name = (item['name'] as String? ?? '').trim();
@@ -229,7 +229,7 @@ class StopwatchDialogs {
 
     final initialName = (state.activeTemplate?.name.isNotEmpty == true)
         ? state.activeTemplate!.name
-        : (state.savedTaskNameCont.isNotEmpty ? state.savedTaskNameCont : 'Nueva Plantilla');
+        : (state.masterStudyName.isNotEmpty ? state.masterStudyName : 'Nueva Plantilla');
     final nameController = TextEditingController(text: initialName);
 
     final storage = StorageService();

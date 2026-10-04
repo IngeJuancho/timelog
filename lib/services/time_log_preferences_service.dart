@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models.dart';
-import '../models/pfd_category.dart';
 import '../storage_service.dart';
 import '../time_log_state.dart';
 
@@ -16,14 +15,6 @@ class TimeLogPreferencesService {
     bool recordOnPauseRAC = prefs.getBool('recordOnPauseRAC') ?? prefs.getBool('recordOnPause') ?? false;
     bool recordOnPauseCont = prefs.getBool('recordOnPauseCont') ?? false;
     bool isAmoledMode = prefs.getBool('isAmoledMode') ?? true;
-
-    String? pfdIdRAC = prefs.getString('pfdCategoryIdRAC');
-    double? customRateRAC = prefs.getDouble('pfdCustomRateRAC');
-    PfdCategory pfdCategoryRAC = PfdCategory.fromId(pfdIdRAC, customRate: customRateRAC);
-
-    String? pfdIdCont = prefs.getString('pfdCategoryIdCont');
-    double? customRateCont = prefs.getDouble('pfdCustomRateCont');
-    PfdCategory pfdCategoryCont = PfdCategory.fromId(pfdIdCont, customRate: customRateCont);
 
     T safeEnum<T>(List<T> values, int index, T fallback) {
       if (index >= 0 && index < values.length) return values[index];
@@ -158,8 +149,6 @@ class TimeLogPreferencesService {
       wasRunning: wasRunning,
       savedStartTime: savedStartTime,
       baseTimeMs: baseTimeMs,
-      pfdCategoryRAC: pfdCategoryRAC,
-      pfdCategoryCont: pfdCategoryCont,
     );
   }
 
@@ -176,10 +165,6 @@ class TimeLogPreferencesService {
     await prefs.setInt('volUpActionCont', newState.volUpActionCont.index);
     await prefs.setInt('volDownActionCont', newState.volDownActionCont.index);
     await prefs.setBool('isAmoledMode', newState.isAmoledMode);
-    await prefs.setString('pfdCategoryIdRAC', newState.pfdCategoryRAC.id);
-    await prefs.setDouble('pfdCustomRateRAC', newState.pfdCategoryRAC.rate);
-    await prefs.setString('pfdCategoryIdCont', newState.pfdCategoryCont.id);
-    await prefs.setDouble('pfdCustomRateCont', newState.pfdCategoryCont.rate);
   }
 
   Future<void> saveTimeData(TimeLogState state) async {
@@ -278,8 +263,6 @@ class TimeLogStateLoadedData {
   final bool wasRunning;
   final int savedStartTime;
   final int baseTimeMs;
-  final PfdCategory pfdCategoryRAC;
-  final PfdCategory pfdCategoryCont;
 
   const TimeLogStateLoadedData({
     required this.usePhysicalButtons,
@@ -307,7 +290,5 @@ class TimeLogStateLoadedData {
     required this.wasRunning,
     required this.savedStartTime,
     required this.baseTimeMs,
-    required this.pfdCategoryRAC,
-    required this.pfdCategoryCont,
   });
 }

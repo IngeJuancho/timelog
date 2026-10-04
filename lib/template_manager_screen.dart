@@ -537,6 +537,13 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
   }
 
   @override
+  void dispose() {
+    _nameController.dispose();
+    _stepController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tealColor = AppTheme.getTealAccent(context);
     return AlertDialog(
@@ -618,6 +625,12 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
   void initState() {
     super.initState();
     _steps = List<String>.from(widget.template.steps); 
+  }
+
+  @override
+  void dispose() {
+    _stepController.dispose();
+    super.dispose();
   }
 
   void _addStep() {

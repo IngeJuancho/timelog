@@ -22,8 +22,8 @@ class TimeLogCalculator {
     }
 
     final validTimes = currentList
-        .where((e) => (e['type'] ?? 'normal') != 'outlier' && (e['time'] as int) > 0 && e['status'] != 'pending')
-        .map((e) => e['time'] as int)
+        .where((e) => (e['type'] ?? 'normal') != 'outlier' && ((e['time'] as num?)?.toInt() ?? 0) > 0 && e['status'] != 'pending')
+        .map((e) => (e['time'] as num?)?.toInt() ?? 0)
         .toList();
 
     if (validTimes.isEmpty) {
@@ -62,10 +62,12 @@ class TimeLogCalculator {
       return 0;
     }
 
-    if (activeTemplate != null && doneItems.length % activeTemplate.steps.length == 0) {
+    if (activeTemplate != null &&
+        activeTemplate.steps.isNotEmpty &&
+        doneItems.length % activeTemplate.steps.length == 0) {
       return 0;
     } else {
-      return doneItems.last['cumulative_time'] as int;
+      return (doneItems.last['cumulative_time'] as num?)?.toInt() ?? 0;
     }
   }
 }

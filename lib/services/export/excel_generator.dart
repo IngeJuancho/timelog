@@ -10,8 +10,6 @@ class ExcelGenerator {
     required String studyName,
     int globalRating = 100,
     Map<int, int> cycleRatings = const {},
-    double pfdRate = 0.13,
-    String? pfdDescription,
   }) async {
     // Precalculamos el rating de cada record
     int getOriginalCycleIndex(int recordIndex, OperationTemplate? template) {
@@ -66,6 +64,10 @@ class ExcelGenerator {
         detectedStepCount = activeTemplate.steps.length;
       }
 
+      if (detectedStepCount <= 0) {
+        detectedStepCount = 1;
+      }
+
       // Construir la plantilla con los nombres del PRIMER ciclo
       List<String> stepNames = [];
       for (int i = 0; i < detectedStepCount && i < data.length; i++) {
@@ -82,22 +84,14 @@ class ExcelGenerator {
       }
     }
 
-    return await _exportJabilTemplateToExcel(
-      data,
-      templateToUse,
-      studyName,
-      pfdRate: pfdRate,
-      pfdDescription: pfdDescription,
-    );
+    return await _exportJabilTemplateToExcel(data, templateToUse, studyName);
   }
 
   Future<List<int>> _exportJabilTemplateToExcel(
     List<Map<String, dynamic>> data,
     OperationTemplate template,
-    String studyName, {
-    double pfdRate = 0.13,
-    String? pfdDescription,
-  }) async {
+    String studyName,
+  ) async {
     int numSteps = template.steps.length;
     var excel = Excel.createExcel();
     Sheet sheet = excel['Sheet1'];
@@ -299,10 +293,10 @@ class ExcelGenerator {
       for (int c = 0; c < maxCycles; c++) {
         if (c < stepData[i].length) {
           var record = stepData[i][c];
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = DoubleCellValue((record['time'] as num) / 1000.0);
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = DoubleCellValue(((record['time'] as num?)?.toDouble() ?? 0.0) / 1000.0);
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = ExcelStyles.twoDecimalsWhiteStyle;
 
-          int currentRating = record['applied_rating'] as int? ?? 100;
+          int currentRating = (record['applied_rating'] as num?)?.toInt() ?? 100;
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).value = DoubleCellValue(currentRating / 100.0);
           sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).cellStyle = ExcelStyles.percentStyle;
         } else {
@@ -327,8 +321,8 @@ class ExcelGenerator {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: freqCol, rowIndex: currentRow)).value = const IntCellValue(1);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: freqCol, rowIndex: currentRow)).cellStyle = ExcelStyles.lightBlueDataStyle;
 
-      // PF&D dinámico (Jabil)
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).value = DoubleCellValue(pfdRate);
+      // PF&D (8%)
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).value = const DoubleCellValue(0.08);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).cellStyle = ExcelStyles.lightBluePercentStyle;
 
       String avgNtColStr = _getColumnLetter(avgNtCol);

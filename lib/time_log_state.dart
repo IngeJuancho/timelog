@@ -4,6 +4,7 @@ import 'models/pfd_category.dart';
 
 @immutable
 class TimeLogState {
+  final PfdCategory? selectedPfd;
   final int baseTimeMs;
   final int? startTimeEpoch;
   final int? activeStudyIdRAC;
@@ -20,8 +21,6 @@ class TimeLogState {
   final int animateResetTrigger;
   final int animateExportTrigger;
   final int showResetDialogTrigger;
-  final int recordAddedTrigger;
-  final int? lastRecordedIndex;
 
   final List<Map<String, dynamic>> recordedTimesRegresoACero;
   final List<Map<String, dynamic>> recordedTimesContinuo;
@@ -50,8 +49,6 @@ class TimeLogState {
   final PhysicalButtonAction volUpActionCont;
   final PhysicalButtonAction volDownActionCont;
   final bool isAmoledMode;
-  final PfdCategory pfdCategoryRAC;
-  final PfdCategory pfdCategoryCont;
 
   const TimeLogState({
     this.baseTimeMs = 0,
@@ -69,8 +66,6 @@ class TimeLogState {
     this.animateResetTrigger = 0,
     this.animateExportTrigger = 0,
     this.showResetDialogTrigger = 0,
-    this.recordAddedTrigger = 0,
-    this.lastRecordedIndex,
     this.recordedTimesRegresoACero = const [],
     this.recordedTimesContinuo = const [],
     this.averageTime = 0.0,
@@ -95,20 +90,6 @@ class TimeLogState {
     this.volUpActionCont = PhysicalButtonAction.startStop,
     this.volDownActionCont = PhysicalButtonAction.stopAndRecord,
     this.isAmoledMode = true,
-    this.pfdCategoryRAC = const PfdCategory(
-      code: 1,
-      id: 'manual_insertion',
-      name: 'Inserción / Montaje Ligero',
-      description: 'Inserción manual, montaje manual ligero o proceso similar',
-      rate: 0.13,
-    ),
-    this.pfdCategoryCont = const PfdCategory(
-      code: 1,
-      id: 'manual_insertion',
-      name: 'Inserción / Montaje Ligero',
-      description: 'Inserción manual, montaje manual ligero o proceso similar',
-      rate: 0.13,
-    ),
   });
 
   // Getters auxiliares basados en el modo actual
@@ -116,7 +97,6 @@ class TimeLogState {
   OperationTemplate? get activeTemplate => currentMode == StopwatchMode.regresoACero ? activeTemplateRAC : activeTemplateCont;
   int get currentTemplateStepIndex => currentMode == StopwatchMode.regresoACero ? currentTemplateStepIndexRAC : currentTemplateStepIndexCont;
   bool get recordOnPause => currentMode == StopwatchMode.regresoACero ? recordOnPauseRAC : recordOnPauseCont;
-  PfdCategory get currentPfdCategory => currentMode == StopwatchMode.regresoACero ? pfdCategoryRAC : pfdCategoryCont;
   
   List<Map<String, dynamic>> get activeRecordedTimes => 
       currentMode == StopwatchMode.regresoACero ? recordedTimesRegresoACero : recordedTimesContinuo;
@@ -144,8 +124,6 @@ class TimeLogState {
     int? animateResetTrigger,
     int? animateExportTrigger,
     int? showResetDialogTrigger,
-    int? recordAddedTrigger,
-    int? Function()? lastRecordedIndex,
     List<Map<String, dynamic>>? recordedTimesRegresoACero,
     List<Map<String, dynamic>>? recordedTimesContinuo,
     double? averageTime,
@@ -170,8 +148,6 @@ class TimeLogState {
     PhysicalButtonAction? volUpActionCont,
     PhysicalButtonAction? volDownActionCont,
     bool? isAmoledMode,
-    PfdCategory? pfdCategoryRAC,
-    PfdCategory? pfdCategoryCont,
   }) {
     return TimeLogState(
       baseTimeMs: baseTimeMs ?? this.baseTimeMs,
@@ -189,8 +165,6 @@ class TimeLogState {
       animateResetTrigger: animateResetTrigger ?? this.animateResetTrigger,
       animateExportTrigger: animateExportTrigger ?? this.animateExportTrigger,
       showResetDialogTrigger: showResetDialogTrigger ?? this.showResetDialogTrigger,
-      recordAddedTrigger: recordAddedTrigger ?? this.recordAddedTrigger,
-      lastRecordedIndex: lastRecordedIndex != null ? lastRecordedIndex() : this.lastRecordedIndex,
       // Hacemos una copia profunda superficial para que cambie la referencia
       recordedTimesRegresoACero: recordedTimesRegresoACero ?? List.from(this.recordedTimesRegresoACero),
       recordedTimesContinuo: recordedTimesContinuo ?? List.from(this.recordedTimesContinuo),
@@ -216,8 +190,6 @@ class TimeLogState {
       volUpActionCont: volUpActionCont ?? this.volUpActionCont,
       volDownActionCont: volDownActionCont ?? this.volDownActionCont,
       isAmoledMode: isAmoledMode ?? this.isAmoledMode,
-      pfdCategoryRAC: pfdCategoryRAC ?? this.pfdCategoryRAC,
-      pfdCategoryCont: pfdCategoryCont ?? this.pfdCategoryCont,
     );
   }
 }

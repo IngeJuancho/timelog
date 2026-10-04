@@ -19,7 +19,7 @@ class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen>
   Widget build(BuildContext context) {
     final currentMean = ref.watch(timeLogProvider.select((s) => s.averageTime));
     final currentStdDev = ref.watch(timeLogProvider.select((s) => s.stdDev));
-    final currentCount = ref.watch(timeLogProvider.select((s) => s.activeRecordedTimes.where((e) => (e['type'] ?? 'normal') != 'outlier' && (e['time'] as int) > 0 && e['status'] != 'pending').length));
+    final currentCount = ref.watch(timeLogProvider.select((s) => s.activeRecordedTimes.where((e) => (e['type'] ?? 'normal') != 'outlier' && ((e['time'] as num?)?.toInt() ?? 0) > 0 && e['status'] != 'pending').length));
     
     final controller = ref.read(timeLogProvider.notifier);
     final tealColor = AppTheme.getTealAccent(context);

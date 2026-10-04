@@ -29,10 +29,10 @@ class StorageService {
     return rawTimes.map((e) {
       return TimeRecord()
         ..name = e['name'] as String?
-        ..time = e['time'] as int?
+        ..time = (e['time'] as num?)?.toInt()
         ..type = e['type'] as String?
-        ..cumulativeTime = e['cumulative_time'] as int?
-        ..stepIndex = e['step_index'] as int?;
+        ..cumulativeTime = (e['cumulative_time'] as num?)?.toInt()
+        ..stepIndex = (e['step_index'] as num?)?.toInt();
     }).toList();
   }
 
@@ -250,10 +250,12 @@ class StorageService {
       Map<String, dynamic> data = jsonDecode(jsonString);
       
       if (data.containsKey('name') && data.containsKey('steps')) {
-        String name = data['name'];
-        List<String> steps = List<String>.from(data['steps']);
-        await saveTemplate(name, steps, folderId: currentFolderId);
-        return true;
+        String name = data['name']?.toString() ?? 'Plantilla Importada';
+        List<String> steps = (data['steps'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+        if (steps.isNotEmpty) {
+          await saveTemplate(name, steps, folderId: currentFolderId);
+          return true;
+        }
       }
       return false;
     } catch (e) {
@@ -289,11 +291,13 @@ class StorageService {
             Map<String, dynamic> data = jsonDecode(jsonString);
             
             if (data.containsKey('name') && data.containsKey('steps')) {
-              String name = data['name'];
-              List<String> steps = List<String>.from(data['steps']);
+              String name = data['name']?.toString() ?? file.name;
+              List<String> steps = (data['steps'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
               
-              await saveTemplate(name, steps, folderId: folderIdToUse);
-              importedAny = true;
+              if (steps.isNotEmpty) {
+                await saveTemplate(name, steps, folderId: folderIdToUse);
+                importedAny = true;
+              }
             }
           } catch (_) {
             // Si un archivo no es válido, lo saltamos silenciosamente

@@ -14,7 +14,6 @@ import 'widgets/stopwatch/stopwatch_drawer.dart';
 import 'widgets/stopwatch/task_name_input.dart';
 import 'widgets/stopwatch/time_records_list.dart';
 import 'widgets/stopwatch/timer_display.dart';
-import 'widgets/stopwatch/pfd_selector_sheet.dart';
 
 class StopwatchScreen extends ConsumerStatefulWidget {
   const StopwatchScreen({super.key});
@@ -53,6 +52,12 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
     _taskNameFocusNode.addListener(() {
       if (!_taskNameFocusNode.hasFocus) {
         SystemChannels.textInput.invokeMethod('TextInput.hide');
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && ref.read(timeLogProvider).isRunning && !_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
       }
     });
   }
@@ -108,6 +113,47 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
     _viewChangeController.forward().then((_) => _viewChangeController.reverse());
   }
 
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _scrollToIndex(int index, bool isContinuous) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        double estimatedItemHeight = isContinuous ? 48.0 : 72.0;
+        double headerOffset = isContinuous ? 56.0 : 0.0;
+
+        double targetItemOffset = (index * estimatedItemHeight) + headerOffset;
+        double currentOffset = _scrollController.offset;
+        double viewportHeight = _scrollController.position.viewportDimension;
+
+        if (targetItemOffset < currentOffset ||
+            targetItemOffset > currentOffset + viewportHeight - estimatedItemHeight) {
+          double targetScroll = targetItemOffset - (viewportHeight / 2) + (estimatedItemHeight / 2);
+
+          if (targetScroll < 0) targetScroll = 0;
+          if (targetScroll > _scrollController.position.maxScrollExtent) {
+            targetScroll = _scrollController.position.maxScrollExtent;
+          }
+
+          _scrollController.animateTo(
+            targetScroll,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -133,7 +179,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
       final notifier = ref.read(timeLogProvider.notifier);
       StopwatchDialogs.confirmReset(context, state, notifier);
     });
-
 
     ref.listen(timeLogProvider.select((s) => s.isRunning), (_, isRunning) {
       if (isRunning && !_pulseController.isAnimating) {
@@ -221,15 +266,6 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                       _animateButton(_exportButtonController);
                       ExportOptionsSheet.show(
                         context,
-                        currentPfd: state.currentPfdCategory,
-                        onPfdChangePressed: () {
-                          Navigator.pop(context);
-                          PfdSelectorSheet.show(
-                            context,
-                            selectedCategory: state.currentPfdCategory,
-                            onCategorySelected: (cat) => notifier.setPfdCategory(cat),
-                          );
-                        },
                         onImportPressed: () => notifier.importExcel(),
                         onExportPressed: () => notifier.exportData(),
                       );

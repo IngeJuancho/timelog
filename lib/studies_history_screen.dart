@@ -167,9 +167,12 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
         Map<int, int> cycleRatings = study.cycleRatingsMap;
 
         OperationTemplate? template;
-        if (study.isTemplate) {
+        if (study.isTemplate && study.templateSteps.isNotEmpty) {
           final templates = await _storage.getTemplates();
-          template = templates.where((t) => t.steps.length == study.templateSteps.length).firstOrNull;
+          template = templates.where((t) => t.name == study.name && t.steps.length == study.templateSteps.length).firstOrNull;
+          template ??= OperationTemplate()
+            ..name = study.name
+            ..steps = study.templateSteps;
         }
 
         final fileBytes = await _export.generateExcelBytes(
@@ -197,7 +200,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
         filesToShare.add(XFile(filePath));
       }
 
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
 
       if (filesToShare.isNotEmpty) {
         // ignore: deprecated_member_use
@@ -212,7 +215,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
         }
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al exportar: $e'), backgroundColor: Colors.redAccent),
