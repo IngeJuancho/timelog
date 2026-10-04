@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
+import '../../models/pfd_category.dart';
 
 class ExportOptionsSheet extends StatelessWidget {
   final VoidCallback onImportPressed;
   final VoidCallback onExportPressed;
+  final PfdCategory? currentPfd;
+  final VoidCallback? onPfdChangePressed;
 
   const ExportOptionsSheet({
     super.key,
     required this.onImportPressed,
     required this.onExportPressed,
+    this.currentPfd,
+    this.onPfdChangePressed,
   });
 
   static void show(
     BuildContext context, {
     required VoidCallback onImportPressed,
     required VoidCallback onExportPressed,
+    PfdCategory? currentPfd,
+    VoidCallback? onPfdChangePressed,
   }) {
     showModalBottomSheet(
       context: context,
@@ -24,12 +31,16 @@ class ExportOptionsSheet extends StatelessWidget {
       builder: (_) => ExportOptionsSheet(
         onImportPressed: onImportPressed,
         onExportPressed: onExportPressed,
+        currentPfd: currentPfd,
+        onPfdChangePressed: onPfdChangePressed,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       child: Column(
@@ -43,7 +54,62 @@ class ExportOptionsSheet extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          if (currentPfd != null) ...[
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onPfdChangePressed,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: primaryColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: primaryColor.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.tune, size: 18, color: primaryColor),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'PF&D: ${currentPfd!.name} (${currentPfd!.percentageText})',
+                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              'Se aplicará a la columna de suplementos en Excel.',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (onPfdChangePressed != null) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          'Cambiar',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: primaryColor,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           ListTile(
             leading: const CircleAvatar(
               backgroundColor: Colors.teal,

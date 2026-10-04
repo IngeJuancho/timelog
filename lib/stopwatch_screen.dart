@@ -14,6 +14,7 @@ import 'widgets/stopwatch/stopwatch_drawer.dart';
 import 'widgets/stopwatch/task_name_input.dart';
 import 'widgets/stopwatch/time_records_list.dart';
 import 'widgets/stopwatch/timer_display.dart';
+import 'widgets/stopwatch/pfd_selector_sheet.dart';
 
 class StopwatchScreen extends ConsumerStatefulWidget {
   const StopwatchScreen({super.key});
@@ -284,6 +285,15 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                       _animateButton(_exportButtonController);
                       ExportOptionsSheet.show(
                         context,
+                        currentPfd: state.currentPfdCategory,
+                        onPfdChangePressed: () {
+                          Navigator.pop(context);
+                          PfdSelectorSheet.show(
+                            context,
+                            selectedCategory: state.currentPfdCategory,
+                            onCategorySelected: (cat) => notifier.setPfdCategory(cat),
+                          );
+                        },
                         onImportPressed: () => notifier.importExcel(),
                         onExportPressed: () => notifier.exportData(),
                       );

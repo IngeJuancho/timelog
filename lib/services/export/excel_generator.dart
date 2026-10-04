@@ -10,6 +10,8 @@ class ExcelGenerator {
     required String studyName,
     int globalRating = 100,
     Map<int, int> cycleRatings = const {},
+    double pfdRate = 0.13,
+    String? pfdDescription,
   }) async {
     // Precalculamos el rating de cada record
     int getOriginalCycleIndex(int recordIndex, OperationTemplate? template) {
@@ -80,14 +82,22 @@ class ExcelGenerator {
       }
     }
 
-    return await _exportJabilTemplateToExcel(data, templateToUse, studyName);
+    return await _exportJabilTemplateToExcel(
+      data,
+      templateToUse,
+      studyName,
+      pfdRate: pfdRate,
+      pfdDescription: pfdDescription,
+    );
   }
 
   Future<List<int>> _exportJabilTemplateToExcel(
     List<Map<String, dynamic>> data,
     OperationTemplate template,
-    String studyName,
-  ) async {
+    String studyName, {
+    double pfdRate = 0.13,
+    String? pfdDescription,
+  }) async {
     int numSteps = template.steps.length;
     var excel = Excel.createExcel();
     Sheet sheet = excel['Sheet1'];
@@ -317,8 +327,8 @@ class ExcelGenerator {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: freqCol, rowIndex: currentRow)).value = const IntCellValue(1);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: freqCol, rowIndex: currentRow)).cellStyle = ExcelStyles.lightBlueDataStyle;
 
-      // PF&D (8%)
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).value = const DoubleCellValue(0.08);
+      // PF&D dinámico (Jabil)
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).value = DoubleCellValue(pfdRate);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).cellStyle = ExcelStyles.lightBluePercentStyle;
 
       String avgNtColStr = _getColumnLetter(avgNtCol);

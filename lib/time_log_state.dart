@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'models.dart';
+import 'models/pfd_category.dart';
 
 @immutable
 class TimeLogState {
@@ -47,6 +48,8 @@ class TimeLogState {
   final PhysicalButtonAction volUpActionCont;
   final PhysicalButtonAction volDownActionCont;
   final bool isAmoledMode;
+  final PfdCategory pfdCategoryRAC;
+  final PfdCategory pfdCategoryCont;
 
   const TimeLogState({
     this.baseTimeMs = 0,
@@ -88,6 +91,20 @@ class TimeLogState {
     this.volUpActionCont = PhysicalButtonAction.startStop,
     this.volDownActionCont = PhysicalButtonAction.stopAndRecord,
     this.isAmoledMode = true,
+    this.pfdCategoryRAC = const PfdCategory(
+      code: 1,
+      id: 'manual_insertion',
+      name: 'Inserción / Montaje Ligero',
+      description: 'Inserción manual, montaje manual ligero o proceso similar',
+      rate: 0.13,
+    ),
+    this.pfdCategoryCont = const PfdCategory(
+      code: 1,
+      id: 'manual_insertion',
+      name: 'Inserción / Montaje Ligero',
+      description: 'Inserción manual, montaje manual ligero o proceso similar',
+      rate: 0.13,
+    ),
   });
 
   // Getters auxiliares basados en el modo actual
@@ -95,6 +112,7 @@ class TimeLogState {
   OperationTemplate? get activeTemplate => currentMode == StopwatchMode.regresoACero ? activeTemplateRAC : activeTemplateCont;
   int get currentTemplateStepIndex => currentMode == StopwatchMode.regresoACero ? currentTemplateStepIndexRAC : currentTemplateStepIndexCont;
   bool get recordOnPause => currentMode == StopwatchMode.regresoACero ? recordOnPauseRAC : recordOnPauseCont;
+  PfdCategory get currentPfdCategory => currentMode == StopwatchMode.regresoACero ? pfdCategoryRAC : pfdCategoryCont;
   
   List<Map<String, dynamic>> get activeRecordedTimes => 
       currentMode == StopwatchMode.regresoACero ? recordedTimesRegresoACero : recordedTimesContinuo;
@@ -146,6 +164,8 @@ class TimeLogState {
     PhysicalButtonAction? volUpActionCont,
     PhysicalButtonAction? volDownActionCont,
     bool? isAmoledMode,
+    PfdCategory? pfdCategoryRAC,
+    PfdCategory? pfdCategoryCont,
   }) {
     return TimeLogState(
       baseTimeMs: baseTimeMs ?? this.baseTimeMs,
@@ -188,6 +208,8 @@ class TimeLogState {
       volUpActionCont: volUpActionCont ?? this.volUpActionCont,
       volDownActionCont: volDownActionCont ?? this.volDownActionCont,
       isAmoledMode: isAmoledMode ?? this.isAmoledMode,
+      pfdCategoryRAC: pfdCategoryRAC ?? this.pfdCategoryRAC,
+      pfdCategoryCont: pfdCategoryCont ?? this.pfdCategoryCont,
     );
   }
 }

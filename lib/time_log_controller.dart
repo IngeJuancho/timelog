@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
+import 'models/pfd_category.dart';
 import 'main.dart';
 import 'storage_service.dart';
 import 'export_service.dart';
@@ -222,6 +223,8 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       currentTemplateStepIndexCont: currentTemplateStepIndexCont,
       cycleRatingsRAC: loaded.cycleRatingsRAC,
       cycleRatingsCont: loaded.cycleRatingsCont,
+      pfdCategoryRAC: loaded.pfdCategoryRAC,
+      pfdCategoryCont: loaded.pfdCategoryCont,
     );
 
     _recalculateLastRecordedTime();
@@ -277,6 +280,15 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     );
     state = newState;
     saveSettings(newState);
+  }
+
+  void setPfdCategory(PfdCategory category) {
+    if (state.currentMode == StopwatchMode.regresoACero) {
+      state = state.copyWith(pfdCategoryRAC: category);
+    } else {
+      state = state.copyWith(pfdCategoryCont: category);
+    }
+    saveSettings(state);
   }
 
   Future<void> saveTimeData() async {
@@ -765,6 +777,8 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         studyName: state.masterStudyName.isNotEmpty ? state.masterStudyName : 'Estudio_General',
         globalRating: state.globalRating,
         cycleRatings: state.currentMode == StopwatchMode.regresoACero ? state.cycleRatingsRAC : state.cycleRatingsCont,
+        pfdRate: state.currentPfdCategory.rate,
+        pfdDescription: state.currentPfdCategory.name,
       );
 
       if (fileName != null) {
