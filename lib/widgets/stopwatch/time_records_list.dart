@@ -71,48 +71,94 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
   Widget _buildLinearTable(BuildContext context, dynamic state, dynamic notifier) {
     final tealFill = AppTheme.getTealFill(context);
 
+    const fixedColumns = [
+      DataColumn(label: Text('#')), 
+      DataColumn(label: Text('ELEMENTO')), 
+    ];
+
+    const scrollableColumns = [
+      DataColumn(label: Text('TC (Acum)')), 
+      DataColumn(label: Text('TO (Indiv)')), 
+      DataColumn(label: Text(''))
+    ];
+
+    final fixedRows = <DataRow>[];
+    final scrollableRows = <DataRow>[];
+
+    for (int i = 0; i < state.recordedTimesContinuo.length; i++) {
+      final e = state.recordedTimesContinuo[i];
+      bool isOutlier = e['type'] == 'outlier';
+      bool isPending = e['status'] == 'pending';
+      bool isActiveStep = state.activeTemplate != null && i == state.currentTemplateStepIndex;
+
+      final color = WidgetStateProperty.resolveWith((states) {
+        if (isActiveStep) return tealFill; 
+        if (isOutlier) return Colors.redAccent.withValues(alpha: 0.05);
+        return null;
+      });
+
+      fixedRows.add(DataRow(
+        onLongPress: isPending ? null : () => widget.onMergeRequest(i), 
+        color: color,
+        cells: [
+          DataCell(Text('${i + 1}', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5)))), 
+          DataCell(ElementNameWidget(timeData: e, index: i)), 
+        ],
+      ));
+
+      scrollableRows.add(DataRow(
+        onLongPress: isPending ? null : () => widget.onMergeRequest(i), 
+        color: color,
+        cells: [
+          DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(((e['cumulative_time'] as num?)?.toDouble() ?? 0.0)), style: TextStyle(color: isOutlier ? Theme.of(context).textTheme.bodySmall?.color : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7))))), 
+          DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(((e['time'] as num?)?.toDouble() ?? 0.0)), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color)))), 
+          DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => notifier.deleteItem(i)))
+        ],
+      ));
+    }
+
     return SingleChildScrollView(
       controller: widget.scrollController,
       scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        controller: _horizontalController,
-        scrollDirection: Axis.horizontal,
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Theme.of(context).dividerColor),
-          child: DataTable(
-            columnSpacing: 20, 
-            headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
-            headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
-            dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
-            columns: const [
-              DataColumn(label: Text('#')), 
-              DataColumn(label: Text('ELEMENTO')), 
-              DataColumn(label: Text('TC (Acum)')), 
-              DataColumn(label: Text('TO (Indiv)')), 
-              DataColumn(label: Text(''))
-            ],
-            rows: state.recordedTimesContinuo.asMap().entries.map<DataRow>((e) {
-              bool isOutlier = e.value['type'] == 'outlier';
-              bool isPending = e.value['status'] == 'pending';
-              bool isActiveStep = state.activeTemplate != null && e.key == state.currentTemplateStepIndex;
-
-              return DataRow(
-                onLongPress: isPending ? null : () => widget.onMergeRequest(e.key), 
-                color: WidgetStateProperty.resolveWith((states) {
-                  if (isActiveStep) return tealFill; 
-                  if (isOutlier) return Colors.redAccent.withValues(alpha: 0.05);
-                  return null;
-                }),
-                cells: [
-                  DataCell(Text('${e.key + 1}', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5)))), 
-                  DataCell(ElementNameWidget(timeData: e.value, index: e.key)), 
-                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(((e.value['cumulative_time'] as num?)?.toDouble() ?? 0.0)), style: TextStyle(color: isOutlier ? Theme.of(context).textTheme.bodySmall?.color : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7))))), 
-                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(((e.value['time'] as num?)?.toDouble() ?? 0.0)), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color)))), 
-                  DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => notifier.deleteItem(e.key)))
-                ]
-              );
-            }).toList(),
-          ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Theme.of(context).dividerColor),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                border: Border(right: BorderSide(color: Theme.of(context).dividerColor, width: 2.0)),
+              ),
+              child: DataTable(
+                columnSpacing: 20, 
+                dataRowMinHeight: 60,
+                dataRowMaxHeight: 60,
+                headingRowHeight: 48,
+                headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
+                headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
+                dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
+                columns: fixedColumns,
+                rows: fixedRows,
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _horizontalController,
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  columnSpacing: 20, 
+                  dataRowMinHeight: 60,
+                  dataRowMaxHeight: 60,
+                  headingRowHeight: 48,
+                  headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
+                  headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
+                  dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
+                  columns: scrollableColumns,
+                  rows: scrollableRows,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -132,18 +178,20 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
     int numCycles = (recordedTimes.length / numElements).ceil();
     if (numCycles == 0) numCycles = 1; // Mostrar al menos la columna C1 vacía
     
-    final columns = <DataColumn>[
+    final fixedColumns = <DataColumn>[
       const DataColumn(
         label: SizedBox(
-          width: 220,
+          width: 140,
           child: Text('ELEMENTO', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
     ];
+    
+    final scrollableColumns = <DataColumn>[];
     for (int i = 0; i < numCycles; i++) {
       final int cycleIndex = i;
       final int? assignedRating = cycleRatings[cycleIndex];
-      columns.add(DataColumn(
+      scrollableColumns.add(DataColumn(
         label: GestureDetector(
           onTap: () => _showCycleRatingDialog(context, notifier, cycleIndex, assignedRating),
           child: Column(
@@ -171,13 +219,14 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
       ));
     }
     
-    final rows = <DataRow>[];
+    final fixedRows = <DataRow>[];
+    final scrollableRows = <DataRow>[];
     
     for (int elIndex = 0; elIndex < numElements; elIndex++) {
-      final cells = <DataCell>[
+      final fixedCells = <DataCell>[
         DataCell(
           SizedBox(
-            width: 220,
+            width: 140,
             child: Text(
               elements[elIndex],
               maxLines: 2,
@@ -188,6 +237,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
         ),
       ];
       
+      final scrollableCells = <DataCell>[];
       for (int cycle = 0; cycle < numCycles; cycle++) {
         final recordIndex = cycle * numElements + elIndex;
         if (recordIndex < recordedTimes.length) {
@@ -195,7 +245,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
           bool isOutlier = record['type'] == 'outlier';
           bool isPending = record['status'] == 'pending';
           
-          cells.add(DataCell(
+          scrollableCells.add(DataCell(
             GestureDetector(
               onLongPress: isPending ? null : () => widget.onMergeRequest(recordIndex),
               child: Column(
@@ -232,22 +282,24 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
             )
           ));
         } else {
-          cells.add(const DataCell(Text('')));
+          scrollableCells.add(const DataCell(Text('')));
         }
       }
-      rows.add(DataRow(cells: cells));
+      fixedRows.add(DataRow(cells: fixedCells));
+      scrollableRows.add(DataRow(cells: scrollableCells));
     }
     
     // Add "Total Ciclo" row
-    final totalCells = <DataCell>[
+    final fixedTotalCells = <DataCell>[
       DataCell(
         SizedBox(
-          width: 220,
+          width: 140,
           child: Text('TOTAL CICLO', style: TextStyle(fontWeight: FontWeight.bold, color: tealColor)),
         ),
       ),
     ];
     
+    final scrollableTotalCells = <DataCell>[];
     for (int cycle = 0; cycle < numCycles; cycle++) {
       double cycleTotal = 0;
       bool hasPending = false;
@@ -269,9 +321,9 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
       }
       
       if (!hasValues && !hasPending) {
-         totalCells.add(const DataCell(Text('')));
+         scrollableTotalCells.add(const DataCell(Text('')));
       } else {
-         totalCells.add(DataCell(
+         scrollableTotalCells.add(DataCell(
            Text(
              hasPending ? '--:--.--' : notifier.formatTime(cycleTotal),
              style: TextStyle(fontWeight: FontWeight.bold, color: tealColor)
@@ -280,29 +332,57 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
       }
     }
     
-    rows.add(DataRow(
+    fixedRows.add(DataRow(
        color: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest),
-       cells: totalCells
+       cells: fixedTotalCells
+    ));
+    scrollableRows.add(DataRow(
+       color: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest),
+       cells: scrollableTotalCells
     ));
 
     return SingleChildScrollView(
       controller: widget.scrollController,
       scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        controller: _horizontalController,
-        scrollDirection: Axis.horizontal,
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Theme.of(context).dividerColor),
-          child: DataTable(
-            columnSpacing: 20, 
-            dataRowMaxHeight: 60,
-            dataRowMinHeight: 45,
-            headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
-            headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
-            dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
-            columns: columns,
-            rows: rows,
-          ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Theme.of(context).dividerColor),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                border: Border(right: BorderSide(color: Theme.of(context).dividerColor, width: 2.0)),
+              ),
+              child: DataTable(
+                columnSpacing: 20, 
+                dataRowMinHeight: 52,
+                dataRowMaxHeight: 52,
+                headingRowHeight: 48,
+                headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
+                headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
+                dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
+                columns: fixedColumns,
+                rows: fixedRows,
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _horizontalController,
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  columnSpacing: 20, 
+                  dataRowMinHeight: 52,
+                  dataRowMaxHeight: 52,
+                  headingRowHeight: 48,
+                  headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
+                  headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
+                  dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
+                  columns: scrollableColumns,
+                  rows: scrollableRows,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -437,46 +517,92 @@ class _SimpleRecordsListWidgetState extends ConsumerState<SimpleRecordsListWidge
 
     if (state.recordedTimesRegresoACero.isEmpty) return const EmptyStateWidget();
     
+    const fixedColumns = [
+      DataColumn(label: Text('#')),
+      DataColumn(label: Text('ELEMENTO')),
+    ];
+
+    const scrollableColumns = [
+      DataColumn(label: Text('TIEMPO (TO)')), 
+      DataColumn(label: Text('')),
+    ];
+
+    final fixedRows = <DataRow>[];
+    final scrollableRows = <DataRow>[];
+
+    for (int i = 0; i < state.recordedTimesRegresoACero.length; i++) {
+      final e = state.recordedTimesRegresoACero[i];
+      bool isOutlier = e['type'] == 'outlier';
+      bool isPending = e['status'] == 'pending';
+      bool isActiveStep = state.activeTemplate != null && i == state.currentTemplateStepIndex;
+
+      final color = WidgetStateProperty.resolveWith((states) {
+        if (isActiveStep) return tealFill;
+        if (isOutlier) return Colors.redAccent.withValues(alpha: 0.05);
+        return null;
+      });
+
+      fixedRows.add(DataRow(
+        onLongPress: isPending ? null : () => widget.onMergeRequest(i),
+        color: color,
+        cells: [
+          DataCell(Text('${i + 1}', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5)))),
+          DataCell(ElementNameWidget(timeData: e, index: i)),
+        ],
+      ));
+
+      scrollableRows.add(DataRow(
+        onLongPress: isPending ? null : () => widget.onMergeRequest(i),
+        color: color,
+        cells: [
+          DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(((e['time'] as num?)?.toDouble() ?? 0.0)), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color)))),
+          DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => notifier.deleteItem(i)))
+        ],
+      ));
+    }
+
     return SingleChildScrollView(
       controller: widget.scrollController,
       scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        controller: _horizontalController,
-        scrollDirection: Axis.horizontal,
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Theme.of(context).dividerColor),
-          child: DataTable(
-            columnSpacing: 20,
-            headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest),
-            headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12),
-            dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
-            columns: const [
-              DataColumn(label: Text('#')),
-              DataColumn(label: Text('ELEMENTO')),
-              DataColumn(label: Text('TIEMPO (TO)')), 
-              DataColumn(label: Text('')),
-            ],
-            rows: state.recordedTimesRegresoACero.asMap().entries.map((e) {
-              bool isOutlier = e.value['type'] == 'outlier';
-              bool isPending = e.value['status'] == 'pending';
-              bool isActiveStep = state.activeTemplate != null && e.key == state.currentTemplateStepIndex;
-
-              return DataRow(
-                onLongPress: isPending ? null : () => widget.onMergeRequest(e.key),
-                color: WidgetStateProperty.resolveWith((states) {
-                  if (isActiveStep) return tealFill;
-                  if (isOutlier) return Colors.redAccent.withValues(alpha: 0.05);
-                  return null;
-                }),
-                cells: [
-                  DataCell(Text('${e.key + 1}', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5)))),
-                  DataCell(ElementNameWidget(timeData: e.value, index: e.key)),
-                  DataCell(Text(isPending ? '--:--.--' : notifier.formatTime(((e.value['time'] as num?)?.toDouble() ?? 0.0)), style: TextStyle(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color)))),
-                  DataCell(isPending ? const SizedBox.shrink() : IconButton(icon: const Icon(Icons.close, size: 16, color: Colors.redAccent), onPressed: () => notifier.deleteItem(e.key)))
-                ],
-              );
-            }).toList(),
-          ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Theme.of(context).dividerColor),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                border: Border(right: BorderSide(color: Theme.of(context).dividerColor, width: 2.0)),
+              ),
+              child: DataTable(
+                columnSpacing: 20,
+                dataRowMinHeight: 60,
+                dataRowMaxHeight: 60,
+                headingRowHeight: 48,
+                headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest),
+                headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12),
+                dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
+                columns: fixedColumns,
+                rows: fixedRows,
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _horizontalController,
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  columnSpacing: 20,
+                  dataRowMinHeight: 60,
+                  dataRowMaxHeight: 60,
+                  headingRowHeight: 48,
+                  headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest),
+                  headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12),
+                  dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
+                  columns: scrollableColumns,
+                  rows: scrollableRows,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -504,13 +630,18 @@ class ElementNameWidget extends ConsumerWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              timeData['name'], 
-              style: TextStyle(
-                fontWeight: FontWeight.w500, 
-                color: isOutlier ? Theme.of(context).textTheme.bodySmall?.color : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color), 
-                decoration: isOutlier ? TextDecoration.lineThrough : null
-              )
+            SizedBox(
+              width: 140,
+              child: Text(
+                timeData['name'], 
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: FontWeight.w500, 
+                  color: isOutlier ? Theme.of(context).textTheme.bodySmall?.color : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color), 
+                  decoration: isOutlier ? TextDecoration.lineThrough : null
+                )
+              ),
             ),
             const SizedBox(width: 8),
             if (!isPending) GestureDetector(
