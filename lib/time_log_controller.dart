@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
+import 'models/pfd_category.dart';
 import 'main.dart';
 import 'storage_service.dart';
 import 'export_service.dart';
@@ -298,6 +299,11 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       clearActiveStudyId();
     }
     saveTimerState();
+  }
+
+  void setPfdCategory(PfdCategory category) {
+    state = state.copyWith(selectedPfd: () => category);
+    _showSnackBar('PF&D: ${category.percentageText} (${category.name})', Icons.pie_chart_outline_rounded, AppTheme.primaryTeal);
   }
 
   void updateGlobalRating(String value) {
@@ -770,6 +776,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
         studyName: state.masterStudyName.isNotEmpty ? state.masterStudyName : 'Estudio_General',
         globalRating: state.globalRating,
         cycleRatings: state.currentMode == StopwatchMode.regresoACero ? state.cycleRatingsRAC : state.cycleRatingsCont,
+        pfdRate: state.pfd.rate,
       );
 
       if (fileName != null) {

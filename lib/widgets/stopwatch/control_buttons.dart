@@ -64,93 +64,161 @@ class ControlButtons extends ConsumerWidget {
       animation: startButtonAnimation,
       builder: (context, child) => Transform.scale(
         scale: startButtonAnimation.value,
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton.icon(
-            onPressed: onStartPressed,
-            icon: Icon(primaryIcon, size: 24),
-            label: Text(primaryLabel.toUpperCase(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor.withValues(alpha: isLight ? 0.20 : 0.15), 
-              foregroundColor: primaryColor, 
-              elevation: 0, 
-              side: BorderSide(color: primaryColor.withValues(alpha: isLight ? 0.8 : 0.5), width: 1.5), 
-              shape: const StadiumBorder()
-            )))));
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: state.isRunning
+                ? [
+                    BoxShadow(
+                      color: primaryColor.withValues(alpha: isLight ? 0.35 : 0.45),
+                      blurRadius: 18,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : [],
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton.icon(
+              onPressed: onStartPressed,
+              icon: Icon(primaryIcon, size: 24),
+              label: Text(
+                primaryLabel.toUpperCase(),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor.withValues(alpha: isLight ? 0.22 : 0.18),
+                foregroundColor: primaryColor,
+                elevation: 0,
+                side: BorderSide(
+                  color: primaryColor.withValues(alpha: state.isRunning ? 0.9 : (isLight ? 0.7 : 0.45)),
+                  width: state.isRunning ? 2.0 : 1.5,
+                ),
+                shape: const StadiumBorder(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildSecondaryButtons(BuildContext context, dynamic state) {
     String secondaryLabel = state.currentMode == StopwatchMode.regresoACero ? 'Vuelta' : 'Finalizar';
     IconData secondaryIcon = state.currentMode == StopwatchMode.regresoACero ? Icons.replay : Icons.stop_circle_outlined;
     bool isEnabled = state.isRunning;
+    final isLight = Theme.of(context).brightness == Brightness.light;
 
     return Row(
       children: [
         Expanded(
+          flex: 4,
           child: AnimatedBuilder(
             animation: secondaryButtonAnimation,
             builder: (_, __) => Transform.scale(
-              scale: secondaryButtonAnimation.value, 
-              child: _buildIconButton(
+              scale: secondaryButtonAnimation.value,
+              child: _buildM3CardButton(
                 context: context,
-                icon: secondaryIcon, 
-                label: secondaryLabel, 
-                onPressed: isEnabled ? onSecondaryPressed : null, 
-                color: Colors.orangeAccent
-              )
-            ))
+                icon: secondaryIcon,
+                label: secondaryLabel,
+                onPressed: isEnabled ? onSecondaryPressed : null,
+                color: isEnabled ? Colors.orangeAccent : Theme.of(context).disabledColor,
+                backgroundColor: isEnabled
+                    ? Colors.orangeAccent.withValues(alpha: isLight ? 0.16 : 0.12)
+                    : Theme.of(context).cardColor.withValues(alpha: 0.5),
+                borderColor: isEnabled
+                    ? Colors.orangeAccent.withValues(alpha: 0.6)
+                    : Theme.of(context).dividerColor.withValues(alpha: 0.15),
+              ),
+            ),
+          ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         Expanded(
+          flex: 3,
           child: AnimatedBuilder(
             animation: resetButtonAnimation,
             builder: (_, __) => Transform.scale(
-              scale: resetButtonAnimation.value, 
-              child: _buildIconButton(
+              scale: resetButtonAnimation.value,
+              child: _buildM3CardButton(
                 context: context,
-                icon: Icons.refresh, 
-                label: 'Reset', 
-                onPressed: onResetPressed, 
-                color: Theme.of(context).textTheme.bodySmall?.color
-              )
-            ))
+                icon: Icons.restart_alt,
+                label: 'Reset',
+                onPressed: onResetPressed,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.8) ?? Colors.grey,
+                backgroundColor: Theme.of(context).cardColor,
+                borderColor: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         Expanded(
+          flex: 3,
           child: AnimatedBuilder(
             animation: exportButtonAnimation,
             builder: (_, __) => Transform.scale(
-              scale: exportButtonAnimation.value, 
-              child: _buildIconButton(
+              scale: exportButtonAnimation.value,
+              child: _buildM3CardButton(
                 context: context,
-                icon: Icons.import_export, 
-                label: 'Archivos',         
-                onPressed: onExportPressed, 
-                color: Colors.blueAccent
-              )
-            ))
+                icon: Icons.folder_open_outlined,
+                label: 'Archivos',
+                onPressed: onExportPressed,
+                color: Colors.blueAccent,
+                backgroundColor: Colors.blueAccent.withValues(alpha: isLight ? 0.10 : 0.08),
+                borderColor: Colors.blueAccent.withValues(alpha: 0.35),
+              ),
+            ),
+          ),
         ),
-      ]);
+      ],
+    );
   }
 
-  Widget _buildIconButton({required BuildContext context, required IconData icon, required String label, required VoidCallback? onPressed, required Color? color}) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Theme.of(context).cardColor, 
-        foregroundColor: color, 
-        elevation: 0, 
-        padding: const EdgeInsets.symmetric(vertical: 10), 
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))
+  Widget _buildM3CardButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    required Color color,
+    required Color backgroundColor,
+    required Color borderColor,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1.2),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min, 
-        children: [
-          Icon(icon, size: 20), 
-          const SizedBox(height: 4), 
-          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))
-        ]
-      ));
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 22, color: color),
+                const SizedBox(height: 5),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

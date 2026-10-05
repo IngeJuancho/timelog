@@ -31,27 +31,43 @@ class StopwatchDrawer extends ConsumerWidget {
       child: ListView(
         padding: EdgeInsets.zero,
         children: <Widget>[
+          // Header estilo Perfil de Estudio Frosted/M3
           Container(
-            height: 160,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(20, 48, 20, 20),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.teal.shade800, Theme.of(context).colorScheme.surface],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+                  width: 1,
+                ),
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                const CircleAvatar(backgroundColor: Colors.teal, child: Icon(Icons.timer, color: Colors.white)),
-                const SizedBox(height: 12),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('TimeLog', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                    if (updateInfo != null && updateInfo.isUpdateAvailable) ...[
-                      const Spacer(),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.getTealAccent(context).withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.getTealAccent(context).withValues(alpha: 0.4), width: 1),
+                          ),
+                          child: Icon(Icons.timer_outlined, color: AppTheme.getTealAccent(context), size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'TimeLog',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                        ),
+                      ],
+                    ),
+                    if (updateInfo != null && updateInfo.isUpdateAvailable)
                       GestureDetector(
                         onTap: () {
                           launchUrl(Uri.parse(updateInfo.releaseUrl), mode: LaunchMode.externalApplication);
@@ -69,103 +85,192 @@ class StopwatchDrawer extends ConsumerWidget {
                               const Icon(Icons.system_update_alt, color: Colors.orangeAccent, size: 12),
                               const SizedBox(width: 4),
                               Text(
-                                '¡Actualización ${updateInfo.latestVersion}!',
+                                'v${updateInfo.latestVersion}',
                                 style: const TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
                         ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'v1.0.0',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).textTheme.bodySmall?.color,
+                          ),
+                        ),
                       ),
-                    ],
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  "ESTUDIO EN CURSO",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    color: AppTheme.getTealAccent(context),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  state.masterStudyName.isNotEmpty ? state.masterStudyName : 'Estudio Libre (Sin guardar)',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _buildHeaderBadge(
+                      context,
+                      Icons.repeat,
+                      state.currentMode == StopwatchMode.regresoACero ? "Por Ciclo" : "Por Elemento",
+                    ),
+                    _buildHeaderBadge(
+                      context,
+                      Icons.format_list_numbered_rounded,
+                      "${state.activeRecordedTimes.where((e) => e['status'] != 'pending').length} registros",
+                    ),
+                    _buildHeaderBadge(
+                      context,
+                      Icons.pie_chart_outline,
+                      "PF&D ${state.pfd.percentageText}",
+                    ),
                   ],
                 ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 10),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
             child: Text(
-              "MODO",
+              "MODO DE CRONOMETRAJE",
               style: TextStyle(
                 color: Theme.of(context).colorScheme.primary,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
+                letterSpacing: 1.3,
               ),
             ),
           ),
           _buildDrawerOption(context, 'Por Ciclo', 'Clásico. Reinicia al registrar.', Icons.replay, StopwatchMode.regresoACero, state, notifier),
-          _buildDrawerOption(context, 'Por Elemento', 'Acumulativo. Calcula TO.', Icons.timeline, StopwatchMode.continuo, state, notifier),
-          Divider(color: Theme.of(context).dividerColor, indent: 24, endIndent: 24, height: 40),
+          _buildDrawerOption(context, 'Por Elemento', 'Acumulativo. Calcula tiempo individual.', Icons.timeline, StopwatchMode.continuo, state, notifier),
+          Divider(color: Theme.of(context).dividerColor.withValues(alpha: 0.3), indent: 20, endIndent: 20, height: 32),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(
-              "DATOS",
+              "GESTIÓN DE DATOS",
               style: TextStyle(
                 color: Theme.of(context).colorScheme.primary,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
+                letterSpacing: 1.3,
               ),
             ),
           ),
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-            leading: Icon(Icons.save_outlined, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)),
-            title: Text('Guardar Estudio', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+          _buildDrawerItem(
+            context: context,
+            icon: Icons.save_outlined,
+            title: 'Guardar Estudio',
+            iconColor: Colors.tealAccent.shade700,
             onTap: () {
               Navigator.pop(context);
               onSaveStudyRequested();
             },
           ),
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-            leading: Icon(Icons.history, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)),
-            title: Text('Historial', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+          _buildDrawerItem(
+            context: context,
+            icon: Icons.history,
+            title: 'Historial de Estudios',
+            iconColor: Colors.blueAccent,
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const StudiesHistoryScreen()));
             },
           ),
-          Divider(color: Theme.of(context).dividerColor, indent: 24, endIndent: 24, height: 40),
+          Divider(color: Theme.of(context).dividerColor.withValues(alpha: 0.3), indent: 20, endIndent: 20, height: 32),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(
-              "UTILIDADES",
+              "HERRAMIENTAS",
               style: TextStyle(
                 color: Theme.of(context).colorScheme.primary,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
+                letterSpacing: 1.3,
               ),
             ),
           ),
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-            leading: Icon(Icons.route, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)),
-            title: Text('Plantillas', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+          _buildDrawerItem(
+            context: context,
+            icon: Icons.route_outlined,
+            title: 'Gestor de Plantillas',
+            iconColor: Colors.purpleAccent,
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TemplateManagerScreen()));
             },
           ),
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-            leading: Icon(Icons.calculate_outlined, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)),
-            title: Text('Calculadora Muestra', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+          _buildDrawerItem(
+            context: context,
+            icon: Icons.calculate_outlined,
+            title: 'Calculadora Muestra',
+            iconColor: Colors.amberAccent.shade700,
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const SampleCalculatorScreen()));
             },
           ),
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-            leading: Icon(Icons.settings_outlined, color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)),
-            title: Text('Configuración', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+          _buildDrawerItem(
+            context: context,
+            icon: Icons.settings_outlined,
+            title: 'Configuración',
+            iconColor: Colors.grey,
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
             },
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderBadge(BuildContext context, IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: AppTheme.getTealAccent(context)),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).textTheme.bodySmall?.color,
+            ),
           ),
         ],
       ),
@@ -186,29 +291,130 @@ class StopwatchDrawer extends ConsumerWidget {
     final tealFill = AppTheme.getTealFill(context);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        leading: Icon(icon, color: isSelected ? tealColor : Theme.of(context).iconTheme.color?.withValues(alpha: 0.7)),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isSelected ? tealColor : Theme.of(context).textTheme.bodyMedium?.color,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Material(
+        color: isSelected ? tealFill : Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            notifier.setMode(mode);
+            Navigator.pop(context);
+          },
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected
+                    ? tealColor.withValues(alpha: 0.6)
+                    : Theme.of(context).dividerColor.withValues(alpha: 0.25),
+                width: isSelected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? tealColor.withValues(alpha: 0.2)
+                        : Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 20,
+                    color: isSelected ? tealColor : Theme.of(context).iconTheme.color?.withValues(alpha: 0.8),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: isSelected ? tealColor : Theme.of(context).textTheme.bodyMedium?.color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: isSelected
+                              ? tealColor.withValues(alpha: 0.85)
+                              : Theme.of(context).textTheme.bodySmall?.color,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                  color: isSelected ? tealColor : Theme.of(context).disabledColor.withValues(alpha: 0.4),
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(
-            color: isSelected ? tealColor.withValues(alpha: 0.7) : Theme.of(context).textTheme.bodySmall?.color,
-            fontSize: 12,
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color? iconColor,
+  }) {
+    final effectiveIconColor = iconColor ?? Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: effectiveIconColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 18, color: effectiveIconColor),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: Theme.of(context).disabledColor.withValues(alpha: 0.4),
+                ),
+              ],
+            ),
           ),
         ),
-        tileColor: isSelected ? tealFill : null,
-        onTap: () {
-          notifier.setMode(mode);
-          Navigator.pop(context);
-        },
       ),
     );
   }

@@ -51,6 +51,7 @@ class TimeLogState {
   final bool isAmoledMode;
 
   const TimeLogState({
+    this.selectedPfd,
     this.baseTimeMs = 0,
     this.startTimeEpoch,
     this.activeStudyIdRAC,
@@ -108,7 +109,10 @@ class TimeLogState {
     return ''; // El fallback final al text controller se maneja en el Notifier
   }
 
+  PfdCategory get pfd => selectedPfd ?? PfdCategory.defaultCategory;
+
   TimeLogState copyWith({
+    PfdCategory? Function()? selectedPfd,
     int? baseTimeMs,
     int? Function()? startTimeEpoch,
     int? Function()? activeStudyIdRAC,
@@ -150,6 +154,7 @@ class TimeLogState {
     bool? isAmoledMode,
   }) {
     return TimeLogState(
+      selectedPfd: selectedPfd != null ? selectedPfd() : this.selectedPfd,
       baseTimeMs: baseTimeMs ?? this.baseTimeMs,
       startTimeEpoch: startTimeEpoch != null ? startTimeEpoch() : this.startTimeEpoch,
       activeStudyIdRAC: activeStudyIdRAC != null ? activeStudyIdRAC() : this.activeStudyIdRAC,

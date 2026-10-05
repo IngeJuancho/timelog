@@ -1,9 +1,10 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models.dart';
+import '../../theme.dart';
 import '../../time_log_controller.dart';
+import 'pfd_selector_sheet.dart';
 
 class TimerDisplay extends ConsumerStatefulWidget {
   final Animation<double> pulseAnimation;
@@ -78,44 +79,112 @@ class _TimerDisplayState extends ConsumerState<TimerDisplay> with SingleTickerPr
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(16),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: state.isRunning
-                    ? Colors.greenAccent.withValues(alpha: 0.4)
-                    : Theme.of(context).dividerColor.withValues(alpha: 0.2),
+                    ? Colors.greenAccent.withValues(alpha: 0.45)
+                    : Theme.of(context).dividerColor.withValues(alpha: 0.3),
+                width: 1,
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (state.isRunning) ...[
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.greenAccent,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.greenAccent.withValues(alpha: 0.8),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ],
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+                    onTap: () {
+                      final newMode = state.currentMode == StopwatchMode.regresoACero
+                          ? StopwatchMode.continuo
+                          : StopwatchMode.regresoACero;
+                      notifier.setMode(newMode);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (state.isRunning) ...[
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.greenAccent,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.greenAccent.withValues(alpha: 0.9),
+                                    blurRadius: 7,
+                                    spreadRadius: 1.5,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 7),
+                          ] else ...[
+                            Icon(
+                              state.currentMode == StopwatchMode.regresoACero ? Icons.replay : Icons.timeline,
+                              size: 13,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 5),
+                          ],
+                          Text(
+                            state.currentMode == StopwatchMode.regresoACero ? "POR CICLO" : "POR ELEMENTO",
+                            style: TextStyle(
+                              fontSize: 10,
+                              letterSpacing: 1.2,
+                              color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.9),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  state.currentMode == StopwatchMode.regresoACero ? "POR CICLO" : "POR ELEMENTO",
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 1.5,
-                    color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.8),
-                    fontWeight: FontWeight.bold,
+                ),
+                Container(
+                  width: 1,
+                  height: 14,
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.4),
+                ),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+                    onTap: () {
+                      PfdSelectorSheet.show(
+                        context,
+                        selectedCategory: state.pfd,
+                        onCategorySelected: (cat) => notifier.setPfdCategory(cat),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.pie_chart_outline_rounded,
+                            size: 13,
+                            color: AppTheme.getTealAccent(context),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            "PF&D: ${state.pfd.percentageText}",
+                            style: TextStyle(
+                              fontSize: 10,
+                              letterSpacing: 0.8,
+                              color: AppTheme.getTealAccent(context),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
