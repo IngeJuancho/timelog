@@ -92,58 +92,46 @@ class _TimerDisplayState extends ConsumerState<TimerDisplay> with SingleTickerPr
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
-                    onTap: () {
-                      final newMode = state.currentMode == StopwatchMode.regresoACero
-                          ? StopwatchMode.continuo
-                          : StopwatchMode.regresoACero;
-                      notifier.setMode(newMode);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (state.isRunning) ...[
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.greenAccent,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.greenAccent.withValues(alpha: 0.9),
-                                    blurRadius: 7,
-                                    spreadRadius: 1.5,
-                                  ),
-                                ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (state.isRunning) ...[
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.greenAccent,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.greenAccent.withValues(alpha: 0.9),
+                                blurRadius: 7,
+                                spreadRadius: 1.5,
                               ),
-                            ),
-                            const SizedBox(width: 7),
-                          ] else ...[
-                            Icon(
-                              state.currentMode == StopwatchMode.regresoACero ? Icons.replay : Icons.timeline,
-                              size: 13,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 5),
-                          ],
-                          Text(
-                            state.currentMode == StopwatchMode.regresoACero ? "POR CICLO" : "POR ELEMENTO",
-                            style: TextStyle(
-                              fontSize: 10,
-                              letterSpacing: 1.2,
-                              color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.9),
-                              fontWeight: FontWeight.bold,
-                            ),
+                            ],
                           ),
-                        ],
+                        ),
+                        const SizedBox(width: 7),
+                      ] else ...[
+                        Icon(
+                          state.currentMode == StopwatchMode.regresoACero ? Icons.replay : Icons.timeline,
+                          size: 13,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 5),
+                      ],
+                      Text(
+                        state.currentMode == StopwatchMode.regresoACero ? "POR CICLO" : "POR ELEMENTO",
+                        style: TextStyle(
+                          fontSize: 10,
+                          letterSpacing: 1.2,
+                          color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.9),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
                 Container(

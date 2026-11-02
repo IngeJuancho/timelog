@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models.dart';
 import '../../time_log_controller.dart';
 import '../../theme.dart';
+
+final elementColumnWidthProvider = StateProvider<double>((ref) => 140.0);
 
 class ContinuousTableWidget extends ConsumerStatefulWidget {
   final ScrollController scrollController;
@@ -71,9 +74,16 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
   Widget _buildLinearTable(BuildContext context, dynamic state, dynamic notifier) {
     final tealFill = AppTheme.getTealFill(context);
 
-    const fixedColumns = [
-      DataColumn(label: Text('#')), 
-      DataColumn(label: Text('ELEMENTO')), 
+    final elementWidth = ref.watch(elementColumnWidthProvider);
+
+    final fixedColumns = [
+      const DataColumn(label: Text('#')), 
+      DataColumn(
+        label: SizedBox(
+          width: elementWidth,
+          child: const Text('ELEMENTO', style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ), 
     ];
 
     const scrollableColumns = [
@@ -125,27 +135,25 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                border: Border(right: BorderSide(color: Theme.of(context).dividerColor, width: 2.0)),
-              ),
-              child: DataTable(
-                columnSpacing: 20, 
-                dataRowMinHeight: 60,
-                dataRowMaxHeight: 60,
-                headingRowHeight: 48,
-                headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
-                headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
-                dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
-                columns: fixedColumns,
-                rows: fixedRows,
-              ),
+            DataTable(
+              horizontalMargin: 12,
+                  columnSpacing: 20, 
+              dataRowMinHeight: 60,
+              dataRowMaxHeight: 60,
+              headingRowHeight: 48,
+              headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
+              headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
+              dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
+              columns: fixedColumns,
+              rows: fixedRows,
             ),
+            ColumnResizeDivider(height: 48.0 + state.recordedTimesContinuo.length * 60.0),
             Expanded(
               child: SingleChildScrollView(
                 controller: _horizontalController,
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
+                  horizontalMargin: 12,
                   columnSpacing: 20, 
                   dataRowMinHeight: 60,
                   dataRowMaxHeight: 60,
@@ -174,15 +182,16 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
     final tealColor = AppTheme.getTealAccent(context);
     final tealFill = AppTheme.getTealFill(context);
     final tealBorder = AppTheme.getTealBorder(context);
+    final elementWidth = ref.watch(elementColumnWidthProvider);
     
     int numCycles = (recordedTimes.length / numElements).ceil();
     if (numCycles == 0) numCycles = 1; // Mostrar al menos la columna C1 vacía
     
     final fixedColumns = <DataColumn>[
-      const DataColumn(
+      DataColumn(
         label: SizedBox(
-          width: 140,
-          child: Text('ELEMENTO', style: TextStyle(fontWeight: FontWeight.bold)),
+          width: elementWidth,
+          child: const Text('ELEMENTO', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
     ];
@@ -226,7 +235,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
       final fixedCells = <DataCell>[
         DataCell(
           SizedBox(
-            width: 140,
+            width: elementWidth,
             child: Text(
               elements[elIndex],
               maxLines: 2,
@@ -295,7 +304,7 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
     final fixedTotalCells = <DataCell>[
       DataCell(
         SizedBox(
-          width: 140,
+          width: elementWidth,
           child: Text('TOTAL CICLO', style: TextStyle(fontWeight: FontWeight.bold, color: tealColor)),
         ),
       ),
@@ -351,27 +360,25 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                border: Border(right: BorderSide(color: Theme.of(context).dividerColor, width: 2.0)),
-              ),
-              child: DataTable(
-                columnSpacing: 20, 
-                dataRowMinHeight: 52,
-                dataRowMaxHeight: 52,
-                headingRowHeight: 48,
-                headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
-                headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
-                dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
-                columns: fixedColumns,
-                rows: fixedRows,
-              ),
+            DataTable(
+              horizontalMargin: 12,
+                  columnSpacing: 20, 
+              dataRowMinHeight: 52,
+              dataRowMaxHeight: 52,
+              headingRowHeight: 48,
+              headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest), 
+              headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12), 
+              dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
+              columns: fixedColumns,
+              rows: fixedRows,
             ),
+            ColumnResizeDivider(height: 48.0 + (numElements + 1) * 52.0, hasTotalRow: true),
             Expanded(
               child: SingleChildScrollView(
                 controller: _horizontalController,
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
+                  horizontalMargin: 12,
                   columnSpacing: 20, 
                   dataRowMinHeight: 52,
                   dataRowMaxHeight: 52,
@@ -519,9 +526,16 @@ class _SimpleRecordsListWidgetState extends ConsumerState<SimpleRecordsListWidge
 
     if (state.recordedTimesRegresoACero.isEmpty) return const EmptyStateWidget();
     
-    const fixedColumns = [
-      DataColumn(label: Text('#')),
-      DataColumn(label: Text('ELEMENTO')),
+    final elementWidth = ref.watch(elementColumnWidthProvider);
+
+    final fixedColumns = [
+      const DataColumn(label: Text('#')),
+      DataColumn(
+        label: SizedBox(
+          width: elementWidth,
+          child: const Text('ELEMENTO', style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ),
     ];
 
     const scrollableColumns = [
@@ -571,27 +585,25 @@ class _SimpleRecordsListWidgetState extends ConsumerState<SimpleRecordsListWidge
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                border: Border(right: BorderSide(color: Theme.of(context).dividerColor, width: 2.0)),
-              ),
-              child: DataTable(
-                columnSpacing: 20,
-                dataRowMinHeight: 60,
-                dataRowMaxHeight: 60,
-                headingRowHeight: 48,
-                headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest),
-                headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12),
-                dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
-                columns: fixedColumns,
-                rows: fixedRows,
-              ),
+            DataTable(
+              horizontalMargin: 12,
+                  columnSpacing: 20,
+              dataRowMinHeight: 60,
+              dataRowMaxHeight: 60,
+              headingRowHeight: 48,
+              headingRowColor: WidgetStateProperty.all(Theme.of(context).colorScheme.surfaceContainerHighest),
+              headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary, fontSize: 12),
+              dataTextStyle: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
+              columns: fixedColumns,
+              rows: fixedRows,
             ),
+            ColumnResizeDivider(height: 48.0 + state.recordedTimesRegresoACero.length * 60.0),
             Expanded(
               child: SingleChildScrollView(
                 controller: _horizontalController,
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
+                  horizontalMargin: 12,
                   columnSpacing: 20,
                   dataRowMinHeight: 60,
                   dataRowMaxHeight: 60,
@@ -624,6 +636,7 @@ class ElementNameWidget extends ConsumerWidget {
     final tealColor = AppTheme.getTealAccent(context);
     final tealFill = AppTheme.getTealFill(context);
     final tealBorder = AppTheme.getTealBorder(context);
+    final elementWidth = ref.watch(elementColumnWidthProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -633,7 +646,7 @@ class ElementNameWidget extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              width: 140,
+              width: elementWidth,
               child: Text(
                 timeData['name'], 
                 maxLines: 2,
@@ -669,6 +682,111 @@ class ElementNameWidget extends ConsumerWidget {
 }
 
 
+class ColumnResizeDivider extends ConsumerStatefulWidget {
+  final double height;
+  final bool hasTotalRow;
+
+  const ColumnResizeDivider({
+    super.key,
+    required this.height,
+    this.hasTotalRow = false,
+  });
+
+  @override
+  ConsumerState<ColumnResizeDivider> createState() => _ColumnResizeDividerState();
+}
+
+class _ColumnResizeDividerState extends ConsumerState<ColumnResizeDivider> {
+  bool _isDragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tealAccent = AppTheme.getTealAccent(context);
+    final headerBg = theme.colorScheme.surfaceContainerHighest;
+    final borderColor = _isDragging 
+        ? tealAccent 
+        : theme.dividerColor.withValues(alpha: 0.6);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragStart: (_) {
+        setState(() => _isDragging = true);
+        HapticFeedback.selectionClick();
+      },
+      onHorizontalDragUpdate: (details) {
+        final currentWidth = ref.read(elementColumnWidthProvider);
+        final newWidth = (currentWidth + details.delta.dx).clamp(90.0, 280.0);
+        ref.read(elementColumnWidthProvider.notifier).state = newWidth;
+      },
+      onHorizontalDragEnd: (_) {
+        setState(() => _isDragging = false);
+        HapticFeedback.lightImpact();
+      },
+      onHorizontalDragCancel: () {
+        setState(() => _isDragging = false);
+      },
+      child: MouseRegion(
+        cursor: SystemMouseCursors.resizeColumn,
+        child: SizedBox(
+          width: 14,
+          height: widget.height > 48.0 ? widget.height : 48.0,
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 48,
+                child: Container(color: headerBg),
+              ),
+              if (widget.hasTotalRow)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: 52,
+                  child: Container(color: headerBg),
+                ),
+              Center(
+                child: Container(
+                  width: _isDragging ? 2.5 : 1.5,
+                  color: borderColor,
+                ),
+              ),
+              if (_isDragging)
+                Center(
+                  child: Container(
+                    width: 14,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: tealAccent,
+                      borderRadius: BorderRadius.circular(7),
+                      boxShadow: [
+                        BoxShadow(
+                          color: tealAccent.withValues(alpha: 0.5),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.drag_indicator,
+                      size: 13,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class EmptyStateWidget extends StatelessWidget {
   const EmptyStateWidget({super.key});
 
@@ -680,7 +798,7 @@ class EmptyStateWidget extends StatelessWidget {
         children: [
           Icon(Icons.hourglass_empty, size: 48, color: Theme.of(context).dividerColor), 
           const SizedBox(height: 16), 
-          Text('Sin datos registrados', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5)))
+          Text('Sin datos registrados', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5))),
         ]
       )
     );

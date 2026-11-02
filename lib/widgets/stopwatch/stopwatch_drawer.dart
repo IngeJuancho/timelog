@@ -24,6 +24,7 @@ class StopwatchDrawer extends ConsumerWidget {
     final state = ref.watch(timeLogProvider);
     final notifier = ref.read(timeLogProvider.notifier);
     final updateInfo = ref.watch(updateProvider).value;
+    final appVersion = ref.watch(appVersionProvider).value ?? '3.14.2';
 
     return Drawer(
       backgroundColor: Theme.of(context).drawerTheme.backgroundColor ?? Theme.of(context).colorScheme.surface,
@@ -100,7 +101,7 @@ class StopwatchDrawer extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          'v1.0.0',
+                          'v$appVersion',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,

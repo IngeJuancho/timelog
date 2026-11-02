@@ -15,6 +15,15 @@ class UpdateInfo {
   });
 }
 
+final appVersionProvider = FutureProvider<String>((ref) async {
+  try {
+    final packageInfo = await PackageInfo.fromPlatform();
+    return packageInfo.version;
+  } catch (_) {
+    return '3.14.2';
+  }
+});
+
 final updateProvider = FutureProvider<UpdateInfo?>((ref) async {
   try {
     // 1. Obtener versión local
