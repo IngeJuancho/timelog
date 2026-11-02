@@ -403,7 +403,11 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
 
   void toggleElementType(int index) {
     final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
-    if (index >= currentList.length || currentList[index]['status'] == 'pending') return;
+    if (index >= currentList.length ||
+        currentList[index]['status'] == 'pending' ||
+        currentList[index]['type'] == 'merged') {
+      return;
+    }
 
     final item = Map<String, dynamic>.from(currentList[index]);
     item['type'] = item['type'] == 'normal' ? 'outlier' : 'normal';
@@ -454,6 +458,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     final previous = currentList[index - 1];
 
     if (current['status'] == 'pending' || previous['status'] == 'pending') return;
+    if (current['type'] == 'merged' || previous['type'] == 'merged') return;
 
     final int mergedTime = ((previous['time'] as num?)?.toInt() ?? 0) + ((current['time'] as num?)?.toInt() ?? 0);
 
@@ -465,22 +470,15 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     }
 
     currentList[index - 1] = mergedItem;
-    currentList.removeAt(index);
 
     if (state.activeTemplate != null) {
-      if (state.currentMode == StopwatchMode.regresoACero) {
-        state = state.copyWith(
-          currentTemplateStepIndexRAC: state.currentTemplateStepIndexRAC > 0
-              ? state.currentTemplateStepIndexRAC - 1
-              : 0,
-        );
-      } else {
-        state = state.copyWith(
-          currentTemplateStepIndexCont: state.currentTemplateStepIndexCont > 0
-              ? state.currentTemplateStepIndexCont - 1
-              : 0,
-        );
-      }
+      // Con plantilla: preservamos la celda para no alterar la estructura matricial de ciclos
+      final mergedCurrent = Map<String, dynamic>.from(current);
+      mergedCurrent['time'] = 0;
+      mergedCurrent['type'] = 'merged';
+      currentList[index] = mergedCurrent;
+    } else {
+      currentList.removeAt(index);
     }
 
     if (state.currentMode == StopwatchMode.regresoACero) {

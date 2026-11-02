@@ -22,7 +22,11 @@ class TimeLogCalculator {
     }
 
     final validTimes = currentList
-        .where((e) => (e['type'] ?? 'normal') != 'outlier' && ((e['time'] as num?)?.toInt() ?? 0) > 0 && e['status'] != 'pending')
+        .where((e) =>
+            (e['type'] ?? 'normal') != 'outlier' &&
+            (e['type'] ?? 'normal') != 'merged' &&
+            ((e['time'] as num?)?.toInt() ?? 0) > 0 &&
+            e['status'] != 'pending')
         .map((e) => (e['time'] as num?)?.toInt() ?? 0)
         .toList();
 

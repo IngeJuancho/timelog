@@ -15,7 +15,7 @@ class ExportService {
     required String studyName,
     int globalRating = 100,
     Map<int, int> cycleRatings = const {},
-    double pfdRate = 0.08,
+    double pfdRate = 0.13,
   }) async {
     final fileBytes = await generateExcelBytes(
       data: data,
@@ -52,7 +52,7 @@ class ExportService {
     required String studyName,
     int globalRating = 100,
     Map<int, int> cycleRatings = const {},
-    double pfdRate = 0.08,
+    double pfdRate = 0.13,
   }) {
     return _generator.generateExcelBytes(
       data: data,

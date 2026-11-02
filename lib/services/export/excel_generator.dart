@@ -10,29 +10,19 @@ class ExcelGenerator {
     required String studyName,
     int globalRating = 100,
     Map<int, int> cycleRatings = const {},
-    double pfdRate = 0.08,
+    double pfdRate = 0.13,
   }) async {
-    // Precalculamos el rating de cada record
-    int getOriginalCycleIndex(int recordIndex, OperationTemplate? template) {
-      if (template != null && template.steps.isNotEmpty) {
-        return recordIndex ~/ template.steps.length;
-      }
-      return recordIndex;
-    }
-
-    for (int i = 0; i < data.length; i++) {
-      int cIndex = getOriginalCycleIndex(i, activeTemplate);
-      data[i]['applied_rating'] = cycleRatings[cIndex] ?? globalRating;
-    }
+    // 1. Deep-copy de los registros para evitar mutar el estado reactivo de la app
+    final cleanData = data.map((m) => Map<String, dynamic>.from(m)).toList();
 
     OperationTemplate templateToUse;
 
     if (mode == StopwatchMode.regresoACero) {
-      if (activeTemplate != null) {
+      if (activeTemplate != null && activeTemplate.steps.isNotEmpty) {
         templateToUse = activeTemplate;
       } else {
         List<String> uniqueSteps = [];
-        for (var record in data) {
+        for (var record in cleanData) {
           String name = record['name'].toString();
           if (!uniqueSteps.contains(name)) {
             uniqueSteps.add(name);
@@ -41,77 +31,107 @@ class ExcelGenerator {
         templateToUse = OperationTemplate()
           ..name = studyName
           ..steps = uniqueSteps;
-
-        for (var record in data) {
-          record['step_index'] = uniqueSteps.indexOf(record['name'].toString());
-        }
       }
     } else {
-      // Modo Por Elemento (continuo): detectar cuántos pasos tiene un ciclo
-      // analizando los nombres en orden hasta que se repita el primero.
-      int detectedStepCount = data.length;
-      if (data.isNotEmpty) {
-        String firstName = data[0]['name'].toString();
-        for (int i = 1; i < data.length; i++) {
-          if (data[i]['name'].toString() == firstName) {
-            detectedStepCount = i;
-            break;
+      if (activeTemplate != null && activeTemplate.steps.isNotEmpty) {
+        templateToUse = activeTemplate;
+      } else {
+        // Modo Por Elemento (continuo): detectar cuántos pasos tiene un ciclo
+        int detectedStepCount = cleanData.length;
+        if (cleanData.isNotEmpty) {
+          String firstName = cleanData[0]['name'].toString();
+          for (int i = 1; i < cleanData.length; i++) {
+            if (cleanData[i]['name'].toString() == firstName) {
+              detectedStepCount = i;
+              break;
+            }
           }
         }
-      }
+        if (detectedStepCount <= 0) {
+          detectedStepCount = 1;
+        }
 
-      // Si hay plantilla activa, su longitud es la fuente de verdad
-      if (activeTemplate != null && activeTemplate.steps.isNotEmpty) {
-        detectedStepCount = activeTemplate.steps.length;
-      }
+        List<String> stepNames = [];
+        for (int i = 0; i < detectedStepCount && i < cleanData.length; i++) {
+          stepNames.add(cleanData[i]['name'].toString());
+        }
 
-      if (detectedStepCount <= 0) {
-        detectedStepCount = 1;
-      }
-
-      // Construir la plantilla con los nombres del PRIMER ciclo
-      List<String> stepNames = [];
-      for (int i = 0; i < detectedStepCount && i < data.length; i++) {
-        stepNames.add(data[i]['name'].toString());
-      }
-
-      templateToUse = OperationTemplate()
-        ..name = studyName
-        ..steps = stepNames;
-
-      // Asignar step_index como posición dentro del ciclo
-      for (int i = 0; i < data.length; i++) {
-        data[i]['step_index'] = i % detectedStepCount;
+        templateToUse = OperationTemplate()
+          ..name = studyName
+          ..steps = stepNames;
       }
     }
 
-    return await _exportJabilTemplateToExcel(data, templateToUse, studyName, pfdRate);
+    int numSteps = templateToUse.steps.length;
+    if (numSteps == 0) {
+      numSteps = 1;
+      templateToUse = OperationTemplate()
+        ..name = studyName
+        ..steps = [studyName.isNotEmpty ? studyName : "Operación"];
+    }
+
+    // 2. Asignación robusta de step_index y cycle_index para cada registro
+    // Esto garantiza que si se combinaron o saltearon elementos, las columnas NO se desfasen
+    int currentCycle = 0;
+    int lastStepIndex = -1;
+
+    for (int i = 0; i < cleanData.length; i++) {
+      final record = cleanData[i];
+      int sIndex = -1;
+
+      if (record['step_index'] != null && (record['step_index'] as int) < numSteps) {
+        sIndex = record['step_index'] as int;
+      } else {
+        String recordName = record['name']?.toString() ?? '';
+        sIndex = templateToUse.steps.indexOf(recordName);
+        if (sIndex < 0) sIndex = 0;
+      }
+
+      if (lastStepIndex >= 0 && sIndex <= lastStepIndex) {
+        currentCycle++;
+      }
+
+      lastStepIndex = sIndex;
+      record['step_index'] = sIndex;
+      record['cycle_index'] = currentCycle;
+      record['applied_rating'] = cycleRatings[currentCycle] ?? globalRating;
+    }
+
+    return await _exportJabilTemplateToExcel(
+      cleanData,
+      templateToUse,
+      studyName,
+      pfdRate,
+      globalRating: globalRating,
+      cycleRatings: cycleRatings,
+      totalCycles: currentCycle + 1,
+    );
   }
 
   Future<List<int>> _exportJabilTemplateToExcel(
     List<Map<String, dynamic>> data,
     OperationTemplate template,
     String studyName,
-    double pfdRate,
-  ) async {
+    double pfdRate, {
+    int globalRating = 100,
+    Map<int, int> cycleRatings = const {},
+    int totalCycles = 1,
+  }) async {
     int numSteps = template.steps.length;
     var excel = Excel.createExcel();
     Sheet sheet = excel['Sheet1'];
 
-    List<List<Map<String, dynamic>>> stepData = List.generate(numSteps, (_) => []);
+    // Mapeo bidimensional seguro: paso -> ciclo -> registro
+    final Map<int, Map<int, Map<String, dynamic>>> grid = {};
     for (var record in data) {
       int sIndex = record['step_index'] ?? 0;
-      if (sIndex >= 0 && sIndex < numSteps && record['type'] != 'outlier') {
-        stepData[sIndex].add(record);
+      int cIndex = record['cycle_index'] ?? 0;
+      if (sIndex >= 0 && sIndex < numSteps) {
+        grid.putIfAbsent(sIndex, () => {})[cIndex] = record;
       }
     }
 
-    int maxCycles = 10;
-    for (var times in stepData) {
-      if (times.length > maxCycles) {
-        maxCycles = times.length;
-      }
-    }
+    int maxCycles = totalCycles > 10 ? totalCycles : 10;
 
     // ==========================================
     // 1. ÍNDICES DE COLUMNAS DINÁMICAS
@@ -289,21 +309,39 @@ class ExcelGenerator {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow)).value = TextCellValue("N/A");
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow)).cellStyle = ExcelStyles.ncDataStyle;
 
+      bool hasMergedInStep = data.any((r) => r['step_index'] == i && r['type'] == 'merged');
+      if (hasMergedInStep) {
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: currentRow)).value = TextCellValue("Paso combinado");
+      }
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: currentRow)).cellStyle = ExcelStyles.lightBlueDataStyle;
 
-      // Inyección de Tiempos y Calificación de Operario
+      // Inyección de Tiempos y Calificación de Operario sin desfase de columnas
       for (int c = 0; c < maxCycles; c++) {
-        if (c < stepData[i].length) {
-          var record = stepData[i][c];
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).value = DoubleCellValue(((record['time'] as num?)?.toDouble() ?? 0.0) / 1000.0);
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = ExcelStyles.twoDecimalsWhiteStyle;
+        final cellCol = 4 + c;
+        final record = grid[i]?[c];
 
-          int currentRating = (record['applied_rating'] as num?)?.toInt() ?? 100;
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).value = DoubleCellValue(currentRating / 100.0);
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).cellStyle = ExcelStyles.percentStyle;
+        if (record != null &&
+            record['status'] != 'pending' &&
+            record['type'] != 'merged' &&
+            record['type'] != 'outlier') {
+          double timeSec = ((record['time'] as num?)?.toDouble() ?? 0.0) / 1000.0;
+          if (timeSec > 0) {
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow)).value = DoubleCellValue(timeSec);
+          }
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow)).cellStyle = ExcelStyles.twoDecimalsWhiteStyle;
+
+          int currentRating = (record['applied_rating'] as num?)?.toInt() ?? (cycleRatings[c] ?? globalRating);
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).value = DoubleCellValue(currentRating / 100.0);
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).cellStyle = ExcelStyles.percentStyle;
         } else {
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow)).cellStyle = ExcelStyles.twoDecimalsWhiteStyle;
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: currentRow + 1)).cellStyle = ExcelStyles.percentStyle;
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow)).cellStyle = ExcelStyles.twoDecimalsWhiteStyle;
+
+          // Si el ciclo fue ejecutado en el estudio, mostrar el rating correspondiente
+          if (c < totalCycles) {
+            int currentRating = cycleRatings[c] ?? globalRating;
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).value = DoubleCellValue(currentRating / 100.0);
+          }
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).cellStyle = ExcelStyles.percentStyle;
         }
       }
 
