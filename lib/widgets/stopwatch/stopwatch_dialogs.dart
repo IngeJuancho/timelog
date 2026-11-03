@@ -16,6 +16,16 @@ class StopwatchDialogs {
       return;
     }
 
+    if (!notifier.canMergeWithPrevious(index)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se puede fusionar este registro (no válido o pertenece a otro ciclo).', style: TextStyle(fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final tealColor = AppTheme.getTealAccent(context);
 
     showDialog(

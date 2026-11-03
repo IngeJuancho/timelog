@@ -252,38 +252,36 @@ class _ContinuousTableWidgetState extends ConsumerState<ContinuousTableWidget> {
         if (recordIndex < recordedTimes.length) {
           final record = recordedTimes[recordIndex];
           bool isOutlier = record['type'] == 'outlier';
-          bool isMerged = record['type'] == 'merged';
           bool isPending = record['status'] == 'pending';
           
           scrollableCells.add(DataCell(
             GestureDetector(
-              onLongPress: (isPending || isMerged) ? null : () => widget.onMergeRequest(recordIndex),
+              onLongPress: isPending ? null : () => widget.onMergeRequest(recordIndex),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                    Text(
-                    isPending ? '--:--.--' : (isMerged ? 'FUSIONADO' : notifier.formatTime(((record['time'] as num?)?.toDouble() ?? 0.0))), 
+                    isPending ? '--:--.--' : notifier.formatTime(((record['time'] as num?)?.toDouble() ?? 0.0)), 
                     style: TextStyle(
-                      color: isMerged ? Colors.orange.shade400 : (isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color)),
-                      fontStyle: isMerged ? FontStyle.italic : null,
+                      color: isOutlier ? Colors.redAccent.withValues(alpha: 0.7) : (isPending ? Theme.of(context).disabledColor : Theme.of(context).textTheme.bodyMedium?.color),
                       decoration: isOutlier ? TextDecoration.lineThrough : null,
                     )
                   ),
                   if (!isPending) ...[
                       const SizedBox(height: 2),
                       GestureDetector(
-                        onTap: isMerged ? null : () => notifier.toggleElementType(recordIndex),
+                        onTap: () => notifier.toggleElementType(recordIndex),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
-                            color: isMerged ? Colors.orange.withValues(alpha: 0.15) : (isOutlier ? Colors.redAccent.withValues(alpha: 0.15) : tealFill),
+                            color: isOutlier ? Colors.redAccent.withValues(alpha: 0.15) : tealFill,
                             borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: isMerged ? Colors.orange.withValues(alpha: 0.5) : (isOutlier ? Colors.redAccent.withValues(alpha: 0.5) : tealBorder)),
+                            border: Border.all(color: isOutlier ? Colors.redAccent.withValues(alpha: 0.5) : tealBorder),
                           ),
                           child: Text(
-                            isMerged ? 'FUS.' : (isOutlier ? 'ATÍPICO' : 'NORMAL'),
-                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isMerged ? Colors.orange : (isOutlier ? Colors.redAccent : tealColor), decoration: TextDecoration.none),
+                            isOutlier ? 'ATÍPICO' : 'NORMAL',
+                            style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: isOutlier ? Colors.redAccent : tealColor, decoration: TextDecoration.none),
                           ),
                         ),
                       ),

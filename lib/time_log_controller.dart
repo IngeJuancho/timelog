@@ -404,8 +404,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   void toggleElementType(int index) {
     final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
     if (index >= currentList.length ||
-        currentList[index]['status'] == 'pending' ||
-        currentList[index]['type'] == 'merged') {
+        currentList[index]['status'] == 'pending') {
       return;
     }
 
@@ -450,6 +449,17 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     calculateStatistics();
   }
 
+  bool canMergeWithPrevious(int index) {
+    if (index <= 0 || index >= state.activeRecordedTimes.length) return false;
+    final current = state.activeRecordedTimes[index];
+    final previous = state.activeRecordedTimes[index - 1];
+    if (current['status'] == 'pending' || previous['status'] == 'pending') return false;
+    if (state.activeTemplate != null && state.activeTemplate!.steps.isNotEmpty) {
+      if (index % state.activeTemplate!.steps.length == 0) return false;
+    }
+    return true;
+  }
+
   void mergeWithPrevious(int index) {
     final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
     if (index <= 0 || index >= currentList.length) return;
@@ -458,7 +468,12 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     final previous = currentList[index - 1];
 
     if (current['status'] == 'pending' || previous['status'] == 'pending') return;
-    if (current['type'] == 'merged' || previous['type'] == 'merged') return;
+
+    // Poka-Yoke: no permitir fusionar el primer elemento de un ciclo con el ciclo anterior
+    if (state.activeTemplate != null && state.activeTemplate!.steps.isNotEmpty) {
+      final stepsCount = state.activeTemplate!.steps.length;
+      if (index % stepsCount == 0) return;
+    }
 
     final int mergedTime = ((previous['time'] as num?)?.toInt() ?? 0) + ((current['time'] as num?)?.toInt() ?? 0);
 
@@ -470,21 +485,46 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     }
 
     currentList[index - 1] = mergedItem;
+    currentList.removeAt(index);
 
-    if (state.activeTemplate != null) {
-      // Con plantilla: preservamos la celda para no alterar la estructura matricial de ciclos
-      final mergedCurrent = Map<String, dynamic>.from(current);
-      mergedCurrent['time'] = 0;
-      mergedCurrent['type'] = 'merged';
-      currentList[index] = mergedCurrent;
-    } else {
-      currentList.removeAt(index);
-    }
+    if (state.activeTemplate != null && state.activeTemplate!.steps.isNotEmpty) {
+      final template = state.activeTemplate!;
 
-    if (state.currentMode == StopwatchMode.regresoACero) {
-      state = state.copyWith(recordedTimesRegresoACero: currentList);
+      // 1. Quitar placeholders pendientes
+      currentList.removeWhere((e) => e['status'] == 'pending');
+
+      // 2. Re-alinear los registros completados para que sus nombres y step_index coincidan con el template
+      for (int i = 0; i < currentList.length; i++) {
+        final item = Map<String, dynamic>.from(currentList[i]);
+        item['step_index'] = i % template.steps.length;
+        item['name'] = template.steps[i % template.steps.length];
+        currentList[i] = item;
+      }
+
+      final doneCount = currentList.length;
+      if (state.currentMode == StopwatchMode.regresoACero) {
+        state = state.copyWith(
+          recordedTimesRegresoACero: currentList,
+          currentTemplateStepIndexRAC: doneCount,
+        );
+      } else {
+        state = state.copyWith(
+          recordedTimesContinuo: currentList,
+          currentTemplateStepIndexCont: doneCount,
+        );
+      }
+
+      // 3. Regenerar placeholders para el resto del ciclo actual
+      _appendTemplatePlaceholders();
+
+      // 4. Actualizar el nombre en el input/controlador
+      taskNameController.text = template.steps[doneCount % template.steps.length];
     } else {
-      state = state.copyWith(recordedTimesContinuo: currentList);
+      if (state.currentMode == StopwatchMode.regresoACero) {
+        state = state.copyWith(recordedTimesRegresoACero: currentList);
+      } else {
+        state = state.copyWith(recordedTimesContinuo: currentList);
+      }
     }
 
     _recalculateLastRecordedTime();
@@ -636,7 +676,11 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       state = state.copyWith(hasExported: false);
       saveTimeData();
       calculateStatistics();
-      _showSnackBarWithUndo('Registrado: ${formatTime(individualTimeMs.toDouble())}', Icons.check_circle, Colors.tealAccent);
+
+      final String recordedName = state.activeTemplate != null
+          ? state.activeTemplate!.steps[(state.currentTemplateStepIndex - 1) % state.activeTemplate!.steps.length]
+          : (taskNameController.text.trim().isNotEmpty ? taskNameController.text.trim() : 'Ciclo ${currentList.length}');
+      _showSnackBarWithUndo('Registrado "$recordedName": ${formatTime(individualTimeMs.toDouble())}', Icons.check_circle_rounded, Colors.tealAccent);
 
       if (state.currentMode == StopwatchMode.continuo) {
         state = state.copyWith(lastRecordedTimeMs: currentTimeMs);
@@ -668,49 +712,71 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
     if (currentList.isEmpty) return;
 
+    int undoneTime = 0;
+    String undoneName = '';
+
     if (state.activeTemplate != null && state.activeTemplate!.steps.isNotEmpty) {
       if (state.currentTemplateStepIndex > 0) {
-        int newIndex = state.currentTemplateStepIndex - 1;
-        if (state.currentMode == StopwatchMode.regresoACero) {
-          state = state.copyWith(currentTemplateStepIndexRAC: newIndex);
-        } else {
-          state = state.copyWith(currentTemplateStepIndexCont: newIndex);
-        }
+        int targetIndex = state.currentTemplateStepIndex - 1;
 
-        final item = Map<String, dynamic>.from(currentList[newIndex]);
+        final item = Map<String, dynamic>.from(currentList[targetIndex]);
+        undoneTime = (item['time'] as num?)?.toInt() ?? 0;
+        undoneName = item['name']?.toString() ?? '';
         item['time'] = 0;
         item['status'] = 'pending';
-        currentList[newIndex] = item;
+        item['type'] = 'normal';
+        currentList[targetIndex] = item;
 
-        int lastCycleStart = (newIndex ~/ state.activeTemplate!.steps.length + 1) * state.activeTemplate!.steps.length;
-        if (currentList.length > lastCycleStart) {
-          currentList.removeRange(lastCycleStart, currentList.length);
+        int currentCycle = targetIndex ~/ state.activeTemplate!.steps.length;
+        int expectedMaxElements = (currentCycle + 1) * state.activeTemplate!.steps.length;
+        if (currentList.length > expectedMaxElements) {
+          currentList.removeRange(expectedMaxElements, currentList.length);
         }
 
         if (state.currentMode == StopwatchMode.regresoACero) {
-          state = state.copyWith(recordedTimesRegresoACero: currentList);
+          // Poka-Yoke: restaurar el tiempo al cronómetro para que siga corriendo sin interrupción
+          state = state.copyWith(
+            recordedTimesRegresoACero: currentList,
+            currentTemplateStepIndexRAC: targetIndex,
+            baseTimeMs: state.baseTimeMs + undoneTime,
+          );
         } else {
-          state = state.copyWith(recordedTimesContinuo: currentList);
+          // Continuo: si el ciclo había finalizado, restauramos el tiempo acumulado
+          bool cycleJustFinished = (targetIndex + 1) % state.activeTemplate!.steps.length == 0;
+          state = state.copyWith(
+            recordedTimesContinuo: currentList,
+            currentTemplateStepIndexCont: targetIndex,
+            baseTimeMs: cycleJustFinished ? (state.baseTimeMs + undoneTime) : state.baseTimeMs,
+          );
         }
 
-        taskNameController.text = state.activeTemplate!.steps[newIndex % state.activeTemplate!.steps.length];
+        taskNameController.text = state.activeTemplate!.steps[targetIndex % state.activeTemplate!.steps.length];
       }
     } else {
-      currentList.removeLast();
+      final item = currentList.removeLast();
+      undoneTime = (item['time'] as num?)?.toInt() ?? 0;
+      undoneName = item['name']?.toString() ?? '';
+
       if (state.currentMode == StopwatchMode.regresoACero) {
-        state = state.copyWith(recordedTimesRegresoACero: currentList);
+        state = state.copyWith(
+          recordedTimesRegresoACero: currentList,
+          baseTimeMs: state.baseTimeMs + undoneTime,
+        );
       } else {
         state = state.copyWith(recordedTimesContinuo: currentList);
       }
     }
 
+    _syncStartTime();
     _recalculateLastRecordedTime();
-
     saveTimeData();
     calculateStatistics();
+    triggerHaptic();
 
-    scaffoldMessengerKey.currentState?.clearSnackBars();
-    _showSnackBar('Último registro deshecho.', Icons.undo, Colors.orangeAccent);
+    final restoredMsg = undoneTime > 0
+        ? 'Deshecho "$undoneName" (${formatTime(undoneTime.toDouble())} restaurado al cronómetro).'
+        : 'Último registro deshecho.';
+    _showSnackBar(restoredMsg, Icons.restore, Colors.tealAccent);
   }
 
   void calculateStatistics() {
@@ -1023,7 +1089,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   void _showSnackBar(String message, IconData icon, Color iconColor) {
-    scaffoldMessengerKey.currentState?.clearSnackBars();
+    scaffoldMessengerKey.currentState?.hideCurrentSnackBar();
     _snackBarTimer?.cancel();
     double bottomMargin = 16.0;
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
@@ -1037,32 +1103,45 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       SnackBar(
         content: Row(
           children: [
-            Icon(icon, color: iconColor),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
         ),
-        backgroundColor: const Color(0xFF333333),
+        backgroundColor: const Color(0xFF22262B),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 1),
+        ),
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
-        elevation: 6,
+        elevation: 8,
         duration: const Duration(seconds: 2),
         dismissDirection: DismissDirection.up,
       ),
     );
-    _snackBarTimer = Timer(const Duration(seconds: 2), () {
-      scaffoldMessengerKey.currentState?.clearSnackBars();
-    });
   }
 
   void _showSnackBarWithUndo(String message, IconData icon, Color iconColor) {
-    scaffoldMessengerKey.currentState?.clearSnackBars();
+    scaffoldMessengerKey.currentState?.hideCurrentSnackBar();
     _snackBarTimer?.cancel();
     double bottomMargin = 16.0;
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
@@ -1076,28 +1155,45 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       SnackBar(
         content: Row(
           children: [
-            Icon(icon, color: iconColor),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 message,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
         ),
-        backgroundColor: const Color(0xFF333333),
+        backgroundColor: const Color(0xFF22262B),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 1),
+        ),
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
-        elevation: 6,
-        duration: const Duration(seconds: 4),
+        elevation: 8,
+        duration: const Duration(milliseconds: 3500),
         dismissDirection: DismissDirection.up,
-        action: SnackBarAction(label: 'DESHACER', textColor: Colors.orangeAccent, onPressed: undoLastRecord),
+        action: SnackBarAction(
+          label: 'DESHACER',
+          textColor: Colors.orangeAccent,
+          onPressed: undoLastRecord,
+        ),
       ),
     );
-    _snackBarTimer = Timer(const Duration(seconds: 4), () {
-      scaffoldMessengerKey.currentState?.clearSnackBars();
-    });
   }
 }

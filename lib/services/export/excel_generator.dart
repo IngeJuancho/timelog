@@ -309,10 +309,6 @@ class ExcelGenerator {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow)).value = TextCellValue("N/A");
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: ncCol, rowIndex: currentRow)).cellStyle = ExcelStyles.ncDataStyle;
 
-      bool hasMergedInStep = data.any((r) => r['step_index'] == i && r['type'] == 'merged');
-      if (hasMergedInStep) {
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: currentRow)).value = TextCellValue("Paso combinado");
-      }
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: currentRow)).cellStyle = ExcelStyles.lightBlueDataStyle;
 
       // Inyección de Tiempos y Calificación de Operario sin desfase de columnas
@@ -322,7 +318,6 @@ class ExcelGenerator {
 
         if (record != null &&
             record['status'] != 'pending' &&
-            record['type'] != 'merged' &&
             record['type'] != 'outlier') {
           double timeSec = ((record['time'] as num?)?.toDouble() ?? 0.0) / 1000.0;
           if (timeSec > 0) {
