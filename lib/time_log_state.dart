@@ -53,6 +53,7 @@ class TimeLogState {
   final PhysicalButtonAction volUpActionCont;
   final PhysicalButtonAction volDownActionCont;
   final bool isAmoledMode;
+  final int undoTimeoutSeconds;
 
   const TimeLogState({
     this.selectedPfd,
@@ -98,6 +99,7 @@ class TimeLogState {
     this.volUpActionCont = PhysicalButtonAction.startStop,
     this.volDownActionCont = PhysicalButtonAction.stopAndRecord,
     this.isAmoledMode = true,
+    this.undoTimeoutSeconds = 4,
   });
 
   // Getters auxiliares basados en el modo actual
@@ -162,6 +164,7 @@ class TimeLogState {
     PhysicalButtonAction? volUpActionCont,
     PhysicalButtonAction? volDownActionCont,
     bool? isAmoledMode,
+    int? undoTimeoutSeconds,
   }) {
     return TimeLogState(
       selectedPfd: selectedPfd != null ? selectedPfd() : this.selectedPfd,
@@ -208,6 +211,7 @@ class TimeLogState {
       volUpActionCont: volUpActionCont ?? this.volUpActionCont,
       volDownActionCont: volDownActionCont ?? this.volDownActionCont,
       isAmoledMode: isAmoledMode ?? this.isAmoledMode,
+      undoTimeoutSeconds: undoTimeoutSeconds ?? this.undoTimeoutSeconds,
     );
   }
 }

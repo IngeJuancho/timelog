@@ -45,6 +45,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
     final vUpCont = ref.watch(timeLogProvider.select((s) => s.volUpActionCont));
     final vDownCont = ref.watch(timeLogProvider.select((s) => s.volDownActionCont));
     final isAmoled = ref.watch(timeLogProvider.select((s) => s.isAmoledMode));
+    final undoTimeout = ref.watch(timeLogProvider.select((s) => s.undoTimeoutSeconds));
 
     final controller = ref.read(timeLogProvider.notifier);
 
@@ -83,6 +84,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
               onChanged: (v) {
                 if (v != null) {
                   controller.updateSetting(timeFormat: v);
+                }
+              },
+            ),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Tiempo de Botón Deshacer', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text(
+              'Duración en pantalla del botón flotante para deshacer el último registro.',
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.54), fontSize: 12),
+            ),
+            trailing: DropdownButton<int>(
+              value: [2, 3, 4, 5, 7, 10].contains(undoTimeout) ? undoTimeout : 4,
+              underline: Container(),
+              items: const [
+                DropdownMenuItem(value: 2, child: Text('2 segundos', style: TextStyle(fontSize: 13))),
+                DropdownMenuItem(value: 3, child: Text('3 segundos', style: TextStyle(fontSize: 13))),
+                DropdownMenuItem(value: 4, child: Text('4 segundos', style: TextStyle(fontSize: 13))),
+                DropdownMenuItem(value: 5, child: Text('5 segundos', style: TextStyle(fontSize: 13))),
+                DropdownMenuItem(value: 7, child: Text('7 segundos', style: TextStyle(fontSize: 13))),
+                DropdownMenuItem(value: 10, child: Text('10 segundos', style: TextStyle(fontSize: 13))),
+              ],
+              onChanged: (v) {
+                if (v != null) {
+                  controller.updateSetting(undoTimeoutSeconds: v);
                 }
               },
             ),

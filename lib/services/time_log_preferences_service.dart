@@ -15,6 +15,7 @@ class TimeLogPreferencesService {
     bool recordOnPauseRAC = prefs.getBool('recordOnPauseRAC') ?? prefs.getBool('recordOnPause') ?? false;
     bool recordOnPauseCont = prefs.getBool('recordOnPauseCont') ?? false;
     bool isAmoledMode = prefs.getBool('isAmoledMode') ?? true;
+    int undoTimeoutSeconds = prefs.getInt('undoTimeoutSeconds') ?? 4;
 
     T safeEnum<T>(List<T> values, int index, T fallback) {
       if (index >= 0 && index < values.length) return values[index];
@@ -149,6 +150,7 @@ class TimeLogPreferencesService {
       wasRunning: wasRunning,
       savedStartTime: savedStartTime,
       baseTimeMs: baseTimeMs,
+      undoTimeoutSeconds: undoTimeoutSeconds,
     );
   }
 
@@ -165,6 +167,7 @@ class TimeLogPreferencesService {
     await prefs.setInt('volUpActionCont', newState.volUpActionCont.index);
     await prefs.setInt('volDownActionCont', newState.volDownActionCont.index);
     await prefs.setBool('isAmoledMode', newState.isAmoledMode);
+    await prefs.setInt('undoTimeoutSeconds', newState.undoTimeoutSeconds);
   }
 
   Future<void> saveTimeData(TimeLogState state) async {
@@ -263,6 +266,7 @@ class TimeLogStateLoadedData {
   final bool wasRunning;
   final int savedStartTime;
   final int baseTimeMs;
+  final int undoTimeoutSeconds;
 
   const TimeLogStateLoadedData({
     required this.usePhysicalButtons,
@@ -290,5 +294,6 @@ class TimeLogStateLoadedData {
     required this.wasRunning,
     required this.savedStartTime,
     required this.baseTimeMs,
+    this.undoTimeoutSeconds = 4,
   });
 }

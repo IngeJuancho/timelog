@@ -229,6 +229,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       currentTemplateStepIndexCont: currentTemplateStepIndexCont,
       cycleRatingsRAC: loaded.cycleRatingsRAC,
       cycleRatingsCont: loaded.cycleRatingsCont,
+      undoTimeoutSeconds: loaded.undoTimeoutSeconds,
     );
 
     _recalculateLastRecordedTime();
@@ -268,6 +269,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     PhysicalButtonAction? volUpActionCont,
     PhysicalButtonAction? volDownActionCont,
     bool? isAmoledMode,
+    int? undoTimeoutSeconds,
   }) {
     final newState = state.copyWith(
       timeFormat: timeFormat,
@@ -281,6 +283,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       volUpActionCont: volUpActionCont,
       volDownActionCont: volDownActionCont,
       isAmoledMode: isAmoledMode,
+      undoTimeoutSeconds: undoTimeoutSeconds,
     );
     state = newState;
     saveSettings(newState);
@@ -717,6 +720,8 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   void undoLastRecord() {
+    _snackBarTimer?.cancel();
+    scaffoldMessengerKey.currentState?.clearSnackBars();
     final currentList = List<Map<String, dynamic>>.from(state.activeRecordedTimes);
     if (currentList.isEmpty) return;
 
@@ -1115,37 +1120,52 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     }
   }
 
-  void _showSnackBar(String message, IconData icon, Color iconColor) {
-    scaffoldMessengerKey.currentState?.hideCurrentSnackBar();
-    _snackBarTimer?.cancel();
-    double bottomMargin = 16.0;
+  double _calculateTopFloatingBottomMargin({double estimatedHeight = 52.0}) {
+    double statusBarHeight = 36.0;
+    double screenHeight = 800.0;
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
     if (view != null) {
-      final screenHeight = view.physicalSize.height / view.devicePixelRatio;
-      bottomMargin = screenHeight - 140;
-      if (bottomMargin < 16.0) bottomMargin = 16.0;
+      final pixelRatio = view.devicePixelRatio > 0 ? view.devicePixelRatio : 1.0;
+      statusBarHeight = view.padding.top / pixelRatio;
+      if (statusBarHeight < 24.0) statusBarHeight = 24.0;
+      screenHeight = view.physicalSize.height / pixelRatio;
     }
+    const double topMargin = 14.0; // Margen de seguridad elegante debajo de la barra de notificaciones
+    double bottomMargin = screenHeight - statusBarHeight - topMargin - estimatedHeight;
+    return bottomMargin > 16.0 ? bottomMargin : 16.0;
+  }
+
+  void _showSnackBar(String message, IconData icon, Color iconColor) {
+    scaffoldMessengerKey.currentState?.clearSnackBars();
+    _snackBarTimer?.cancel();
+
+    double bottomMargin = _calculateTopFloatingBottomMargin(estimatedHeight: 48.0);
+    const displayDuration = Duration(seconds: 2);
+
+    _snackBarTimer = Timer(displayDuration, () {
+      scaffoldMessengerKey.currentState?.clearSnackBars();
+    });
 
     scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: iconColor, size: 20),
+              child: Icon(icon, color: iconColor, size: 18),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 12.5,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -1160,47 +1180,86 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
           side: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 1),
         ),
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         elevation: 8,
-        duration: const Duration(seconds: 2),
+        duration: displayDuration,
         dismissDirection: DismissDirection.up,
       ),
     );
   }
 
   void _showSnackBarWithUndo(String message, IconData icon, Color iconColor) {
-    scaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+    scaffoldMessengerKey.currentState?.clearSnackBars();
     _snackBarTimer?.cancel();
-    double bottomMargin = 16.0;
-    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
-    if (view != null) {
-      final screenHeight = view.physicalSize.height / view.devicePixelRatio;
-      bottomMargin = screenHeight - 140;
-      if (bottomMargin < 16.0) bottomMargin = 16.0;
-    }
+
+    double bottomMargin = _calculateTopFloatingBottomMargin(estimatedHeight: 52.0);
+
+    final int seconds = state.undoTimeoutSeconds > 0 ? state.undoTimeoutSeconds : 4;
+    final displayDuration = Duration(seconds: seconds);
+
+    _snackBarTimer = Timer(displayDuration, () {
+      scaffoldMessengerKey.currentState?.clearSnackBars();
+    });
 
     scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: iconColor, size: 20),
+              child: Icon(icon, color: iconColor, size: 18),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 message,
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 12.5,
                 ),
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  _snackBarTimer?.cancel();
+                  scaffoldMessengerKey.currentState?.clearSnackBars();
+                  undoLastRecord();
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.orangeAccent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.5), width: 1),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.undo_rounded, size: 14, color: Colors.orangeAccent),
+                      SizedBox(width: 4),
+                      Text(
+                        'DESHACER',
+                        style: TextStyle(
+                          color: Colors.orangeAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
@@ -1212,14 +1271,10 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
           side: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 1),
         ),
         margin: EdgeInsets.only(bottom: bottomMargin, left: 16, right: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         elevation: 8,
-        duration: const Duration(milliseconds: 3500),
+        duration: displayDuration,
         dismissDirection: DismissDirection.up,
-        action: SnackBarAction(
-          label: 'DESHACER',
-          textColor: Colors.orangeAccent,
-          onPressed: undoLastRecord,
-        ),
       ),
     );
   }
