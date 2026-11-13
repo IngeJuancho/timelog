@@ -143,16 +143,32 @@ class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen>
           if (hasData) Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Colors.teal.shade800, Colors.teal.shade600]), 
+              gradient: const LinearGradient(
+                colors: [Color(0xFF047857), Color(0xFF10B981)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ), 
               borderRadius: BorderRadius.circular(24), 
               boxShadow: [
-                BoxShadow(color: Colors.tealAccent.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))
+                BoxShadow(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                )
               ]
             ),
             child: Column(children: [
               const Text("MUESTRA TOTAL REQUERIDA (N)", style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 2, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text("$nCalculated", style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text(
+                "$nCalculated",
+                style: const TextStyle(
+                  fontSize: 52,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
               const Divider(color: Colors.white24, height: 30),
               Text(
                 nAdditional > 0
@@ -170,15 +186,19 @@ class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen>
   Widget _buildCard(BuildContext context, Color bg, Color accent, String title, List<Widget> children) {
     return Container(
       padding: const EdgeInsets.all(20), 
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.2))), 
+      decoration: BoxDecoration(
+        color: bg, 
+        borderRadius: BorderRadius.circular(20), 
+        border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.5), width: 1.2),
+      ), 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, 
         children: [
           Text(title.toUpperCase(), style: TextStyle(color: accent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.2)), 
           const SizedBox(height: 15), 
           ...children
-        ]
-      )
+        ],
+      ),
     );
   }
   

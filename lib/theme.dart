@@ -84,6 +84,30 @@ class AppTheme {
       backgroundColor: Color(0xFF12141A),
       elevation: 16,
     ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: const Color(0xFF14171E),
+      elevation: 16,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: amoledBorder, width: 1),
+      ),
+      titleTextStyle: const TextStyle(
+        color: Color(0xFFF1F5F9),
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.3,
+      ),
+      contentTextStyle: const TextStyle(
+        color: Color(0xFFCBD5E1),
+        fontSize: 14,
+        height: 1.4,
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      elevation: 16,
+    ),
     iconTheme: const IconThemeData(color: Color(0xFF94A3B8)),
     textTheme: const TextTheme(
       bodyLarge: TextStyle(color: Color(0xFFF8FAFC)),
@@ -151,6 +175,30 @@ class AppTheme {
     ),
     drawerTheme: const DrawerThemeData(
       backgroundColor: Color(0xFFF1F5F9),
+      elevation: 16,
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: Colors.white,
+      elevation: 16,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: lightBorder, width: 1),
+      ),
+      titleTextStyle: const TextStyle(
+        color: Color(0xFF0F172A),
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.3,
+      ),
+      contentTextStyle: const TextStyle(
+        color: Color(0xFF334155),
+        fontSize: 14,
+        height: 1.4,
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       elevation: 16,
     ),
     iconTheme: const IconThemeData(color: Color(0xFF475569)),
