@@ -31,6 +31,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
 
   Future<void> _loadHistory() async {
     final studies = await _storage.getStudiesHistory();
+    if (!mounted) return;
     setState(() {
       studies.sort((a, b) => b.date.compareTo(a.date));
       _studies = studies;
@@ -44,6 +45,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
     }
     
     await _storage.deleteStudyFromHistory(id);
+    if (!mounted) return;
     setState(() {
       _selectedStudyIds.remove(id);
     });
@@ -96,12 +98,12 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
               if (newName.isNotEmpty && newName != study.name) {
                 await _storage.updateStudyName(study.id, newName); 
                 
-                // NUEVO: Sincronización en tiempo real si el estudio está abierto en el cronómetro
-                if (ref.read(timeLogProvider).activeStudyId == study.id) {
+                // Sincronización en tiempo real si el estudio está abierto en el cronómetro
+                if (mounted && ref.read(timeLogProvider).activeStudyId == study.id) {
                   ref.read(timeLogProvider.notifier).syncActiveStudyName(newName);
                 }
                 
-                _loadHistory(); 
+                if (mounted) _loadHistory(); 
               }
             },
             child: const Text('GUARDAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),

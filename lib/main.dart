@@ -1,14 +1,30 @@
 // lib/main.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'stopwatch_screen.dart';
 import 'time_log_controller.dart';
 import 'theme.dart';
+
 // Llave global para poder mostrar SnackBars desde la lógica de Riverpod
 final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Captura global de errores de renderizado / assertions del framework
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('[FlutterError] ${details.exceptionAsString()}');
+  };
+
+  // Captura global de errores asíncronos y fallos no controlados del hilo de la plataforma
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    debugPrint('[PlatformDispatcher Error] $error\n$stack');
+    return true; // Marcado como manejado para evitar caídas silenciosas
+  };
+
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,

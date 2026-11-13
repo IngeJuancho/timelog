@@ -24,6 +24,14 @@ class HardwareButtonService {
     platform.setMethodCallHandler(null);
   }
 
+  static Future<void> setInterceptPhysicalButtons(bool intercept) async {
+    try {
+      await platform.invokeMethod('setInterceptVolumeButtons', {'intercept': intercept});
+    } catch (_) {
+      // Ignorar en plataformas que no lo soporten o si el canal no está listo
+    }
+  }
+
   static void triggerHaptic({
     required bool enabled,
     required HapticLevel level,

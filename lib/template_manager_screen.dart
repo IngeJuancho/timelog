@@ -26,19 +26,18 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     
-    if (_currentFolder == null) {
-      _folders = await _storage.getFolders();
-      _templates = await _storage.getTemplates(folderId: null);
-    } else {
-      _folders = []; 
-      _templates = await _storage.getTemplates(folderId: _currentFolder!.id);
-    }
+    final folders = _currentFolder == null ? await _storage.getFolders() : <TemplateFolder>[];
+    final templates = await _storage.getTemplates(folderId: _currentFolder?.id);
     
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
+    if (!mounted) return;
+    setState(() {
+      _folders = folders;
+      _templates = templates;
+      _isLoading = false;
+    });
   }
 
   void _navigateIntoFolder(TemplateFolder folder) {
@@ -165,7 +164,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
     );
     if (confirm == true) {
       await _storage.deleteFolder(folder.id);
-      _loadData();
+      if (mounted) _loadData();
     }
   }
 
@@ -436,7 +435,7 @@ class _TemplateManagerScreenState extends ConsumerState<TemplateManagerScreen> {
                 break;
               case 'delete':
                 await StorageService().deleteTemplate(template.id);
-                _loadData();
+                if (mounted) _loadData();
                 break;
             }
           },

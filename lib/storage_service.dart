@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -8,18 +9,45 @@ import 'package:file_saver/file_saver.dart';
 import 'models.dart';
 
 class StorageService {
-  static late Isar _isar;
-  static bool _isInitialized = false;
+  static Isar? _isar;
+  static Completer<Isar>? _initCompleter;
 
   Future<Isar> get db async {
-    if (_isInitialized) return _isar;
-    final dir = await getApplicationDocumentsDirectory();
-    _isar = await Isar.open(
-      [StudyModelSchema, OperationTemplateSchema, TemplateFolderSchema],
-      directory: dir.path,
-    );
-    _isInitialized = true;
-    return _isar;
+    if (_isar != null && _isar!.isOpen) return _isar!;
+
+    final existingInstance = Isar.getInstance();
+    if (existingInstance != null && existingInstance.isOpen) {
+      _isar = existingInstance;
+      return _isar!;
+    }
+
+    if (_initCompleter != null) {
+      return _initCompleter!.future;
+    }
+
+    final completer = Completer<Isar>();
+    _initCompleter = completer;
+
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final checkInstance = Isar.getInstance();
+      if (checkInstance != null && checkInstance.isOpen) {
+        _isar = checkInstance;
+      } else {
+        _isar = await Isar.open(
+          [StudyModelSchema, OperationTemplateSchema, TemplateFolderSchema],
+          directory: dir.path,
+        );
+      }
+      completer.complete(_isar!);
+      return _isar!;
+    } catch (e, st) {
+      completer.completeError(e, st);
+      _initCompleter = null;
+      rethrow;
+    } finally {
+      _initCompleter = null;
+    }
   }
 
   // ===========================================================================

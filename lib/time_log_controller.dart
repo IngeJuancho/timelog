@@ -251,6 +251,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     }
 
     calculateStatistics();
+    HardwareButtonService.setInterceptPhysicalButtons(loaded.usePhysicalButtons);
   }
 
   Future<void> saveSettings(TimeLogState newState) async {
@@ -271,6 +272,9 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
     bool? isAmoledMode,
     int? undoTimeoutSeconds,
   }) {
+    if (usePhysicalButtons != null) {
+      HardwareButtonService.setInterceptPhysicalButtons(usePhysicalButtons);
+    }
     final newState = state.copyWith(
       timeFormat: timeFormat,
       useHapticFeedback: useHapticFeedback,
@@ -371,6 +375,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       shouldHandle: () => state.usePhysicalButtons,
       onButtonPressed: _handleNativeButtonPress,
     );
+    HardwareButtonService.setInterceptPhysicalButtons(state.usePhysicalButtons);
   }
 
   void triggerHaptic() {
