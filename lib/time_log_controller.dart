@@ -847,12 +847,24 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       _showSnackBar('No hay datos para exportar.', Icons.warning_amber_rounded, Colors.orange);
       return;
     }
+    String studyName = state.masterStudyName;
+    if (state.activeTemplate == null) {
+      final uniqueSteps = dataToExport
+          .map((e) => e['name']?.toString().trim() ?? '')
+          .where((n) => n.isNotEmpty)
+          .toSet();
+      if (uniqueSteps.length > 1 && (uniqueSteps.contains(studyName) || studyName.isEmpty || studyName == 'Estudio_General')) {
+        studyName = 'Estudio_de_Tiempos';
+      }
+    }
+    if (studyName.isEmpty) studyName = 'Estudio_General';
+
     try {
       final fileName = await _export.exportDataToExcel(
         data: dataToExport,
         mode: state.currentMode,
         activeTemplate: state.activeTemplate,
-        studyName: state.masterStudyName.isNotEmpty ? state.masterStudyName : 'Estudio_General',
+        studyName: studyName,
         globalRating: state.globalRating,
         cycleRatings: state.currentMode == StopwatchMode.regresoACero ? state.cycleRatingsRAC : state.cycleRatingsCont,
         pfdRate: state.pfd.rate,

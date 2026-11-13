@@ -15,61 +15,80 @@ class ExcelGenerator {
     // 1. Deep-copy de los registros para evitar mutar el estado reactivo de la app
     final cleanData = data.map((m) => Map<String, dynamic>.from(m)).toList();
 
-    OperationTemplate templateToUse;
-
-    // Detectar si estamos en un modo libre con ciclos numerados (Ciclo 1, Ciclo 2, ...) o tarea repetitiva
+    // 2. Normalización de nombres en modo manual sin plantilla
     final cicloRegex = RegExp(r'^Ciclo\s+\d+$', caseSensitive: false);
     final isAllCiclos = cleanData.isNotEmpty &&
         cleanData.every((r) => cicloRegex.hasMatch(r['name']?.toString().trim() ?? ''));
-    final isAllSameName = cleanData.isNotEmpty &&
-        cleanData.every((r) => (r['name']?.toString().trim() ?? '') == (cleanData[0]['name']?.toString().trim() ?? ''));
+
+    if (activeTemplate == null) {
+      if (isAllCiclos) {
+        String defaultOpName = (studyName.isNotEmpty &&
+                studyName != 'Operación' &&
+                studyName != 'Estudio_General' &&
+                studyName != 'Estudio_de_Tiempos' &&
+                studyName != 'Estudio de Tiempos')
+            ? studyName
+            : "Operación 1";
+        for (var record in cleanData) {
+          record['name'] = defaultOpName;
+        }
+      } else {
+        // Si hay mezcla de nombres personalizados y registros vacíos / automáticos ("Ciclo X"),
+        // agrupamos los registros sin nombre o con "Ciclo X" bajo "Operación 1".
+        for (var record in cleanData) {
+          String rawName = record['name']?.toString().trim() ?? '';
+          if (rawName.isEmpty || cicloRegex.hasMatch(rawName)) {
+            record['name'] = "Operación 1";
+          }
+        }
+      }
+    }
+
+    // 3. Extraer los nombres únicos de elementos en orden de aparición
+    List<String> uniqueSteps = [];
+    for (var record in cleanData) {
+      String name = record['name']?.toString().trim() ?? '';
+      if (name.isNotEmpty && !uniqueSteps.contains(name)) {
+        uniqueSteps.add(name);
+      }
+    }
+
+    final isAllSameName = uniqueSteps.length <= 1;
+
+    OperationTemplate templateToUse;
 
     if (activeTemplate != null && activeTemplate.steps.isNotEmpty) {
       templateToUse = activeTemplate;
-    } else if (isAllCiclos || isAllSameName) {
-      String stepName = (studyName.isNotEmpty && studyName != 'Operación')
+    } else if (isAllCiclos) {
+      String stepName = (studyName.isNotEmpty &&
+              studyName != 'Operación' &&
+              studyName != 'Estudio_General' &&
+              studyName != 'Estudio_de_Tiempos' &&
+              studyName != 'Estudio de Tiempos')
           ? studyName
-          : (isAllSameName && !isAllCiclos && cleanData[0]['name'].toString().trim().isNotEmpty
-              ? cleanData[0]['name'].toString().trim()
+          : "Operación 1";
+      templateToUse = OperationTemplate()
+        ..name = studyName
+        ..steps = [stepName];
+    } else if (isAllSameName) {
+      String stepName = uniqueSteps.isNotEmpty
+          ? uniqueSteps.first
+          : (studyName.isNotEmpty &&
+                  studyName != 'Operación' &&
+                  studyName != 'Estudio_General' &&
+                  studyName != 'Estudio_de_Tiempos' &&
+                  studyName != 'Estudio de Tiempos'
+              ? studyName
               : "Operación 1");
       templateToUse = OperationTemplate()
         ..name = studyName
         ..steps = [stepName];
-    } else if (mode == StopwatchMode.regresoACero) {
-      List<String> uniqueSteps = [];
-      for (var record in cleanData) {
-        String name = record['name']?.toString().trim() ?? '';
-        if (name.isNotEmpty && !uniqueSteps.contains(name)) {
-          uniqueSteps.add(name);
-        }
-      }
+    } else {
+      // Múltiples operaciones/elementos sin plantilla (manual)
+      // Cada nombre único se convierte en una fila independiente de paso
       templateToUse = OperationTemplate()
         ..name = studyName
         ..steps = uniqueSteps;
-    } else {
-      // Modo Continuo sin plantilla
-      int detectedStepCount = cleanData.length;
-      if (cleanData.isNotEmpty) {
-        String firstName = cleanData[0]['name']?.toString().trim() ?? '';
-        for (int i = 1; i < cleanData.length; i++) {
-          if ((cleanData[i]['name']?.toString().trim() ?? '') == firstName) {
-            detectedStepCount = i;
-            break;
-          }
-        }
-      }
-      if (detectedStepCount <= 0) {
-        detectedStepCount = 1;
-      }
-
-      List<String> stepNames = [];
-      for (int i = 0; i < detectedStepCount && i < cleanData.length; i++) {
-        stepNames.add(cleanData[i]['name']?.toString().trim() ?? '');
-      }
-
-      templateToUse = OperationTemplate()
-        ..name = studyName
-        ..steps = stepNames;
     }
 
     int numSteps = templateToUse.steps.length;
@@ -77,10 +96,27 @@ class ExcelGenerator {
       numSteps = 1;
       templateToUse = OperationTemplate()
         ..name = studyName
-        ..steps = [studyName.isNotEmpty ? studyName : "Operación"];
+        ..steps = [studyName.isNotEmpty ? studyName : "Operación 1"];
     }
 
-    // 2. Asignación robusta de step_index y cycle_index para cada registro
+    // 4. Resolver el nombre general del estudio / Process Description
+    // Si hay múltiples pasos y studyName coincide con uno de los pasos individuales
+    // (o es genérico/vacío), NO usar el nombre del paso individual como nombre del proceso.
+    String resolvedProcessDescription = studyName;
+    if (activeTemplate == null && uniqueSteps.length > 1) {
+      if (uniqueSteps.contains(studyName) || studyName.isEmpty || studyName == 'Estudio_General' || studyName == 'Estudio_de_Tiempos') {
+        resolvedProcessDescription = "Estudio de Tiempos";
+      }
+    } else if (resolvedProcessDescription.isEmpty || resolvedProcessDescription == 'Estudio_General' || resolvedProcessDescription == 'Estudio_de_Tiempos') {
+      resolvedProcessDescription = templateToUse.name.isNotEmpty && templateToUse.name != 'Estudio_General' && templateToUse.name != 'Estudio_de_Tiempos'
+          ? templateToUse.name
+          : "Estudio de Tiempos";
+    }
+    resolvedProcessDescription = resolvedProcessDescription.replaceAll('_', ' ');
+
+    // 5. Asignación robusta de step_index y cycle_index para cada registro
+    final Map<int, int> stepCycleCounts = {};
+    int maxCycleFound = 0;
     int currentCycle = 0;
     int lastStepIndex = -1;
 
@@ -88,38 +124,46 @@ class ExcelGenerator {
       final record = cleanData[i];
       int sIndex = -1;
 
-      if (numSteps == 1) {
-        sIndex = 0;
-        currentCycle = i;
+      if (activeTemplate != null && record['step_index'] != null && (record['step_index'] as int) < numSteps) {
+        sIndex = record['step_index'] as int;
       } else {
-        if (record['step_index'] != null && (record['step_index'] as int) < numSteps) {
-          sIndex = record['step_index'] as int;
-        } else {
-          String recordName = record['name']?.toString().trim() ?? '';
-          sIndex = templateToUse.steps.indexOf(recordName);
-          if (sIndex < 0) sIndex = 0;
-        }
+        String recordName = record['name']?.toString().trim() ?? '';
+        sIndex = templateToUse.steps.indexOf(recordName);
+        if (sIndex < 0) sIndex = 0;
+      }
 
+      int cIndex;
+      if (activeTemplate != null) {
         if (lastStepIndex >= 0 && sIndex <= lastStepIndex) {
           currentCycle++;
         }
         lastStepIndex = sIndex;
+        cIndex = currentCycle;
+      } else {
+        // Modo manual sin plantilla:
+        // Cada registro de un paso sIndex corresponde a su observación consecutiva (Ciclo 1, 2, ...)
+        cIndex = stepCycleCounts[sIndex] ?? 0;
+        stepCycleCounts[sIndex] = cIndex + 1;
+      }
+
+      if (cIndex > maxCycleFound) {
+        maxCycleFound = cIndex;
       }
 
       record['step_index'] = sIndex;
-      record['cycle_index'] = currentCycle;
-      record['applied_rating'] = cycleRatings[currentCycle] ?? globalRating;
+      record['cycle_index'] = cIndex;
+      record['applied_rating'] = record['applied_rating'] ?? (cycleRatings[cIndex] ?? globalRating);
     }
 
     return await _exportJabilTemplateToExcel(
       cleanData,
       templateToUse,
-      studyName,
+      resolvedProcessDescription,
       pfdRate,
       mode: mode,
       globalRating: globalRating,
       cycleRatings: cycleRatings,
-      totalCycles: currentCycle + 1,
+      totalCycles: maxCycleFound + 1,
     );
   }
 
@@ -437,7 +481,24 @@ class ExcelGenerator {
         if (colIndex == ncCol) continue;
 
         String col = _getColumnLetter(colIndex);
-        String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$lastDataRowExcel,"${types[t]}",\$$col\$$firstDataRowExcel:\$$col\$$lastDataRowExcel)';
+        String formula;
+        if (colIndex < ncCol) {
+          // Columnas de ciclo (Ciclo 1..maxCycles):
+          // En cada ciclo se calcula el Tiempo Normal considerando la calificación (rating / 100) asignada:
+          // Σ (Tiempo Observado * Calificación) para los elementos que correspondan al tipo (Hand, Mach, IMT).
+          List<String> terms = [];
+          for (int i = 0; i < numSteps; i++) {
+            int timeRow = firstDataRowExcel + (i * 2);
+            int ratingRow = timeRow + 1;
+            terms.add('IF(\$D\$$timeRow="${types[t]}",IFERROR($col$timeRow*$col$ratingRow,0),0)');
+          }
+          formula = 'SUM(${terms.join(",")})';
+        } else {
+          // Columnas consolidadas: Avg. OT y Avg. NT
+          // Se suma el valor consolidado de cada elemento del tipo correspondiente
+          formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$lastDataRowExcel,"${types[t]}",\$$col\$$firstDataRowExcel:\$$col\$$lastDataRowExcel)';
+        }
+
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex, rowIndex: currentRow)).value = FormulaCellValue(formula);
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex, rowIndex: currentRow)).cellStyle = ExcelStyles.twoDecimalsWhiteStyle;
       }
