@@ -15,17 +15,28 @@ class MainActivity: FlutterActivity() {
         methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
     }
 
-    // Esta función intercepta los botones físicos
+    // Intercepta los botones físicos de volumen en el primer flanco de pulsación
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
-            // Mandamos la señal a Flutter
-            methodChannel?.invokeMethod("volumeDown", null)
-            // Devolvemos 'true' para decirle a Android "Ya lo usé, no muestres la barra de volumen"
+            // Solo disparar en el evento inicial (repeatCount == 0), ignorar repeticiones automáticas por pulsación continua
+            if (event?.repeatCount == 0) {
+                methodChannel?.invokeMethod("volumeDown", null)
+            }
             return true 
         } else if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-            methodChannel?.invokeMethod("volumeUp", null)
+            if (event?.repeatCount == 0) {
+                methodChannel?.invokeMethod("volumeUp", null)
+            }
             return true 
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        // Consumir el flanco de subida para no disparar eventos colaterales en el sistema operativo
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
     }
 }

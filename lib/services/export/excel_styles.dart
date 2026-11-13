@@ -177,4 +177,12 @@ class ExcelStyles {
     horizontalAlign: HorizontalAlign.Center,
     verticalAlign: VerticalAlign.Center,
   );
+
+  static final CellStyle outlierDataStyle = CellStyle(
+    backgroundColorHex: ExcelColor.fromHexString("#FCE4D6"),
+    fontColorHex: ExcelColor.fromHexString("#C00000"),
+    bold: true,
+    horizontalAlign: HorizontalAlign.Center,
+    verticalAlign: VerticalAlign.Center,
+  );
 }

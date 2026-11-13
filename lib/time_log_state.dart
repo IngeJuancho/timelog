@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'models.dart';
 import 'models/pfd_category.dart';
+import 'services/time_log_calculator.dart';
 
 @immutable
 class TimeLogState {
@@ -29,6 +30,9 @@ class TimeLogState {
   final double minTime;
   final double maxTime;
   final double stdDev;
+  final List<StepStatistics> stepStatistics;
+  final int completedCycles;
+  final bool isCycleStatistics;
 
   final StopwatchMode currentMode;
   final int lastRecordedTimeMs;
@@ -73,6 +77,9 @@ class TimeLogState {
     this.minTime = 0.0,
     this.maxTime = 0.0,
     this.stdDev = 0.0,
+    this.stepStatistics = const [],
+    this.completedCycles = 0,
+    this.isCycleStatistics = false,
     this.currentMode = StopwatchMode.regresoACero,
     this.lastRecordedTimeMs = 0,
     this.hasExported = false,
@@ -134,6 +141,9 @@ class TimeLogState {
     double? minTime,
     double? maxTime,
     double? stdDev,
+    List<StepStatistics>? stepStatistics,
+    int? completedCycles,
+    bool? isCycleStatistics,
     StopwatchMode? currentMode,
     int? lastRecordedTimeMs,
     bool? hasExported,
@@ -177,6 +187,9 @@ class TimeLogState {
       minTime: minTime ?? this.minTime,
       maxTime: maxTime ?? this.maxTime,
       stdDev: stdDev ?? this.stdDev,
+      stepStatistics: stepStatistics ?? this.stepStatistics,
+      completedCycles: completedCycles ?? this.completedCycles,
+      isCycleStatistics: isCycleStatistics ?? this.isCycleStatistics,
       currentMode: currentMode ?? this.currentMode,
       lastRecordedTimeMs: lastRecordedTimeMs ?? this.lastRecordedTimeMs,
       hasExported: hasExported ?? this.hasExported,

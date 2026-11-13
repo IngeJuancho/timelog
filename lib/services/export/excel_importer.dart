@@ -37,6 +37,15 @@ class ExcelImporter {
         return null;
       }
 
+      return parseExcelBytes(bytes, defaultStudyName: studyName);
+    } catch (e) {
+      throw Exception("Error al leer Excel. Asegúrate de que tenga el formato Jabil de la App.");
+    }
+  }
+
+  Map<String, dynamic>? parseExcelBytes(Uint8List bytes, {String defaultStudyName = 'Estudio Importado'}) {
+    try {
+      String studyName = defaultStudyName;
       var excel = Excel.decodeBytes(bytes);
       if (excel.tables.isEmpty) return null;
 
@@ -72,6 +81,28 @@ class ExcelImporter {
             }
           }
           break;
+        }
+      }
+
+      // Intentar extraer el modo del estudio desde los metadatos 'Study Mode:'
+      StopwatchMode detectedMode = StopwatchMode.continuo;
+      for (int r = 0; r < tableHeaderRow0Index; r++) {
+        for (int c = 0; c < 20; c++) {
+          var cellVal = sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r)).value?.toString().trim().toLowerCase() ?? '';
+          if (cellVal.contains("study mode")) {
+            for (int valCol = c + 1; valCol <= c + 5; valCol++) {
+              var modeVal = sheet.cell(CellIndex.indexByColumnRow(columnIndex: valCol, rowIndex: r)).value?.toString().trim().toLowerCase() ?? '';
+              if (modeVal.isNotEmpty) {
+                if (modeVal.contains("regreso") || modeVal.contains("rac") || modeVal.contains("ciclo")) {
+                  detectedMode = StopwatchMode.regresoACero;
+                } else if (modeVal.contains("continuo") || modeVal.contains("elemento")) {
+                  detectedMode = StopwatchMode.continuo;
+                }
+                break;
+              }
+            }
+            break;
+          }
         }
       }
 
@@ -176,18 +207,21 @@ class ExcelImporter {
 
         for (int r = 0; r < numSteps; r++) {
           int row = dataStartRowIndex + (r * 2);
-          var cellVal = _parseCellValue(sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: row)).value);
+          var rawCell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4 + c, rowIndex: row)).value;
+          var cellVal = _parseCellValue(rawCell);
 
           if (cellVal != null && cellVal > 0) {
             double seconds = cellVal;
             int timeMs = (seconds * 1000).round();
             cumulativeMs += timeMs;
 
+            bool isOutlier = rawCell?.toString().contains('*') ?? false;
+
             times.add({
               'name': stepNames[r],
               'time': timeMs,
               'cumulative_time': cumulativeMs.round(),
-              'type': 'normal',
+              'type': isOutlier ? 'outlier' : 'normal',
               'status': 'done',
               'step_index': r,
               'applied_rating': detectedRating ?? 100,
@@ -201,7 +235,7 @@ class ExcelImporter {
       }
 
       return {
-        'mode': StopwatchMode.continuo,
+        'mode': detectedMode,
         'times': times,
         'stepNames': stepNames,
         'cycleRatings': cycleRatings,
@@ -217,14 +251,14 @@ class ExcelImporter {
     if (cv is DoubleCellValue) return cv.value;
     if (cv is IntCellValue) return cv.value.toDouble();
     if (cv is TextCellValue) {
-      String raw = cv.value.text?.replaceAll(',', '.').trim() ?? '';
+      String raw = (cv.value.text ?? '').replaceAll(',', '.').replaceAll('*', '').trim();
       return double.tryParse(raw);
     }
     if (cv is FormulaCellValue) {
-      String raw = cv.formula.replaceAll(',', '.').trim();
+      String raw = cv.formula.replaceAll(',', '.').replaceAll('*', '').trim();
       return double.tryParse(raw);
     }
-    String str = cv.toString().replaceAll(',', '.').trim();
+    String str = cv.toString().replaceAll(',', '.').replaceAll('*', '').trim();
     return double.tryParse(str);
   }
 }

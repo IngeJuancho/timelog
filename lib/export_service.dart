@@ -28,7 +28,8 @@ class ExportService {
     );
 
     final date = DateTime.now();
-    final baseName = studyName.replaceAll(' ', '_');
+    final cleanStudyName = studyName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').replaceAll(' ', '_');
+    final baseName = cleanStudyName.isNotEmpty ? cleanStudyName : 'Estudio_Tiempo';
     final y = date.year;
     final m = date.month.toString().padLeft(2, '0');
     final d = date.day.toString().padLeft(2, '0');

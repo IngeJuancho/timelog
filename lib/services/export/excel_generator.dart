@@ -17,49 +17,59 @@ class ExcelGenerator {
 
     OperationTemplate templateToUse;
 
-    if (mode == StopwatchMode.regresoACero) {
-      if (activeTemplate != null && activeTemplate.steps.isNotEmpty) {
-        templateToUse = activeTemplate;
-      } else {
-        List<String> uniqueSteps = [];
-        for (var record in cleanData) {
-          String name = record['name'].toString();
-          if (!uniqueSteps.contains(name)) {
-            uniqueSteps.add(name);
-          }
+    // Detectar si estamos en un modo libre con ciclos numerados (Ciclo 1, Ciclo 2, ...) o tarea repetitiva
+    final cicloRegex = RegExp(r'^Ciclo\s+\d+$', caseSensitive: false);
+    final isAllCiclos = cleanData.isNotEmpty &&
+        cleanData.every((r) => cicloRegex.hasMatch(r['name']?.toString().trim() ?? ''));
+    final isAllSameName = cleanData.isNotEmpty &&
+        cleanData.every((r) => (r['name']?.toString().trim() ?? '') == (cleanData[0]['name']?.toString().trim() ?? ''));
+
+    if (activeTemplate != null && activeTemplate.steps.isNotEmpty) {
+      templateToUse = activeTemplate;
+    } else if (isAllCiclos || isAllSameName) {
+      String stepName = (studyName.isNotEmpty && studyName != 'Operación')
+          ? studyName
+          : (isAllSameName && !isAllCiclos && cleanData[0]['name'].toString().trim().isNotEmpty
+              ? cleanData[0]['name'].toString().trim()
+              : "Operación 1");
+      templateToUse = OperationTemplate()
+        ..name = studyName
+        ..steps = [stepName];
+    } else if (mode == StopwatchMode.regresoACero) {
+      List<String> uniqueSteps = [];
+      for (var record in cleanData) {
+        String name = record['name']?.toString().trim() ?? '';
+        if (name.isNotEmpty && !uniqueSteps.contains(name)) {
+          uniqueSteps.add(name);
         }
-        templateToUse = OperationTemplate()
-          ..name = studyName
-          ..steps = uniqueSteps;
       }
+      templateToUse = OperationTemplate()
+        ..name = studyName
+        ..steps = uniqueSteps;
     } else {
-      if (activeTemplate != null && activeTemplate.steps.isNotEmpty) {
-        templateToUse = activeTemplate;
-      } else {
-        // Modo Por Elemento (continuo): detectar cuántos pasos tiene un ciclo
-        int detectedStepCount = cleanData.length;
-        if (cleanData.isNotEmpty) {
-          String firstName = cleanData[0]['name'].toString();
-          for (int i = 1; i < cleanData.length; i++) {
-            if (cleanData[i]['name'].toString() == firstName) {
-              detectedStepCount = i;
-              break;
-            }
+      // Modo Continuo sin plantilla
+      int detectedStepCount = cleanData.length;
+      if (cleanData.isNotEmpty) {
+        String firstName = cleanData[0]['name']?.toString().trim() ?? '';
+        for (int i = 1; i < cleanData.length; i++) {
+          if ((cleanData[i]['name']?.toString().trim() ?? '') == firstName) {
+            detectedStepCount = i;
+            break;
           }
         }
-        if (detectedStepCount <= 0) {
-          detectedStepCount = 1;
-        }
-
-        List<String> stepNames = [];
-        for (int i = 0; i < detectedStepCount && i < cleanData.length; i++) {
-          stepNames.add(cleanData[i]['name'].toString());
-        }
-
-        templateToUse = OperationTemplate()
-          ..name = studyName
-          ..steps = stepNames;
       }
+      if (detectedStepCount <= 0) {
+        detectedStepCount = 1;
+      }
+
+      List<String> stepNames = [];
+      for (int i = 0; i < detectedStepCount && i < cleanData.length; i++) {
+        stepNames.add(cleanData[i]['name']?.toString().trim() ?? '');
+      }
+
+      templateToUse = OperationTemplate()
+        ..name = studyName
+        ..steps = stepNames;
     }
 
     int numSteps = templateToUse.steps.length;
@@ -71,7 +81,6 @@ class ExcelGenerator {
     }
 
     // 2. Asignación robusta de step_index y cycle_index para cada registro
-    // Esto garantiza que si se combinaron o saltearon elementos, las columnas NO se desfasen
     int currentCycle = 0;
     int lastStepIndex = -1;
 
@@ -79,19 +88,24 @@ class ExcelGenerator {
       final record = cleanData[i];
       int sIndex = -1;
 
-      if (record['step_index'] != null && (record['step_index'] as int) < numSteps) {
-        sIndex = record['step_index'] as int;
+      if (numSteps == 1) {
+        sIndex = 0;
+        currentCycle = i;
       } else {
-        String recordName = record['name']?.toString() ?? '';
-        sIndex = templateToUse.steps.indexOf(recordName);
-        if (sIndex < 0) sIndex = 0;
+        if (record['step_index'] != null && (record['step_index'] as int) < numSteps) {
+          sIndex = record['step_index'] as int;
+        } else {
+          String recordName = record['name']?.toString().trim() ?? '';
+          sIndex = templateToUse.steps.indexOf(recordName);
+          if (sIndex < 0) sIndex = 0;
+        }
+
+        if (lastStepIndex >= 0 && sIndex <= lastStepIndex) {
+          currentCycle++;
+        }
+        lastStepIndex = sIndex;
       }
 
-      if (lastStepIndex >= 0 && sIndex <= lastStepIndex) {
-        currentCycle++;
-      }
-
-      lastStepIndex = sIndex;
       record['step_index'] = sIndex;
       record['cycle_index'] = currentCycle;
       record['applied_rating'] = cycleRatings[currentCycle] ?? globalRating;
@@ -102,6 +116,7 @@ class ExcelGenerator {
       templateToUse,
       studyName,
       pfdRate,
+      mode: mode,
       globalRating: globalRating,
       cycleRatings: cycleRatings,
       totalCycles: currentCycle + 1,
@@ -113,6 +128,7 @@ class ExcelGenerator {
     OperationTemplate template,
     String studyName,
     double pfdRate, {
+    StopwatchMode mode = StopwatchMode.continuo,
     int globalRating = 100,
     Map<int, int> cycleRatings = const {},
     int totalCycles = 1,
@@ -230,7 +246,15 @@ class ExcelGenerator {
     buildFormRow(rowIndex: 4, label1: "Workcell/Customer:", val1: null, label2: "Workcenter:", val2: null, label3: "Study Date:", val3: dateFormatted);
     buildFormRow(rowIndex: 5, label1: "Product Family:", val1: null, label2: "Sub Workcenter:", val2: null, label3: "IE Name:", val3: null);
     buildFormRow(rowIndex: 6, label1: "Assembly / Rev:", val1: null, label2: "WI No./Rev:", val2: null, label3: "Approving Mgr:", val3: null);
-    buildFormRow(rowIndex: 7, label1: "Process Description:", val1: studyName, label2: null, val2: null, label3: "Approved Date:", val3: null);
+    buildFormRow(
+      rowIndex: 7,
+      label1: "Process Description:",
+      val1: studyName,
+      label2: "Study Mode:",
+      val2: mode == StopwatchMode.regresoACero ? "Regreso a Cero (RAC)" : "Continuo",
+      label3: "Approved Date:",
+      val3: null,
+    );
 
     // ==========================================
     // 4. ENCABEZADOS PRINCIPALES DE LA TABLA (Filas 9 y 10 en Excel -> rowIndex 8 y 9)
@@ -284,6 +308,7 @@ class ExcelGenerator {
 
     for (int i = 0; i < numSteps; i++) {
       int excelRow = currentRow + 1;
+      bool stepHasOutliers = false;
 
       sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow + 1));
       sheet.merge(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow + 1));
@@ -316,28 +341,48 @@ class ExcelGenerator {
         final cellCol = 4 + c;
         final record = grid[i]?[c];
 
-        if (record != null &&
-            record['status'] != 'pending' &&
-            record['type'] != 'outlier') {
+        if (record != null && record['status'] != 'pending') {
           double timeSec = ((record['time'] as num?)?.toDouble() ?? 0.0) / 1000.0;
-          if (timeSec > 0) {
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow)).value = DoubleCellValue(timeSec);
+          final isOutlier = record['type'] == 'outlier';
+
+          if (isOutlier) {
+            stepHasOutliers = true;
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow)).value =
+                TextCellValue("${timeSec.toStringAsFixed(2)}*");
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow)).cellStyle =
+                ExcelStyles.outlierDataStyle;
+          } else {
+            if (timeSec > 0) {
+              sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow)).value =
+                  DoubleCellValue(timeSec);
+            }
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow)).cellStyle =
+                ExcelStyles.twoDecimalsWhiteStyle;
           }
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow)).cellStyle = ExcelStyles.twoDecimalsWhiteStyle;
 
           int currentRating = (record['applied_rating'] as num?)?.toInt() ?? (cycleRatings[c] ?? globalRating);
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).value = DoubleCellValue(currentRating / 100.0);
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).cellStyle = ExcelStyles.percentStyle;
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).value =
+              DoubleCellValue(currentRating / 100.0);
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).cellStyle =
+              ExcelStyles.percentStyle;
         } else {
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow)).cellStyle = ExcelStyles.twoDecimalsWhiteStyle;
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow)).cellStyle =
+              ExcelStyles.twoDecimalsWhiteStyle;
 
           // Si el ciclo fue ejecutado en el estudio, mostrar el rating correspondiente
           if (c < totalCycles) {
             int currentRating = cycleRatings[c] ?? globalRating;
-            sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).value = DoubleCellValue(currentRating / 100.0);
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).value =
+                DoubleCellValue(currentRating / 100.0);
           }
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).cellStyle = ExcelStyles.percentStyle;
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: cellCol, rowIndex: currentRow + 1)).cellStyle =
+              ExcelStyles.percentStyle;
         }
+      }
+
+      if (stepHasOutliers) {
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: remarksCol, rowIndex: currentRow)).value =
+            TextCellValue("* Valores atípicos excluidos");
       }
 
       // FÓRMULAS ESTRUCTURALES DEL ESTUDIO
@@ -363,7 +408,7 @@ class ExcelGenerator {
       String avgNtColStr = _getColumnLetter(avgNtCol);
       String freqColStr = _getColumnLetter(freqCol);
       String pfdColStr = _getColumnLetter(pfdCol);
-      String stdTimeFormula = 'IFERROR(($avgNtColStr$excelRow*(1/$freqColStr$excelRow)*(1+$pfdColStr$excelRow)),"")';
+      String stdTimeFormula = 'IFERROR(($avgNtColStr$excelRow*$freqColStr$excelRow*(1+$pfdColStr$excelRow)),"")';
 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).value = FormulaCellValue(stdTimeFormula);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).cellStyle = ExcelStyles.greenDataTwoDecimalsStyle;
@@ -375,6 +420,7 @@ class ExcelGenerator {
     // 6. PROCESS SUMMARY (Consolidado Inteligente)
     // ==========================================
     int summaryStartRow = currentRow;
+    int lastDataRowExcel = firstDataRowExcel + (numSteps * 2) - 1;
 
     sheet.merge(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow), CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: currentRow + 2));
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: currentRow)).value = TextCellValue("Process Summary");
@@ -391,7 +437,7 @@ class ExcelGenerator {
         if (colIndex == ncCol) continue;
 
         String col = _getColumnLetter(colIndex);
-        String formula = 'SUMIF(\$D$firstDataRowExcel:INDEX(\$D:\$D,ROW()-1),"${types[t]}",\$$col$firstDataRowExcel:INDEX(\$$col:\$$col,ROW()-1))';
+        String formula = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$lastDataRowExcel,"${types[t]}",\$$col\$$firstDataRowExcel:\$$col\$$lastDataRowExcel)';
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex, rowIndex: currentRow)).value = FormulaCellValue(formula);
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex, rowIndex: currentRow)).cellStyle = ExcelStyles.twoDecimalsWhiteStyle;
       }
@@ -400,7 +446,7 @@ class ExcelGenerator {
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: pfdCol, rowIndex: currentRow)).cellStyle = ExcelStyles.greenSummaryHeaderStyle;
 
       // Sumatoria de Std. Time
-      String formulaStdTotal = 'SUMIF(\$D$firstDataRowExcel:INDEX(\$D:\$D,ROW()-1),"${types[t]}",\$$stdColStr$firstDataRowExcel:INDEX(\$$stdColStr:\$$stdColStr,ROW()-1))';
+      String formulaStdTotal = 'SUMIF(\$D\$$firstDataRowExcel:\$D\$$lastDataRowExcel,"${types[t]}",\$$stdColStr\$$firstDataRowExcel:\$$stdColStr\$$lastDataRowExcel)';
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).value = FormulaCellValue(formulaStdTotal);
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: stdTimeCol, rowIndex: currentRow)).cellStyle = ExcelStyles.greenDataTwoDecimalsStyle;
 
@@ -447,9 +493,9 @@ class ExcelGenerator {
     String rightValueColStr = _getColumnLetter(remarksCol + 2);
 
     addStatRow(statsRow1, "# of Mach/Stations", '=$stdColStr$row2Excel*$stdColStr$row3Excel',
-               "VAT", 'IFERROR($stdColStr$handStdRow+$stdColStr$machStdRow,"")');
+               "VAT", 'IFERROR(SUM($stdColStr$handStdRow,$stdColStr$machStdRow),"")');
     addStatRow(statsRow2, "Headcount HC", 1,
-               "SMH", 'IFERROR((($stdColStr$handStdRow+$stdColStr$imtStdRow)/3600)/$stdColStr$row4Excel,"")');
+               "SMH", 'IFERROR(((SUM($stdColStr$handStdRow,$stdColStr$imtStdRow)/3600)/$stdColStr$row4Excel),"")');
     addStatRow(statsRow3, "# of Mach/Stations per HC", 1,
                "Standard Time for 1 Unit", 'IFERROR(SUM($stdColStr$handStdRow,$stdColStr$machStdRow)/$stdColStr$row4Excel,"")');
     addStatRow(statsRow4, "Units Produced per Mach", 1,

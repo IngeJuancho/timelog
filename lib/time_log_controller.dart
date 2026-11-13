@@ -23,6 +23,7 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   final TextEditingController taskNameController = TextEditingController();
   final TextEditingController ratingController = TextEditingController(text: "100");
   Timer? _snackBarTimer;
+  DateTime? _lastPhysicalButtonPress;
 
   int get elapsedMilliseconds => state.baseTimeMs + _stopwatch.elapsedMilliseconds;
   bool get isRunning => _stopwatch.isRunning;
@@ -533,6 +534,13 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   void _handleNativeButtonPress({required bool isVolumeUp}) {
+    final now = DateTime.now();
+    if (_lastPhysicalButtonPress != null &&
+        now.difference(_lastPhysicalButtonPress!).inMilliseconds < 250) {
+      return; // Prevenir rebote mecánico o llamadas duplicadas
+    }
+    _lastPhysicalButtonPress = now;
+
     PhysicalButtonAction action = state.currentMode == StopwatchMode.regresoACero
         ? (isVolumeUp ? state.volUpActionRAC : state.volDownActionRAC)
         : (isVolumeUp ? state.volUpActionCont : state.volDownActionCont);
@@ -780,12 +788,19 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
   }
 
   void calculateStatistics() {
-    final stats = TimeLogCalculator.calculate(state.activeRecordedTimes);
+    final stats = TimeLogCalculator.calculate(
+      state.activeRecordedTimes,
+      activeTemplate: state.activeTemplate,
+      mode: state.currentMode,
+    );
     state = state.copyWith(
       averageTime: stats.averageTime,
       minTime: stats.minTime,
       maxTime: stats.maxTime,
       stdDev: stats.stdDev,
+      stepStatistics: stats.stepStatistics,
+      completedCycles: stats.completedCycles,
+      isCycleStatistics: stats.hasTemplate && stats.stepStatistics.length > 1,
     );
   }
 

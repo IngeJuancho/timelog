@@ -14,18 +14,48 @@ class SampleCalculatorScreen extends ConsumerStatefulWidget {
 class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen> {
   double _confidenceLevel = 0.95; 
   double _errorMargin = 0.05;
+  int _selectedScopeIndex = -1; // -1 = Ciclo Completo
 
   @override
   Widget build(BuildContext context) {
-    final currentMean = ref.watch(timeLogProvider.select((s) => s.averageTime));
-    final currentStdDev = ref.watch(timeLogProvider.select((s) => s.stdDev));
-    final currentCount = ref.watch(timeLogProvider.select((s) => s.activeRecordedTimes.where((e) => (e['type'] ?? 'normal') != 'outlier' && ((e['time'] as num?)?.toInt() ?? 0) > 0 && e['status'] != 'pending').length));
-    
+    final state = ref.watch(timeLogProvider);
     final controller = ref.read(timeLogProvider.notifier);
     final tealColor = AppTheme.getTealAccent(context);
     final cardBg = Theme.of(context).cardColor;
     final textColor = Theme.of(context).textTheme.bodyMedium?.color ?? Colors.white;
     final subtitleColor = Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey;
+
+    final isMultiStep = state.isCycleStatistics && state.stepStatistics.length > 1;
+
+    double currentMean = 0.0;
+    double currentStdDev = 0.0;
+    int currentCount = 0;
+    String scopeLabel = 'Estudio';
+
+    if (isMultiStep) {
+      if (_selectedScopeIndex >= 0 && _selectedScopeIndex < state.stepStatistics.length) {
+        final step = state.stepStatistics[_selectedScopeIndex];
+        currentMean = step.averageTime;
+        currentStdDev = step.stdDev;
+        currentCount = step.sampleCount;
+        scopeLabel = '${step.stepIndex + 1}. ${step.stepName}';
+      } else {
+        currentMean = state.averageTime;
+        currentStdDev = state.stdDev;
+        currentCount = state.completedCycles;
+        scopeLabel = 'Ciclo Completo';
+      }
+    } else {
+      currentMean = state.averageTime;
+      currentStdDev = state.stdDev;
+      currentCount = state.activeRecordedTimes
+          .where((e) =>
+              (e['type'] ?? 'normal') != 'outlier' &&
+              ((e['time'] as num?)?.toInt() ?? 0) > 0 &&
+              e['status'] != 'pending')
+          .length;
+      scopeLabel = 'Operación';
+    }
 
     bool hasData = currentCount >= 2;
     int nCalculated = 0; 
@@ -43,13 +73,35 @@ class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen>
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _buildCard(context, cardBg, tealColor, "Datos Actuales", [
+          _buildCard(context, cardBg, tealColor, "Datos Actuales ($scopeLabel)", [
             _row(context, "Muestra válida (n')", "$currentCount", textColor, subtitleColor),
             _row(context, "Promedio", controller.formatTime(currentMean), textColor, subtitleColor), 
-            _row(context, "Desviación Estándar", currentStdDev.toStringAsFixed(2), textColor, subtitleColor),
+            _row(context, "Desviación Estándar", controller.formatTime(currentStdDev), textColor, subtitleColor),
           ]),
           const SizedBox(height: 20),
           _buildCard(context, cardBg, tealColor, "Parámetros", [
+            if (isMultiStep) ...[
+              Text("Alcance del Cálculo", style: TextStyle(color: subtitleColor, fontSize: 12)),
+              DropdownButton<int>(
+                isExpanded: true,
+                value: _selectedScopeIndex,
+                dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                underline: Container(height: 1, color: Theme.of(context).dividerColor),
+                items: [
+                  DropdownMenuItem(value: -1, child: Text("Ciclo Completo (Total)", style: TextStyle(color: textColor, fontWeight: FontWeight.bold))),
+                  ...state.stepStatistics.map((s) => DropdownMenuItem(
+                    value: s.stepIndex,
+                    child: Text("${s.stepIndex + 1}. ${s.stepName}", style: TextStyle(color: textColor)),
+                  )),
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() => _selectedScopeIndex = v);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
             Text("Nivel de Confianza", style: TextStyle(color: subtitleColor, fontSize: 12)),
             DropdownButton<double>(
               isExpanded: true, 
@@ -102,7 +154,12 @@ class _SampleCalculatorScreenState extends ConsumerState<SampleCalculatorScreen>
               const SizedBox(height: 8),
               Text("$nCalculated", style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
               const Divider(color: Colors.white24, height: 30),
-              Text(nAdditional > 0 ? "FALTAN: $nAdditional CICLOS" : "¡MUESTRA COMPLETA!", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))
+              Text(
+                nAdditional > 0
+                    ? (_selectedScopeIndex == -1 ? "FALTAN: $nAdditional CICLOS" : "FALTAN: $nAdditional MUESTRAS")
+                    : "¡MUESTRA COMPLETA!",
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              )
             ]),
           )
         ],
