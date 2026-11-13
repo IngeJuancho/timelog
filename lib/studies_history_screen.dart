@@ -56,17 +56,23 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF252525),
-        title: const Text('Eliminar Estudio', style: TextStyle(color: Colors.white)),
-        content: Text('¿Seguro que deseas eliminar "${study.name}" de forma permanente?', style: const TextStyle(color: Colors.white70)),
+        title: const Text('Eliminar Estudio'),
+        content: Text('¿Seguro que deseas eliminar permanentemente el estudio "${study.name}"? Esta acción no se puede deshacer.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
           TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCELAR'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTheme.crimsonOutlier,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
               Navigator.pop(context);
               _deleteStudy(study.id);
             },
-            child: const Text('ELIMINAR', style: TextStyle(color: Colors.redAccent)),
+            child: const Text('ELIMINAR'),
           ),
         ],
       ),
@@ -75,23 +81,31 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
 
   void _editStudyName(StudyModel study) {
     final nameController = TextEditingController(text: study.name);
+    final tealAccent = AppTheme.getTealAccent(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF252525),
-        title: const Text('Renombrar Estudio', style: TextStyle(color: Colors.white)),
+        title: const Text('Renombrar Estudio'),
         content: TextField(
           controller: nameController,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent)),
-          ),
           autofocus: true,
+          decoration: InputDecoration(
+            labelText: 'Nombre del estudio',
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: tealAccent, width: 2)),
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR', style: TextStyle(color: Colors.white54))),
           TextButton(
+            onPressed: () => Navigator.pop(context), 
+            child: const Text('CANCELAR'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: tealAccent,
+              foregroundColor: isDark ? Colors.black : Colors.white,
+            ),
             onPressed: () async {
               Navigator.pop(context);
               final newName = nameController.text.trim();
@@ -106,7 +120,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                 if (mounted) _loadHistory(); 
               }
             },
-            child: const Text('GUARDAR', style: TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+            child: const Text('GUARDAR', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -226,20 +240,80 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
     }
   }
 
+  Widget _buildBadge({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.25), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeStudyId = ref.watch(timeLogProvider).activeStudyId;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final tealAccent = AppTheme.getTealAccent(context);
 
     return Scaffold(
       appBar: AppBar(
         title: _isSelectionMode
             ? Text('${_selectedStudyIds.length} Seleccionados')
-            : const Text('Historial de Estudios'),
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Historial de Estudios'),
+                  if (_studies.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: tealAccent.withValues(alpha: isDark ? 0.16 : 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: tealAccent.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        '${_studies.length}',
+                        style: TextStyle(
+                          color: tealAccent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
         centerTitle: !_isSelectionMode,
-        backgroundColor: _isSelectionMode ? const Color(0xFF252525) : Colors.transparent,
+        backgroundColor: _isSelectionMode
+            ? (isDark ? AppTheme.amoledSurfaceContainerHighest : AppTheme.lightSurfaceContainerHighest)
+            : Colors.transparent,
         leading: _isSelectionMode
             ? IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Icons.close_rounded),
                 onPressed: _toggleSelectionMode,
               )
             : null,
@@ -247,49 +321,71 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
           if (_isSelectionMode) ...[
             IconButton(
               icon: Icon(
-                _selectedStudyIds.length == _studies.length ? Icons.deselect : Icons.select_all,
-                color: Colors.white70,
+                _selectedStudyIds.length == _studies.length ? Icons.deselect_rounded : Icons.select_all_rounded,
               ),
               tooltip: _selectedStudyIds.length == _studies.length ? 'Deseleccionar todos' : 'Seleccionar todos',
               onPressed: _toggleSelectAll,
             ),
             IconButton(
-              icon: const Icon(Icons.cloud_upload_outlined, color: Colors.blueAccent),
+              icon: const Icon(Icons.cloud_upload_rounded, color: AppTheme.skyPrecision),
               onPressed: _selectedStudyIds.isNotEmpty ? _exportSelectedStudies : null,
-              tooltip: 'Subir seleccionados',
+              tooltip: 'Exportar seleccionados',
             ),
           ] else
             IconButton(
               icon: const Icon(Icons.cloud_outlined),
               onPressed: _studies.isNotEmpty ? _toggleSelectionMode : null,
-              tooltip: 'Subir a la nube',
+              tooltip: 'Exportación masiva',
             ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.tealAccent))
+          ? Center(child: CircularProgressIndicator(color: tealAccent))
           : _studies.isEmpty
-              ? const Center(
+              ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.folder_off_outlined, size: 48, color: Colors.white24),
-                      SizedBox(height: 16),
-                      Text('No hay estudios guardados', style: TextStyle(color: Colors.white54)),
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.amoledSurface : AppTheme.lightSurfaceContainer,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: theme.dividerColor),
+                        ),
+                        child: Icon(
+                          Icons.history_toggle_off_rounded,
+                          size: 48,
+                          color: theme.hintColor.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'No hay estudios guardados',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Los estudios finalizados se registrarán aquí para consulta y exportación.',
+                        style: theme.textTheme.bodySmall,
+                      ),
                     ],
                   ),
                 )
               : ListView.separated(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                   itemCount: _studies.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final study = _studies[index];
-                    final dateStr = '${study.date.day}/${study.date.month}/${study.date.year}';
+                    final date = study.date;
+                    final dateStr = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+                    final timeStr = '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
                     final modeStr = study.mode == StopwatchMode.continuo ? 'Por Elemento' : 'Por Ciclo';
                     
                     final isActive = study.id == activeStudyId;
-                    
                     final isSelected = _selectedStudyIds.contains(study.id);
                     final isSelectionModeActive = _isSelectionMode;
 
@@ -308,18 +404,32 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: isSelected 
-                              ? Colors.blueAccent.withValues(alpha: 0.15) 
-                              : (isActive ? Colors.tealAccent.withValues(alpha: 0.05) : const Color(0xFF252525)),
+                              ? AppTheme.skyPrecision.withValues(alpha: isDark ? 0.16 : 0.10) 
+                              : (isActive 
+                                  ? (isDark ? AppTheme.amoledSurfaceContainer : AppTheme.lightSurfaceContainer)
+                                  : theme.cardColor),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isSelected 
-                                ? Colors.blueAccent 
-                                : (isActive ? Colors.tealAccent : Colors.white10),
+                                ? AppTheme.skyPrecision 
+                                : (isActive ? tealAccent : theme.dividerColor),
                             width: isSelected ? 2.0 : (isActive ? 1.5 : 1.0),
                           ),
                           boxShadow: isActive && !isSelected
-                              ? [BoxShadow(color: Colors.tealAccent.withValues(alpha: 0.15), blurRadius: 10, spreadRadius: 1)]
-                              : [],
+                              ? [
+                                  BoxShadow(
+                                    color: tealAccent.withValues(alpha: isDark ? 0.20 : 0.12),
+                                    blurRadius: 12,
+                                    spreadRadius: 1,
+                                  )
+                                ]
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ],
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
@@ -332,7 +442,7 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                                     Checkbox(
                                       value: isSelected,
                                       onChanged: (_) => _toggleSelection(study.id),
-                                      activeColor: Colors.blueAccent,
+                                      activeColor: AppTheme.skyPrecision,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                                     ),
                                     const SizedBox(width: 8),
@@ -340,73 +450,145 @@ class _StudiesHistoryScreenState extends ConsumerState<StudiesHistoryScreen> {
                                   Expanded(
                                     child: Text(
                                       study.name, 
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        letterSpacing: 0.2,
+                                      ),
                                     ),
+                                  ),
+                                  if (isActive)
+                                    Container(
+                                      margin: const EdgeInsets.only(left: 8),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: tealAccent.withValues(alpha: isDark ? 0.15 : 0.12),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: tealAccent.withValues(alpha: 0.4)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 6,
+                                            height: 6,
+                                            decoration: BoxDecoration(
+                                              color: tealAccent,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            'ACTIVO',
+                                            style: TextStyle(
+                                              color: tealAccent,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.8,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  _buildBadge(
+                                    icon: Icons.calendar_today_rounded,
+                                    text: '$dateStr $timeStr',
+                                    color: theme.textTheme.bodySmall?.color ?? Colors.grey,
+                                  ),
+                                  _buildBadge(
+                                    icon: study.mode == StopwatchMode.continuo ? Icons.timeline_rounded : Icons.replay_rounded,
+                                    text: modeStr,
+                                    color: AppTheme.skyPrecision,
+                                  ),
+                                  if (study.isTemplate)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.amberIndustrial.withValues(alpha: 0.14),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: AppTheme.amberIndustrial.withValues(alpha: 0.45)),
+                                      ),
+                                      child: const Text(
+                                        'PLANTILLA',
+                                        style: TextStyle(
+                                          color: AppTheme.amberIndustrial,
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                    ),
+                                  _buildBadge(
+                                    icon: Icons.data_usage_rounded,
+                                    text: '${study.times.length} tomas',
+                                    color: theme.textTheme.bodySmall?.color ?? Colors.grey,
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(Icons.calendar_today, size: 12, color: Colors.white54),
-                                  const SizedBox(width: 4),
-                                  Text(dateStr, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                                  const SizedBox(width: 14),
-                                  Icon(study.mode == StopwatchMode.continuo ? Icons.timeline : Icons.replay, size: 12, color: Colors.tealAccent),
-                                  const SizedBox(width: 4),
-                                  Text(modeStr, style: const TextStyle(color: Colors.tealAccent, fontSize: 12)),
-                                  if (study.isTemplate) ...[
-                                    const SizedBox(width: 14),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.amber.withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
-                                      ),
-                                      child: const Text('PLANTILLA', style: TextStyle(color: Colors.amber, fontSize: 9, fontWeight: FontWeight.bold)),
-                                    ),
-                                  ],
-                                ],
-                              ),
                               if (!isSelectionModeActive) ...[
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 14),
+                                Divider(height: 1, thickness: 0.8, color: theme.dividerColor),
+                                const SizedBox(height: 10),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     IconButton(
-                                      icon: const Icon(Icons.edit_outlined, color: Colors.white70, size: 20),
-                                      onPressed: () => _editStudyName(study),
-                                      tooltip: 'Renombrar',
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.all(8),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    ElevatedButton.icon(
-                                      onPressed: isActive ? null : () => _loadStudyToActive(study),
-                                      icon: Icon(isActive ? Icons.check_circle_rounded : Icons.open_in_new_rounded, size: 14),
-                                      label: Text(isActive ? 'ABIERTO' : 'ABRIR', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: isActive 
-                                            ? Colors.tealAccent.withValues(alpha: 0.15) 
-                                            : AppTheme.getTealAccent(context).withValues(alpha: 0.2),
-                                        foregroundColor: isActive 
-                                            ? Colors.tealAccent 
-                                            : AppTheme.getTealAccent(context),
-                                        disabledBackgroundColor: Colors.tealAccent.withValues(alpha: 0.15),
-                                        disabledForegroundColor: Colors.tealAccent,
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      icon: Icon(
+                                        Icons.drive_file_rename_outline_rounded,
+                                        size: 20,
+                                        color: theme.iconTheme.color?.withValues(alpha: 0.8),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                                      onPressed: () => _confirmDelete(study),
-                                      tooltip: 'Eliminar',
+                                      onPressed: () => _editStudyName(study),
+                                      tooltip: 'Renombrar estudio',
                                       constraints: const BoxConstraints(),
                                       padding: const EdgeInsets.all(8),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                        size: 20,
+                                        color: AppTheme.crimsonOutlier,
+                                      ),
+                                      onPressed: () => _confirmDelete(study),
+                                      tooltip: 'Eliminar estudio',
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.all(8),
+                                    ),
+                                    const Spacer(),
+                                    FilledButton.icon(
+                                      onPressed: isActive ? null : () => _loadStudyToActive(study),
+                                      icon: Icon(
+                                        isActive ? Icons.check_circle_rounded : Icons.play_arrow_rounded,
+                                        size: 16,
+                                      ),
+                                      label: Text(
+                                        isActive ? 'EN CURSO' : 'ABRIR',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.6,
+                                        ),
+                                      ),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: isActive 
+                                            ? tealAccent.withValues(alpha: 0.15) 
+                                            : tealAccent,
+                                        foregroundColor: isActive 
+                                            ? tealAccent 
+                                            : (isDark ? Colors.black : Colors.white),
+                                        disabledBackgroundColor: tealAccent.withValues(alpha: 0.12),
+                                        disabledForegroundColor: tealAccent,
+                                        elevation: isActive ? 0 : 2,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      ),
                                     ),
                                   ],
                                 ),
