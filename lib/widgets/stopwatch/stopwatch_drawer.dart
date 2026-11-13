@@ -158,36 +158,48 @@ class StopwatchDrawer extends ConsumerWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-            child: Text(
-              "MODO DE CRONOMETRAJE",
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.3,
-              ),
+            child: Row(
+              children: [
+                Icon(Icons.tune_rounded, size: 13, color: AppTheme.getTealAccent(context)),
+                const SizedBox(width: 6),
+                Text(
+                  "MODO DE CRONOMETRAJE",
+                  style: TextStyle(
+                    color: AppTheme.getTealAccent(context),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.3,
+                  ),
+                ),
+              ],
             ),
           ),
-          _buildDrawerOption(context, 'Por Ciclo', 'Clásico. Reinicia al registrar.', Icons.replay, StopwatchMode.regresoACero, state, notifier),
-          _buildDrawerOption(context, 'Por Elemento', 'Acumulativo. Calcula tiempo individual.', Icons.timeline, StopwatchMode.continuo, state, notifier),
-          Divider(color: Theme.of(context).dividerColor.withValues(alpha: 0.3), indent: 20, endIndent: 20, height: 32),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Text(
-              "GESTIÓN DE DATOS",
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.3,
-              ),
+          _buildDrawerOption(context, 'Por Ciclo', 'Clásico. Reinicia al registrar.', Icons.replay_rounded, StopwatchMode.regresoACero, state, notifier),
+          _buildDrawerOption(context, 'Por Elemento', 'Acumulativo. Calcula tiempo individual.', Icons.timeline_rounded, StopwatchMode.continuo, state, notifier),
+          Divider(color: Theme.of(context).dividerColor, indent: 20, endIndent: 20, height: 28),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Row(
+              children: [
+                Icon(Icons.storage_rounded, size: 13, color: AppTheme.skyPrecision),
+                SizedBox(width: 6),
+                Text(
+                  "GESTIÓN DE DATOS",
+                  style: TextStyle(
+                    color: AppTheme.skyPrecision,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.3,
+                  ),
+                ),
+              ],
             ),
           ),
           _buildDrawerItem(
             context: context,
             icon: Icons.save_outlined,
             title: 'Guardar Estudio',
-            iconColor: Colors.tealAccent.shade700,
+            iconColor: AppTheme.getTealAccent(context),
             onTap: () {
               Navigator.pop(context);
               onSaveStudyRequested();
@@ -195,32 +207,38 @@ class StopwatchDrawer extends ConsumerWidget {
           ),
           _buildDrawerItem(
             context: context,
-            icon: Icons.history,
+            icon: Icons.history_rounded,
             title: 'Historial de Estudios',
-            iconColor: Colors.blueAccent,
+            iconColor: AppTheme.skyPrecision,
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const StudiesHistoryScreen()));
             },
           ),
-          Divider(color: Theme.of(context).dividerColor.withValues(alpha: 0.3), indent: 20, endIndent: 20, height: 32),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-            child: Text(
-              "HERRAMIENTAS",
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.primary,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.3,
-              ),
+          Divider(color: Theme.of(context).dividerColor, indent: 20, endIndent: 20, height: 28),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Row(
+              children: [
+                Icon(Icons.handyman_outlined, size: 13, color: AppTheme.amberIndustrial),
+                SizedBox(width: 6),
+                Text(
+                  "HERRAMIENTAS",
+                  style: TextStyle(
+                    color: AppTheme.amberIndustrial,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.3,
+                  ),
+                ),
+              ],
             ),
           ),
           _buildDrawerItem(
             context: context,
-            icon: Icons.route_outlined,
+            icon: Icons.alt_route_rounded,
             title: 'Gestor de Plantillas',
-            iconColor: Colors.purpleAccent,
+            iconColor: AppTheme.amberIndustrial,
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TemplateManagerScreen()));
@@ -230,7 +248,7 @@ class StopwatchDrawer extends ConsumerWidget {
             context: context,
             icon: Icons.calculate_outlined,
             title: 'Calculadora Muestra',
-            iconColor: Colors.amberAccent.shade700,
+            iconColor: AppTheme.skyPrecision,
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const SampleCalculatorScreen()));
@@ -240,7 +258,7 @@ class StopwatchDrawer extends ConsumerWidget {
             context: context,
             icon: Icons.settings_outlined,
             title: 'Configuración',
-            iconColor: Colors.grey,
+            iconColor: Theme.of(context).iconTheme.color ?? Colors.grey,
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
@@ -258,7 +276,7 @@ class StopwatchDrawer extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: 0.25)),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -309,7 +327,7 @@ class StopwatchDrawer extends ConsumerWidget {
               border: Border.all(
                 color: isSelected
                     ? tealColor.withValues(alpha: 0.6)
-                    : Theme.of(context).dividerColor.withValues(alpha: 0.25),
+                    : Theme.of(context).dividerColor,
                 width: isSelected ? 1.5 : 1,
               ),
             ),

@@ -184,7 +184,9 @@ class PfdSelectorSheet extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: isSelected ? Colors.black : theme.textTheme.bodyMedium?.color,
+                      color: isSelected 
+                          ? (theme.brightness == Brightness.dark ? Colors.black : Colors.white) 
+                          : theme.textTheme.bodyMedium?.color,
                     ),
                   ),
                 ),
@@ -329,6 +331,8 @@ class PfdSelectorSheet extends StatelessWidget {
   }
 
   void _promptCustomRate(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
     final controller = TextEditingController(
       text: selectedCategory.id == 'custom'
           ? (selectedCategory.rate * 100).toStringAsFixed(1)
@@ -365,7 +369,11 @@ class PfdSelectorSheet extends StatelessWidget {
             onPressed: () => Navigator.pop(dialogCtx),
             child: const Text('Cancelar'),
           ),
-          ElevatedButton(
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: theme.brightness == Brightness.dark ? Colors.black : Colors.white,
+            ),
             onPressed: () {
               final parsed = double.tryParse(controller.text.replaceAll(',', '.'));
               if (parsed != null && parsed >= 0 && parsed <= 100) {
@@ -375,7 +383,7 @@ class PfdSelectorSheet extends StatelessWidget {
                 Navigator.pop(context);
               }
             },
-            child: const Text('Guardar'),
+            child: const Text('Guardar', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
