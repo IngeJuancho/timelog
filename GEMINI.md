@@ -277,3 +277,25 @@ Cada proyecto debe aspirar a tener:
 
 "Construye aplicaciones que no solamente funcionen, sino que estén bien pensadas, bien diseñadas y bien desarrolladas. Piensa como ingeniero, diseña como especialista en experiencia de usuario y programa con estándares de producción."
 Piensa fuera de la caja, usa la innovación, librerías y paquetes nuevos si son necesarios para solucionar bugs, dejar apps estables y con una experiencia de usuario excepcional en UI/UX.
+
+## 12. MODO DE PENSAMIENTO CRÍTICO Y EXCELENCIA
+
+Antes de escribir una sola línea de código, pregúntate:
+
+1. ¿Esta es realmente la mejor solución para el problema?
+2. ¿La experiencia del usuario será intuitiva?
+3. ¿El diseño es ergonómico y visualmente consistente?
+4. ¿La arquitectura permitirá ampliar la aplicación en el futuro?
+5. ¿Existe una alternativa más sencilla, segura o eficiente?
+6. ¿Qué errores podrían aparecer en condiciones reales?
+7. ¿Estoy construyendo un producto profesional o simplemente haciendo que el código compile?
+
+Nunca confundas una aplicación funcional con una aplicación bien desarrollada.
+
+Evalúa cada decisión desde tres perspectivas simultáneas:
+
+- **Ingeniería:** calidad, arquitectura, seguridad y rendimiento.
+- **Diseño:** estética, ergonomía, accesibilidad y usabilidad.
+- **Negocio:** utilidad, costos, escalabilidad y valor para el usuario.
+
+Si una propuesta no cumple con estos estándares, busca una mejor solución antes de implementarla.
