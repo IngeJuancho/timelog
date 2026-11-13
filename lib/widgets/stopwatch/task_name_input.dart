@@ -39,10 +39,36 @@ class TaskNameInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTemplateActive = state.activeTemplate != null;
-    final tealColor = AppTheme.getTealAccent(context);
+    final emerald = AppTheme.getTealAccent(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
 
-    return SizedBox(
-      height: 50,
+    int currentStep = 1;
+    int totalSteps = 1;
+    if (isTemplateActive && state.activeTemplate!.steps.isNotEmpty) {
+      totalSteps = state.activeTemplate!.steps.length;
+      currentStep = (state.currentTemplateStepIndex % totalSteps) + 1;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isLight 
+            ? Colors.white 
+            : Theme.of(context).colorScheme.surfaceContainerHigh.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isTemplateActive
+              ? AppTheme.amberIndustrial.withValues(alpha: isLight ? 0.7 : 0.5)
+              : Theme.of(context).dividerColor.withValues(alpha: isLight ? 0.8 : 0.35),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isLight ? 0.03 : 0.15),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: TextField(
         controller: notifier.taskNameController,
         focusNode: focusNode,
@@ -58,48 +84,79 @@ class TaskNameInput extends StatelessWidget {
         },
         onSubmitted: (_) => focusNode.unfocus(),
         style: TextStyle(
-          color: isTemplateActive ? tealColor : Theme.of(context).textTheme.bodyMedium?.color,
-          fontWeight: isTemplateActive ? FontWeight.bold : FontWeight.normal,
+          fontSize: 14,
+          color: isTemplateActive 
+              ? (isLight ? const Color(0xFFB45309) : AppTheme.amberIndustrial) 
+              : Theme.of(context).textTheme.bodyLarge?.color,
+          fontWeight: isTemplateActive ? FontWeight.w700 : FontWeight.w500,
         ),
         decoration: InputDecoration(
-          hintText: 'Nombre de la tarea...',
+          isDense: true,
+          hintText: 'Nombre de la tarea u operación...',
           hintStyle: TextStyle(
-            color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5),
+            color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+            fontSize: 13.5,
           ),
-          prefixIcon: IconButton(
-            icon: Icon(
-              isTemplateActive ? Icons.bookmark : Icons.bookmark_border_outlined,
-              color: isTemplateActive ? Colors.orangeAccent : tealColor,
-              size: 20,
+          filled: false,
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: IconButton(
+              icon: Icon(
+                isTemplateActive ? Icons.bookmark_added_rounded : Icons.bookmark_add_outlined,
+                color: isTemplateActive ? AppTheme.amberIndustrial : emerald,
+                size: 20,
+              ),
+              tooltip: isTemplateActive ? 'Plantilla Activa: ${state.activeTemplate!.name}' : 'Vincular Plantilla',
+              onPressed: () => _showTemplateSelector(context),
             ),
-            tooltip: 'Cargar Plantilla',
-            onPressed: () => _showTemplateSelector(context),
           ),
-          suffixIcon: isTemplateActive
-              ? IconButton(
-                  icon: const Icon(Icons.cancel_presentation, color: Colors.orangeAccent, size: 20),
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isTemplateActive) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.amberIndustrial.withValues(alpha: isLight ? 0.15 : 0.18),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: AppTheme.amberIndustrial.withValues(alpha: 0.35),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    'Paso $currentStep/$totalSteps',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isLight ? const Color(0xFFB45309) : AppTheme.amberIndustrial,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 18),
                   tooltip: 'Desvincular Plantilla',
                   onPressed: () => notifier.clearTemplate(),
-                )
-              : IconButton(
+                ),
+              ] else ...[
+                IconButton(
                   icon: Icon(
-                    Icons.delete_outline,
-                    color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.5),
-                    size: 20,
+                    Icons.clear_rounded,
+                    color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.45),
+                    size: 18,
                   ),
                   onPressed: () {
                     notifier.taskNameController.clear();
                     notifier.updateTaskName('');
                   },
                 ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-          filled: true,
-          fillColor: Theme.of(context).inputDecorationTheme.fillColor ??
-              Theme.of(context).colorScheme.surfaceContainerHighest,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(30),
-            borderSide: isTemplateActive ? BorderSide(color: tealColor, width: 1.5) : BorderSide.none,
+              ],
+            ],
           ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
         ),
       ),
     );

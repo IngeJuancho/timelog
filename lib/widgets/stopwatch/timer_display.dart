@@ -64,6 +64,8 @@ class _TimerDisplayState extends ConsumerState<TimerDisplay> with SingleTickerPr
 
     final currentMs = notifier.elapsedMilliseconds.toDouble();
     final fullTime = notifier.formatTime(currentMs);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final primaryAccent = AppTheme.getTealAccent(context);
 
     String mainPart = fullTime;
     String decimalPart = '';
@@ -78,71 +80,96 @@ class _TimerDisplayState extends ConsumerState<TimerDisplay> with SingleTickerPr
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // --- CÁPSULA INSTRUMENTAL DE CONTROL ---
           Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-              borderRadius: BorderRadius.circular(20),
+              color: isLight 
+                  ? Colors.white 
+                  : Theme.of(context).colorScheme.surfaceContainerHigh.withValues(alpha: 0.75),
+              borderRadius: BorderRadius.circular(30),
               border: Border.all(
                 color: state.isRunning
-                    ? Colors.greenAccent.withValues(alpha: 0.45)
-                    : Theme.of(context).dividerColor.withValues(alpha: 0.3),
-                width: 1,
+                    ? primaryAccent.withValues(alpha: isLight ? 0.6 : 0.5)
+                    : Theme.of(context).dividerColor.withValues(alpha: isLight ? 0.8 : 0.4),
+                width: 1.2,
               ),
+              boxShadow: state.isRunning
+                  ? [
+                      BoxShadow(
+                        color: primaryAccent.withValues(alpha: isLight ? 0.15 : 0.2),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                      )
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isLight ? 0.04 : 0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      )
+                    ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Indicador de Estado y Modo
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (state.isRunning) ...[
                         Container(
-                          width: 7,
-                          height: 7,
+                          width: 8,
+                          height: 8,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.greenAccent,
+                            color: primaryAccent,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.greenAccent.withValues(alpha: 0.9),
-                                blurRadius: 7,
-                                spreadRadius: 1.5,
+                                color: primaryAccent.withValues(alpha: 0.9),
+                                blurRadius: 8,
+                                spreadRadius: 2,
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 7),
+                        const SizedBox(width: 8),
                       ] else ...[
                         Icon(
-                          state.currentMode == StopwatchMode.regresoACero ? Icons.replay : Icons.timeline,
-                          size: 13,
-                          color: Theme.of(context).colorScheme.primary,
+                          state.currentMode == StopwatchMode.regresoACero ? Icons.replay_rounded : Icons.timeline_rounded,
+                          size: 14,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
                         ),
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 6),
                       ],
                       Text(
-                        state.currentMode == StopwatchMode.regresoACero ? "POR CICLO" : "POR ELEMENTO",
+                        state.currentMode == StopwatchMode.regresoACero ? "REGRESO A CERO" : "CONTINUO",
                         style: TextStyle(
-                          fontSize: 10,
-                          letterSpacing: 1.2,
-                          color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.9),
-                          fontWeight: FontWeight.bold,
+                          fontSize: 10.5,
+                          letterSpacing: 1.1,
+                          color: state.isRunning
+                              ? primaryAccent
+                              : Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.85),
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
                   ),
                 ),
+
+                // Separador vertical
                 Container(
                   width: 1,
-                  height: 14,
-                  color: Theme.of(context).dividerColor.withValues(alpha: 0.4),
+                  height: 16,
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
                 ),
+
+                // Botón selector de Suplementos PF&D
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(30)),
                     onTap: () {
                       PfdSelectorSheet.show(
                         context,
@@ -151,23 +178,23 @@ class _TimerDisplayState extends ConsumerState<TimerDisplay> with SingleTickerPr
                       );
                     },
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.pie_chart_outline_rounded,
                             size: 13,
-                            color: AppTheme.getTealAccent(context),
+                            color: isLight ? AppTheme.emeraldDark : AppTheme.skyPrecision,
                           ),
-                          const SizedBox(width: 5),
+                          const SizedBox(width: 6),
                           Text(
                             "PF&D: ${state.pfd.percentageText}",
                             style: TextStyle(
-                              fontSize: 10,
+                              fontSize: 10.5,
                               letterSpacing: 0.8,
-                              color: AppTheme.getTealAccent(context),
-                              fontWeight: FontWeight.bold,
+                              color: isLight ? AppTheme.emeraldDark : AppTheme.skyPrecision,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
@@ -178,7 +205,10 @@ class _TimerDisplayState extends ConsumerState<TimerDisplay> with SingleTickerPr
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          
+          const SizedBox(height: 8),
+
+          // --- DÍGITOS CRONOGRÁFICOS DE ALTA PRECISIÓN ---
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text.rich(
@@ -187,20 +217,30 @@ class _TimerDisplayState extends ConsumerState<TimerDisplay> with SingleTickerPr
                   TextSpan(
                     text: mainPart,
                     style: TextStyle(
-                      fontSize: 54,
-                      fontWeight: FontWeight.w300,
-                      color: Theme.of(context).textTheme.bodyLarge?.color,
+                      fontSize: 58,
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(context).textTheme.titleLarge?.color,
                       fontFeatures: const [FontFeature.tabularFigures()],
                       letterSpacing: -1.0,
+                      shadows: state.isRunning
+                          ? [
+                              Shadow(
+                                color: primaryAccent.withValues(alpha: isLight ? 0.2 : 0.35),
+                                blurRadius: 18,
+                              )
+                            ]
+                          : null,
                     ),
                   ),
                   if (decimalPart.isNotEmpty)
                     TextSpan(
                       text: decimalPart,
                       style: TextStyle(
-                        fontSize: 38,
-                        fontWeight: FontWeight.w400,
-                        color: Theme.of(context).textTheme.bodyLarge?.color?.withValues(alpha: 0.65),
+                        fontSize: 42,
+                        fontWeight: FontWeight.w500,
+                        color: state.isRunning
+                            ? primaryAccent
+                            : Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.75),
                         fontFeatures: const [FontFeature.tabularFigures()],
                         letterSpacing: -0.5,
                       ),

@@ -790,15 +790,50 @@ class EmptyStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final emerald = AppTheme.getTealAccent(context);
+
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center, 
-        children: [
-          Icon(Icons.hourglass_empty, size: 48, color: Theme.of(context).dividerColor), 
-          const SizedBox(height: 16), 
-          Text('Sin datos registrados', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5))),
-        ]
-      )
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: emerald.withValues(alpha: isLight ? 0.12 : 0.08),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: emerald.withValues(alpha: isLight ? 0.35 : 0.25),
+                  width: 1.2,
+                ),
+              ),
+              child: Icon(Icons.timer_outlined, size: 28, color: emerald),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Listo para el estudio',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Theme.of(context).textTheme.titleMedium?.color,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Pulsa Iniciar o los botones de volumen para capturar el primer tiempo.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.65),
+                height: 1.35,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

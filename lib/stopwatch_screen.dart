@@ -242,34 +242,58 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
   }
 
   Widget _buildStatsCard(TimeLogState state, TimeLogNotifier notifier) {
-    final tealColor = AppTheme.getTealAccent(context);
+    final emerald = AppTheme.getTealAccent(context);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+
     return AnimatedBuilder(
       animation: _viewChangeAnimation,
-      builder: (_, __) => Card(
-        color: Theme.of(context).cardColor,
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      builder: (_, __) => Container(
+        decoration: BoxDecoration(
+          color: isLight ? Colors.white : const Color(0xFF0F1116),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: isLight ? 0.8 : 0.5),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isLight ? 0.04 : 0.25),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
         clipBehavior: Clip.antiAlias,
-        margin: EdgeInsets.zero,
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: isLight ? const Color(0xFFF8FAFC) : const Color(0xFF14171E),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      Icon(_showingAnalysis ? Icons.pie_chart_outline : Icons.list_alt, color: tealColor, size: 20),
-                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: emerald.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _showingAnalysis ? Icons.pie_chart_outline_rounded : Icons.table_chart_outlined,
+                          color: emerald,
+                          size: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        _showingAnalysis ? 'ESTADÍSTICAS' : 'REGISTROS',
+                        _showingAnalysis ? 'MÉTRICAS & ANÁLISIS' : 'REGISTROS DE TIEMPO',
                         style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                          color: Theme.of(context).textTheme.bodyMedium?.color,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1,
+                          color: Theme.of(context).textTheme.titleMedium?.color,
                         ),
                       ),
                     ],
@@ -286,8 +310,8 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                             icon: const Icon(Icons.bookmark_add_outlined, size: 18),
                             tooltip: 'Guardar como Plantilla',
                             style: IconButton.styleFrom(
-                              backgroundColor: Colors.amber.withValues(alpha: 0.2),
-                              foregroundColor: Colors.amber,
+                              backgroundColor: AppTheme.amberIndustrial.withValues(alpha: 0.15),
+                              foregroundColor: AppTheme.amberIndustrial,
                             ),
                           ),
                         ),
@@ -295,14 +319,25 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                       ],
                       SizedBox(
                         height: 32,
-                        width: 32,
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
+                        child: OutlinedButton.icon(
                           onPressed: _toggleView,
-                          icon: Icon(_showingAnalysis ? Icons.list : Icons.analytics, size: 18),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Theme.of(context).dividerColor,
+                          icon: Icon(
+                            _showingAnalysis ? Icons.list_alt_rounded : Icons.analytics_outlined,
+                            size: 15,
+                          ),
+                          label: Text(
+                            _showingAnalysis ? 'Ver Tabla' : 'Métricas',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            side: BorderSide(
+                              color: Theme.of(context).dividerColor.withValues(alpha: 0.6),
+                              width: 1,
+                            ),
                             foregroundColor: Theme.of(context).textTheme.bodyMedium?.color,
+                            backgroundColor: isLight ? Colors.white : const Color(0xFF1B2028),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ),
@@ -311,10 +346,10 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
                 ],
               ),
             ),
-            Divider(height: 1, color: Theme.of(context).dividerColor),
+            Divider(height: 1, color: Theme.of(context).dividerColor.withValues(alpha: 0.6)),
             Expanded(
               child: Container(
-                color: Theme.of(context).colorScheme.surface,
+                color: isLight ? Colors.white : const Color(0xFF0F1116),
                 child: _showingAnalysis
                     ? const AnalysisViewWidget()
                     : (state.currentMode == StopwatchMode.continuo
