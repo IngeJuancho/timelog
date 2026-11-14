@@ -902,54 +902,57 @@ class _CreateTemplateDialogState extends State<_CreateTemplateDialog> {
             else
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 220),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: _steps.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
-                  itemBuilder: (context, index) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.amoledSurfaceContainer : AppTheme.lightSurfaceContainer,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: theme.dividerColor),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 22,
-                            height: 22,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: tealColor.withValues(alpha: 0.15),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(
-                              '${index + 1}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: tealColor,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (int index = 0; index < _steps.length; index++) ...[
+                        if (index > 0) const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppTheme.amoledSurfaceContainer : AppTheme.lightSurfaceContainer,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: theme.dividerColor),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 22,
+                                height: 22,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: tealColor.withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  '${index + 1}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: tealColor,
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _steps[index],
+                                  style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 16, color: AppTheme.crimsonOutlier),
+                                constraints: const BoxConstraints(),
+                                padding: const EdgeInsets.all(4),
+                                onPressed: () => setState(() => _steps.removeAt(index)),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _steps[index],
-                              style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 16, color: AppTheme.crimsonOutlier),
-                            constraints: const BoxConstraints(),
-                            padding: const EdgeInsets.all(4),
-                            onPressed: () => setState(() => _steps.removeAt(index)),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
           ],
@@ -1102,63 +1105,66 @@ class _EditStepsDialogState extends State<_EditStepsDialog> {
             const SizedBox(height: 14),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 280),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: _steps.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 6),
-                itemBuilder: (context, index) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isDark ? AppTheme.amoledSurfaceContainer : AppTheme.lightSurfaceContainer,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: theme.dividerColor),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 22,
-                          height: 22,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: tealColor.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            '${index + 1}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: tealColor,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (int index = 0; index < _steps.length; index++) ...[
+                      if (index > 0) const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.amoledSurfaceContainer : AppTheme.lightSurfaceContainer,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: theme.dividerColor),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 22,
+                              height: 22,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: tealColor.withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '${index + 1}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: tealColor,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _steps[index],
+                                style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.amberIndustrial),
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.all(4),
+                              onPressed: () => _editStepText(index),
+                              tooltip: 'Editar texto',
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18, color: AppTheme.crimsonOutlier),
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.all(4),
+                              onPressed: () => setState(() => _steps.removeAt(index)),
+                              tooltip: 'Eliminar paso',
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            _steps[index],
-                            style: theme.textTheme.bodyMedium?.copyWith(fontSize: 13),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.amberIndustrial),
-                          constraints: const BoxConstraints(),
-                          padding: const EdgeInsets.all(4),
-                          onPressed: () => _editStepText(index),
-                          tooltip: 'Editar texto',
-                        ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 18, color: AppTheme.crimsonOutlier),
-                          constraints: const BoxConstraints(),
-                          padding: const EdgeInsets.all(4),
-                          onPressed: () => setState(() => _steps.removeAt(index)),
-                          tooltip: 'Eliminar paso',
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ],

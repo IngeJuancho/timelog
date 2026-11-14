@@ -270,8 +270,10 @@ class StopwatchDialogs {
                   ),
                 ],
               ),
-              content: SingleChildScrollView(
-                child: Column(
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -339,41 +341,53 @@ class StopwatchDialogs {
                     ),
                     const SizedBox(height: 6),
                     Container(
-                      constraints: const BoxConstraints(maxHeight: 150),
+                      constraints: const BoxConstraints(maxHeight: 160),
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: steps.length,
-                        itemBuilder: (_, index) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 10,
-                                backgroundColor: AppTheme.getTealAccent(context).withValues(alpha: 0.2),
-                                child: Text(
-                                  '${index + 1}',
-                                  style: TextStyle(fontSize: 10, color: AppTheme.getTealAccent(context), fontWeight: FontWeight.bold),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (int index = 0; index < steps.length; index++)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 10,
+                                      backgroundColor: AppTheme.getTealAccent(context).withValues(alpha: 0.2),
+                                      child: Text(
+                                        '${index + 1}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: AppTheme.getTealAccent(context),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        steps[index],
+                                        style: TextStyle(
+                                          color: Theme.of(context).textTheme.bodyMedium?.color,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  steps[index],
-                                  style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
+                          ],
                         ),
                       ),
                     ),
                   ],
                 ),
+              ),
               ),
               actions: [
                 TextButton(
