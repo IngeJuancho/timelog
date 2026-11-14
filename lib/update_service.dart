@@ -20,7 +20,7 @@ final appVersionProvider = FutureProvider<String>((ref) async {
     final packageInfo = await PackageInfo.fromPlatform();
     return packageInfo.version;
   } catch (_) {
-    return '3.14.2';
+    return '4.0.0';
   }
 });
 
@@ -28,17 +28,22 @@ final updateProvider = FutureProvider<UpdateInfo?>((ref) async {
   try {
     // 1. Obtener versión local
     final packageInfo = await PackageInfo.fromPlatform();
-    final localVersionStr = packageInfo.version; // Ej: "3.6.4"
+    final localVersionStr = packageInfo.version; // Ej: "4.0.0"
     
-    // 2. Obtener versión remota desde GitHub
-    final response = await http.get(
-      Uri.parse('https://api.github.com/repos/IngeJuancho/timelog/releases/latest'),
-      headers: {'Accept': 'application/vnd.github.v3+json'},
-    ).timeout(const Duration(seconds: 10));
+    // 2. Obtener versión remota desde GitHub (con fallback onTimeout para no lanzar TimeoutException)
+    final response = await http
+        .get(
+          Uri.parse('https://api.github.com/repos/IngeJuancho/timelog/releases/latest'),
+          headers: {'Accept': 'application/vnd.github.v3+json'},
+        )
+        .timeout(
+          const Duration(seconds: 4),
+          onTimeout: () => http.Response('{}', 408),
+        );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      final remoteVersionStr = data['tag_name'] as String; // Ej: "v3.6.5" o "3.6.5"
+      final remoteVersionStr = data['tag_name'] as String; // Ej: "v4.0.1" o "4.0.1"
       final releaseUrl = data['html_url'] as String;
 
       // Limpiar "v" si existe
@@ -71,7 +76,7 @@ final updateProvider = FutureProvider<UpdateInfo?>((ref) async {
 
 bool _isRemoteNewer(String local, String remote) {
   try {
-    // Limpieza de cualquier sufijo extra (ej. 3.6.4-beta -> 3.6.4)
+    // Limpieza de cualquier sufijo extra (ej. 4.0.0-beta -> 4.0.0)
     local = local.split('-')[0].split('+')[0];
     remote = remote.split('-')[0].split('+')[0];
 

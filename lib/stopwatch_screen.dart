@@ -267,38 +267,46 @@ class _StopwatchScreenState extends ConsumerState<StopwatchScreen>
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               color: isLight ? const Color(0xFFF8FAFC) : const Color(0xFF14171E),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color: emerald.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: emerald.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _showingAnalysis ? Icons.pie_chart_outline_rounded : Icons.table_chart_outlined,
+                            color: emerald,
+                            size: 16,
+                          ),
                         ),
-                        child: Icon(
-                          _showingAnalysis ? Icons.pie_chart_outline_rounded : Icons.table_chart_outlined,
-                          color: emerald,
-                          size: 16,
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            _showingAnalysis ? 'MÉTRICAS & ANÁLISIS' : 'REGISTROS DE TIEMPO',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                              color: Theme.of(context).textTheme.titleMedium?.color,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _showingAnalysis ? 'MÉTRICAS & ANÁLISIS' : 'REGISTROS DE TIEMPO',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.1,
-                          color: Theme.of(context).textTheme.titleMedium?.color,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 6),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       if (!_showingAnalysis && state.currentMode == StopwatchMode.continuo) ...[
                         SizedBox(

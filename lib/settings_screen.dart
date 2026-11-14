@@ -65,7 +65,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
         ),
         Container(
           decoration: BoxDecoration(
-            color: theme.cardColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: theme.dividerColor),
             boxShadow: [
@@ -76,8 +75,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> with SingleTick
               )
             ],
           ),
-          child: ClipRRect(
+          child: Material(
+            color: theme.cardColor,
             borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
             child: Column(
               children: children,
             ),
