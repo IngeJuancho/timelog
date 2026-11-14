@@ -375,7 +375,6 @@ class TimeLogNotifier extends Notifier<TimeLogState> {
       shouldHandle: () => state.usePhysicalButtons,
       onButtonPressed: _handleNativeButtonPress,
     );
-    HardwareButtonService.setInterceptPhysicalButtons(state.usePhysicalButtons);
   }
 
   void triggerHaptic() {
